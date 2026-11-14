@@ -1,9 +1,23 @@
 services:
+  graph:
+    build:
+      context: ./routing/graph-fetch
+    environment:
+      GRAPH_BASE_URL: ${GRAPH_BASE_URL:?set GRAPH_BASE_URL}
+    volumes:
+      - naviscoot-graph:/repo/routing/build
+    restart: "no"
+    exclude_from_hc: true
+
   valhalla:
     image: ghcr.io/valhalla/valhalla:3.9.1
     command: ["valhalla_service", "/repo/routing/build/nl/valhalla.json", "2"]
     volumes:
-      - ${NAVISCOOT_GRAPH_DIR:-/data/naviscoot/nl}:/repo/routing/build/nl:ro
+      - naviscoot-graph:/repo/routing/build:ro
+    mem_limit: 2g
+    depends_on:
+      graph:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   api:
@@ -15,13 +29,17 @@ services:
       FUSED_ACCESS_CSV: /repo/routing/build/nl/fused_access.csv
       REPORTS_PATH: /reports/reports.jsonl
     volumes:
-      - ${NAVISCOOT_GRAPH_DIR:-/data/naviscoot/nl}:/repo/routing/build/nl:ro
+      - naviscoot-graph:/repo/routing/build:ro
       - naviscoot-reports:/reports
     depends_on:
-      - valhalla
+      graph:
+        condition: service_completed_successfully
+      valhalla:
+        condition: service_started
     expose:
       - "8080"
     restart: unless-stopped
 
 volumes:
+  naviscoot-graph:
   naviscoot-reports:

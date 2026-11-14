@@ -239,7 +239,7 @@
 - `xcodebuild -downloadPlatform iOS` installed two iOS 27.2 runtimes (24B8117 and the device-specific 24B91016s), ~16 GB; free disk on the data volume went from 31 GB to 15 GB. The 24B91016s runtime can be removed with `xcrun simctl runtime delete` if space is needed (not done: not mine to delete).
 - `npm test` failed once (1 of 41) right after the simulator run and passed 4/4 times after; `api/` was not touched. Treat as a possible timing flake in the integration tests.
 - MapKit deprecation: `placemark` is used only below iOS 26 (`location`/`addressRepresentations` above).
-- The API was started for this slice with `API_KEY=naviscoot-dev` and stopped at the end.
+- The API was started for this slice with the local key from `ios/Config/Local.xcconfig` and stopped at the end.
 
 **Placeholder choices:** bundle id `nl.naviscoot.app`; OpenFreeMap `liberty` style; colours from the mockup (verified #0B5FD9 solid, unverified #C2410C dashed [1.6, 1.0] line widths, forbidden #B42318 dashed); line width 7 with an 11 white casing; SF Symbols `mappin.and.ellipse` (address), `building.2` (place), `scope`/arrows (zoom hint); PDOK type filter and 8 rows; MapKit region 60 km; merge limit 12; 300 ms search debounce; disabled Start button; copy in `Strings.swift`; skipped the mockup's Favourites/Recent sections; simulator device `naviscoot-iphone17`.
 

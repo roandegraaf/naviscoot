@@ -123,28 +123,36 @@ only the override check in the regression suite reads it.
 
 ## Deploy (Coolify)
 
-The server only serves. The graph is built here (`routing/refresh.sh`) and uploaded; the API is built from `api/Dockerfile`.
-`docker-compose.yml` in the repo root holds both services:
-- `valhalla` (3.9.1) has no published port. Only the API reaches it, over the compose network.
-- `api` listens on 8080 inside the network. Coolify's proxy publishes it on the domain with TLS.
-- Both mount the graph unit read-only at `/repo/routing/build/nl`. That is the path `valhalla.json` already names, so the
-  config needs no rewrite.
+The server only serves. The graph is built here (`routing/refresh.sh`) and published as a GitHub release of this repo;
+the stack downloads it at start. The API is built from `api/Dockerfile`. `docker-compose.yml` in the repo root holds:
+- `graph`: a one-shot init container (`routing/graph-fetch/`). It downloads `SHA256SUMS` from `GRAPH_BASE_URL`.
+  - If the unit on the `naviscoot-graph` volume already matches, it exits at once.
+  - Otherwise it downloads `tiles.tar`, `valhalla.json`, `admins.sqlite` and `fused_access.csv` (918 MB) into `nl-next`,
+    verifies every checksum and swaps the directory to `nl`.
+  - It first logs the host's available memory and free disk. It refuses to download below 2,048 MB available memory or
+    2,560 MB free disk (`MIN_MEM_AVAILABLE_MB`, `MIN_DISK_FREE_MB`).
+  - Any failure exits non-zero, and then neither Valhalla nor the API starts.
+- `valhalla` (3.9.1, memory limit 2 GB): no published port. Only the API reaches it, over the compose network.
+- `api`: listens on 8080 inside the network. Coolify's proxy publishes it on the domain.
+- Both `valhalla` and `api` mount the volume read-only at `/repo/routing/build`. `valhalla.json` names
+  `/repo/routing/build/nl/...`, so the config needs no rewrite and local and served units are byte-identical.
 - Reports go to the named volume `naviscoot-reports`.
 
 | Variable | Value |
 |---|---|
-| `API_KEY` | required; a long random key, kept as a Coolify secret. The app's `Local.xcconfig` must send the same key |
-| `NAVISCOOT_GRAPH_DIR` | host directory of the graph unit, default `/data/naviscoot/nl` |
+| `API_KEY` | required; a long random key, kept only in Coolify (runtime). The app's `Local.xcconfig` sends the same key |
+| `GRAPH_BASE_URL` | required; `https://github.com/roandegraaf/naviscoot/releases/download/<tag>` |
 
-Steps for `coolify-personal`, hostname `naviscoot.appj.nl`:
-1. Upload the graph unit: `DEPLOY_HOST=<user>@<server> routing/deploy-graph.sh`. It rsyncs `tiles.tar`, `valhalla.json`,
-   `admins.sqlite` and `fused_access.csv` (918 MB) into `/data/naviscoot/nl-next`, then swaps that directory to `nl` and
-   keeps the previous one as `nl-prev`.
-2. In Coolify, create a new resource from the GitHub repo with the Docker Compose build pack and compose file
-   `/docker-compose.yml`, on the server `localhost`.
-3. Set `API_KEY` (and `NAVISCOOT_GRAPH_DIR` if the directory differs). Give the `api` service the domain
-   `https://naviscoot.appj.nl:8080`; the `:8080` tells the proxy which container port to use. `valhalla` gets no domain.
-4. Deploy. After every later graph upload, restart the stack: both services read the graph only at start.
+**Publishing a graph** (one unit = one release tag):
+1. Run `routing/refresh.sh`. Its regression gate must pass.
+2. Run `routing/publish-graph.sh [tag]`, which needs `gh` logged in. It writes `SHA256SUMS` and creates the release with
+   the four files; the default tag is `graph-<UTC date-time>`. The release notes carry the ODbL attribution.
+3. In Coolify, set `GRAPH_BASE_URL` to the new tag and redeploy. Rolling back means pointing it at the previous tag and
+   redeploying, which downloads that unit again.
+
+Live: `https://naviscoot.appj.nl` on `coolify-personal`, server `localhost`. `*.appj.nl` is proxied by Cloudflare, which
+terminates TLS. Like the other apps there, the `api` service's Coolify domain is `http://naviscoot.appj.nl:8080`; the
+`:8080` tells Traefik which container port to use.
 
 Check with:
 ```sh
@@ -154,11 +162,18 @@ curl -s -H "x-api-key: $API_KEY" -H 'content-type: application/json' https://nav
   -d '{"origin":{"lat":52.2977646,"lon":5.445363},"destination":{"lat":52.0464515,"lon":5.4059619}}'   # a route
 ```
 
-Measured locally with the same compose file (separate project, API port published only for the test):
+Measured locally with the same compose file (graph served over HTTP the way a release is; API port published only for
+the test):
+- The first start downloads and verifies the unit. A restart downloads nothing, and reports survive it.
+- A checksum mismatch, or a memory or disk gate below its threshold, stops the stack before Valhalla starts.
 - `/health` is ok; without a key or with a wrong key the API answers 401.
-- With the key, the `verified-only-north-south` route is 36,255 m with 483 m unverified.
-- A report survives an API restart. Valhalla has no published port.
+- With the key, the `verified-only-north-south` route is 36,254 m with 483 m unverified.
 - Idle memory: Valhalla 83 MB, API 53 MB. Valhalla grew to 1.7 GB while serving locally in slice 5.
+
+## Licence of the data
+
+The graph unit is a derivative of OpenStreetMap: © OpenStreetMap contributors, Open Database License (ODbL),
+https://www.openstreetmap.org/copyright. It also uses NDW verkeersborden (CC0).
 
 ## Rewrite step (`data/naviscoot_data/rewrite.py`)
 
