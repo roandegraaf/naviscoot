@@ -134,8 +134,9 @@ the stack downloads it at start. The API is built from `api/Dockerfile`. `docker
   - Any failure exits non-zero, and then neither Valhalla nor the API starts.
 - `valhalla` (3.9.1, memory limit 2 GB): no published port. Only the API reaches it, over the compose network.
 - `api`: listens on 8080 inside the network. Coolify's Traefik publishes it through the labels in the compose file: an
-  `http` router for `Host(${NAVISCOOT_HOST:-naviscoot.appj.nl})` to container port 8080. The labels stand in for a Coolify
-  per-service domain because the Coolify MCP can't set `docker_compose_domains`.
+  `http` router for `Host(naviscoot.appj.nl)` to container port 8080. The labels stand in for a Coolify per-service
+  domain because the Coolify MCP can't set `docker_compose_domains`. The hostname is literal: Coolify escapes `$` in
+  labels, so a variable there would never be interpolated.
 - Both `valhalla` and `api` mount the volume read-only at `/repo/routing/build`. `valhalla.json` names
   `/repo/routing/build/nl/...`, so the config needs no rewrite and local and served units are byte-identical.
 - Reports go to the named volume `naviscoot-reports`.
@@ -144,7 +145,6 @@ the stack downloads it at start. The API is built from `api/Dockerfile`. `docker
 |---|---|
 | `API_KEY` | required; a long random key, kept only in Coolify (runtime). The app's `Local.xcconfig` sends the same key |
 | `GRAPH_BASE_URL` | required; `https://github.com/roandegraaf/naviscoot/releases/download/<tag>` |
-| `NAVISCOOT_HOST` | optional; the public hostname, default `naviscoot.appj.nl` |
 
 **Publishing a graph** (one unit = one release tag):
 1. Run `routing/refresh.sh`. Its regression gate must pass.
