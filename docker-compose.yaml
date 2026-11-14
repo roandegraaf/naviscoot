@@ -38,6 +38,12 @@ services:
         condition: service_started
     expose:
       - "8080"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.naviscoot-api.rule=Host(`${NAVISCOOT_HOST:-naviscoot.appj.nl}`)
+      - traefik.http.routers.naviscoot-api.entrypoints=http
+      - traefik.http.routers.naviscoot-api.service=naviscoot-api
+      - traefik.http.services.naviscoot-api.loadbalancer.server.port=8080
     restart: unless-stopped
 
 volumes:

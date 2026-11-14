@@ -124,7 +124,7 @@ only the override check in the regression suite reads it.
 ## Deploy (Coolify)
 
 The server only serves. The graph is built here (`routing/refresh.sh`) and published as a GitHub release of this repo;
-the stack downloads it at start. The API is built from `api/Dockerfile`. `docker-compose.yml` in the repo root holds:
+the stack downloads it at start. The API is built from `api/Dockerfile`. `docker-compose.yaml` in the repo root (Coolify's default compose location) holds:
 - `graph`: a one-shot init container (`routing/graph-fetch/`). It downloads `SHA256SUMS` from `GRAPH_BASE_URL`.
   - If the unit on the `naviscoot-graph` volume already matches, it exits at once.
   - Otherwise it downloads `tiles.tar`, `valhalla.json`, `admins.sqlite` and `fused_access.csv` (918 MB) into `nl-next`,
@@ -133,7 +133,9 @@ the stack downloads it at start. The API is built from `api/Dockerfile`. `docker
     2,560 MB free disk (`MIN_MEM_AVAILABLE_MB`, `MIN_DISK_FREE_MB`).
   - Any failure exits non-zero, and then neither Valhalla nor the API starts.
 - `valhalla` (3.9.1, memory limit 2 GB): no published port. Only the API reaches it, over the compose network.
-- `api`: listens on 8080 inside the network. Coolify's proxy publishes it on the domain.
+- `api`: listens on 8080 inside the network. Coolify's Traefik publishes it through the labels in the compose file: an
+  `http` router for `Host(${NAVISCOOT_HOST:-naviscoot.appj.nl})` to container port 8080. The labels stand in for a Coolify
+  per-service domain because the Coolify MCP can't set `docker_compose_domains`.
 - Both `valhalla` and `api` mount the volume read-only at `/repo/routing/build`. `valhalla.json` names
   `/repo/routing/build/nl/...`, so the config needs no rewrite and local and served units are byte-identical.
 - Reports go to the named volume `naviscoot-reports`.
@@ -142,6 +144,7 @@ the stack downloads it at start. The API is built from `api/Dockerfile`. `docker
 |---|---|
 | `API_KEY` | required; a long random key, kept only in Coolify (runtime). The app's `Local.xcconfig` sends the same key |
 | `GRAPH_BASE_URL` | required; `https://github.com/roandegraaf/naviscoot/releases/download/<tag>` |
+| `NAVISCOOT_HOST` | optional; the public hostname, default `naviscoot.appj.nl` |
 
 **Publishing a graph** (one unit = one release tag):
 1. Run `routing/refresh.sh`. Its regression gate must pass.
@@ -150,9 +153,9 @@ the stack downloads it at start. The API is built from `api/Dockerfile`. `docker
 3. In Coolify, set `GRAPH_BASE_URL` to the new tag and redeploy. Rolling back means pointing it at the previous tag and
    redeploying, which downloads that unit again.
 
-Live: `https://naviscoot.appj.nl` on `coolify-personal`, server `localhost`. `*.appj.nl` is proxied by Cloudflare, which
-terminates TLS. Like the other apps there, the `api` service's Coolify domain is `http://naviscoot.appj.nl:8080`; the
-`:8080` tells Traefik which container port to use.
+Live: `https://naviscoot.appj.nl` on `coolify-personal`, server `localhost`, Coolify project "Naviscoot". `*.appj.nl` is
+proxied by Cloudflare, which terminates TLS and talks plain HTTP to the server. That's why the router uses the `http`
+entrypoint, like the `http://` domains of the other apps there.
 
 Check with:
 ```sh
