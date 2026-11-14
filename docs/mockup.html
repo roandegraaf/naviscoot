@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moped navigation mockup</title>
+<style>
+:root {
+  --ink: #111827;
+  --muted: #4B5563;
+  --map: #E8EBE4;
+  --road: #FFFFFF;
+  --park: #CFE3C4;
+  --water: #BFD9EE;
+  --verified: #0B5FD9;
+  --verified-text: #084AA8;
+  --unverified: #C2410C;
+  --unverified-text: #7C2D12;
+  --unverified-bg: #FFEFD9;
+  --danger: #B42318;
+  --line: #D1D5DB;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 32px 16px 64px;
+  background: #F4F5F2;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+h1 { font-size: 26px; margin: 0 0 6px; }
+.lead { margin: 0 0 28px; color: var(--muted); max-width: 70ch; line-height: 1.5; }
+.row { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
+figure { margin: 0; }
+figcaption { font-weight: 700; margin-bottom: 10px; }
+.phone {
+  width: 390px; max-width: 100%; height: 844px; position: relative; overflow: hidden;
+  background: var(--map); border-radius: 36px; border: 1px solid var(--line);
+}
+.phone svg.map { position: absolute; inset: 0; width: 100%; height: 100%; }
+.shadow { box-shadow: 0 2px 10px rgba(17, 24, 39, 0.18); }
+button { font-family: inherit; cursor: pointer; }
+.round {
+  width: 60px; height: 60px; border-radius: 30px; border: none; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.round svg { width: 28px; height: 28px; }
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; background: #fff;
+  border-radius: 24px 24px 0 0; padding: 20px 16px 28px;
+  box-shadow: 0 -2px 12px rgba(17, 24, 39, 0.12);
+}
+.stack { display: flex; flex-direction: column; }
+
+.search-top { position: absolute; left: 12px; right: 12px; top: 16px; gap: 10px; }
+.search-field {
+  height: 56px; border-radius: 28px; background: #fff; display: flex; align-items: center;
+  gap: 10px; padding: 0 18px;
+}
+.search-field svg { width: 24px; height: 24px; flex-shrink: 0; }
+.search-field input { border: none; outline: none; font: inherit; font-size: 18px; width: 100%; background: transparent; color: var(--ink); }
+.list { gap: 0; }
+.list h2 { font-size: 14px; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.place {
+  display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 8px 0; width: 100%;
+  background: none; border: none; border-bottom: 1px solid #E5E7EB; text-align: left;
+}
+.place:last-child { border-bottom: none; }
+.place .icon { width: 44px; height: 44px; border-radius: 22px; background: #EEF2F7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.place .icon svg { width: 22px; height: 22px; }
+.place strong { display: block; font-size: 17px; color: var(--ink); }
+.place span { font-size: 14px; color: var(--muted); }
+.place .dist { margin-left: auto; font-size: 15px; font-weight: 600; color: #374151; }
+
+.to-label { font-size: 15px; font-weight: 600; color: var(--muted); }
+.to-name { font-size: 22px; font-weight: 700; }
+.eta { display: flex; align-items: baseline; gap: 12px; }
+.eta b { font-size: 34px; font-weight: 800; }
+.eta span { font-size: 17px; font-weight: 600; color: var(--muted); }
+.bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.breakdown div { display: flex; justify-content: space-between; font-size: 15px; font-weight: 600; }
+.breakdown span:last-child { color: #374151; }
+.alt {
+  min-height: 56px; border-radius: 16px; border: 2px solid var(--line); background: #fff; padding: 10px 14px;
+  text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.alt strong { display: block; font-size: 16px; color: var(--ink); }
+.alt small { font-size: 14px; color: var(--muted); }
+.alt em { font-style: normal; font-size: 16px; font-weight: 700; color: #374151; }
+.start { height: 60px; border-radius: 30px; border: none; background: var(--verified); color: #fff; font-size: 20px; font-weight: 700; }
+
+.banner { background: var(--ink); border-radius: 22px; padding: 16px 18px; display: flex; align-items: center; gap: 16px; }
+.banner svg { width: 64px; height: 64px; flex-shrink: 0; }
+.banner .dist { font-size: 46px; line-height: 48px; font-weight: 800; color: #fff; letter-spacing: -1px; }
+.banner .street { font-size: 21px; line-height: 26px; font-weight: 600; color: #E5E7EB; }
+.chip { background: #fff; border-radius: 14px; padding: 8px 12px; font-size: 15px; font-weight: 600; color: #374151; display: flex; gap: 8px; align-items: center; }
+.chip.path { font-weight: 700; color: var(--verified-text); }
+.dot { width: 12px; height: 12px; border-radius: 6px; background: var(--verified); }
+.speed { width: 104px; height: 104px; border-radius: 52px; background: #fff; align-items: center; justify-content: center; }
+.speed b { font-size: 44px; line-height: 44px; font-weight: 800; }
+.speed span { font-size: 13px; font-weight: 600; color: var(--muted); }
+.limit { width: 60px; height: 60px; border-radius: 30px; background: #fff; border: 6px solid #C81E1E; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; }
+.warn { background: var(--unverified-bg); border: 2px solid var(--unverified); border-radius: 16px; padding: 10px 14px; display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: var(--unverified-text); }
+.warn svg { width: 26px; height: 26px; flex-shrink: 0; }
+.ride-bar { height: 116px; padding: 16px 16px 28px; display: flex; align-items: center; gap: 14px; }
+.ride-bar b { display: block; font-size: 30px; line-height: 34px; font-weight: 800; }
+.ride-bar span { font-size: 16px; font-weight: 600; color: var(--muted); }
+.end { height: 56px; padding: 0 26px; border-radius: 28px; border: none; background: var(--danger); color: #fff; font-size: 18px; font-weight: 700; margin-left: auto; }
+
+.legend { max-width: 320px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 18px; line-height: 1.5; font-size: 15px; }
+.legend h2 { font-size: 16px; margin: 0 0 10px; }
+.legend p { margin: 0 0 12px; }
+.legend p:last-child { margin-bottom: 0; }
+.swatch { display: inline-block; width: 28px; height: 6px; border-radius: 3px; vertical-align: middle; margin-right: 8px; }
+</style>
+</head>
+<body>
+<h1>Moped navigation: plan, preview, ride</h1>
+<p class="lead">Low-fidelity sketch of the three screens. Layout and information only; colours and type are placeholders for the native iOS build.</p>
+
+<div class="row">
+
+<figure>
+<figcaption>1. Where to</figcaption>
+<div class="phone">
+<svg class="map" aria-hidden="true" viewBox="0 0 390 844" preserveAspectRatio="none">
+<path d="M-20 120 C 70 90, 150 160, 230 130 S 350 90, 420 140 L 420 260 C 330 240, 260 290, 170 270 S 50 280, -20 300 Z" fill="#CFE3C4"/>
+<path d="M-10 190 L 400 150" stroke="#fff" stroke-width="12" fill="none"/>
+<path d="M-10 360 L 400 330" stroke="#fff" stroke-width="10" fill="none"/>
+<path d="M120 -10 L 150 520" stroke="#fff" stroke-width="10" fill="none"/>
+<path d="M290 -10 L 310 520" stroke="#fff" stroke-width="8" fill="none"/>
+<circle cx="200" cy="300" r="24" fill="#0B5FD9" opacity="0.18"/>
+<circle cx="200" cy="300" r="11" fill="#fff" stroke="#0B5FD9" stroke-width="6"/>
+</svg>
+<div class="stack search-top">
+<label class="search-field shadow">
+<svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="#4B5563" stroke-width="2.2" fill="none"/><path d="M16.5 16.5 L 21 21" stroke="#4B5563" stroke-width="2.2" stroke-linecap="round"/></svg>
+<input type="text" placeholder="Address or place" aria-label="Search address or place">
+</label>
+</div>
+<div class="sheet stack list">
+<h2>Favourites</h2>
+<button class="place">
+<span class="icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 11 L 12 4 L 20 11 V 20 H 4 Z" stroke="#111827" stroke-width="2" stroke-linejoin="round" fill="none"/></svg></span>
+<span><strong>Home</strong><span>[YOUR ADDRESS]</span></span>
+</button>
+<button class="place">
+<span class="icon"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2" stroke="#111827" stroke-width="2" fill="none"/><path d="M9 7 V 4 H 15 V 7" stroke="#111827" stroke-width="2" fill="none"/></svg></span>
+<span><strong>Work</strong><span>[YOUR ADDRESS]</span></span>
+</button>
+<h2 style="margin-top: 16px">Recent</h2>
+<button class="place">
+<span class="icon"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="#111827" stroke-width="2" fill="none"/><path d="M12 8 V 12 L 15 14" stroke="#111827" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span>
+<span><strong>Stationsplein</strong><span>Soest</span></span>
+<span class="dist">17 km</span>
+</button>
+<button class="place">
+<span class="icon"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="#111827" stroke-width="2" fill="none"/><path d="M12 8 V 12 L 15 14" stroke="#111827" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span>
+<span><strong>Domplein</strong><span>Utrecht</span></span>
+<span class="dist">22 km</span>
+</button>
+</div>
+</div>
+</figure>
+
+<figure>
+<figcaption>2. Route preview</figcaption>
+<div class="phone">
+<svg class="map" aria-hidden="true" viewBox="0 0 390 844" preserveAspectRatio="none">
+<path d="M-20 90 C 70 60, 150 130, 230 100 S 350 60, 420 110 L 420 230 C 330 210, 260 260, 170 240 S 50 250, -20 270 Z" fill="#CFE3C4"/>
+<path d="M-10 330 C 60 350, 90 420, 60 480 L -10 480 Z" fill="#BFD9EE"/>
+<path d="M-10 160 L 400 120" stroke="#fff" stroke-width="12" fill="none"/>
+<path d="M-10 380 L 400 340" stroke="#fff" stroke-width="10" fill="none"/>
+<path d="M120 -10 L 150 520" stroke="#fff" stroke-width="10" fill="none"/>
+<path d="M290 -10 L 310 520" stroke="#fff" stroke-width="8" fill="none"/>
+<path d="M60 440 L 90 372 L 146 366 L 138 250" stroke="#0B5FD9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<path d="M138 250 L 134 160" stroke="#C2410C" stroke-width="9" stroke-dasharray="10 7" fill="none"/>
+<path d="M134 160 L 296 133 L 300 80" stroke="#0B5FD9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<circle cx="60" cy="440" r="11" fill="#fff" stroke="#0B5FD9" stroke-width="6"/>
+<circle cx="300" cy="80" r="13" fill="#111827"/>
+<circle cx="300" cy="80" r="5" fill="#fff"/>
+</svg>
+<button class="round shadow" aria-label="Back" style="position: absolute; left: 12px; top: 16px">
+<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 5 L 8 12 L 15 19" stroke="#111827" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+</button>
+<div class="sheet stack" style="gap: 16px">
+<div><div class="to-label">To</div><div class="to-name">Stationsplein, Soest</div></div>
+<div class="eta"><b>31 min</b><span>17.4 km, arrive 14:59</span></div>
+<div class="stack" style="gap: 8px">
+<div class="bar" aria-hidden="true">
+<div style="flex-grow: 58; background: #111827"></div>
+<div style="flex-grow: 38; background: #0B5FD9"></div>
+<div style="flex-grow: 4; background: #C2410C"></div>
+</div>
+<div class="stack breakdown" style="gap: 6px">
+<div><span>Carriageway</span><span>10.1 km</span></div>
+<div><span style="color: var(--verified-text)">Moped path (G12a)</span><span>6.6 km</span></div>
+<div><span style="color: #9A3412">Unverified cycle path</span><span>0.7 km</span></div>
+</div>
+</div>
+<button class="alt"><span><strong>Verified roads only</strong><small>Skips the unverified 0.7 km</small></span><em>+6 min</em></button>
+<button class="start">Start</button>
+</div>
+</div>
+</figure>
+
+<figure>
+<figcaption>3. Riding</figcaption>
+<div class="phone">
+<svg class="map" aria-hidden="true" viewBox="0 0 390 844" preserveAspectRatio="none">
+<path d="M-20 520 C 60 470, 120 560, 210 520 S 360 430, 420 470 L 420 610 C 340 580, 250 650, 160 630 S 40 640, -20 660 Z" fill="#CFE3C4"/>
+<path d="M250 -10 C 270 80, 330 120, 400 130 L 400 -10 Z" fill="#BFD9EE"/>
+<path d="M-10 250 L 400 190" stroke="#fff" stroke-width="16" fill="none"/>
+<path d="M-10 720 L 400 690" stroke="#fff" stroke-width="12" fill="none"/>
+<path d="M70 -10 L 110 860" stroke="#fff" stroke-width="12" fill="none"/>
+<path d="M300 -10 L 330 860" stroke="#fff" stroke-width="10" fill="none"/>
+<path d="M-10 400 L 400 440" stroke="#fff" stroke-width="8" fill="none"/>
+<path d="M195 860 L 195 330 L 205 222 L 400 193" stroke="#0B5FD9" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<circle cx="195" cy="560" r="26" fill="#0B5FD9" opacity="0.18"/>
+<circle cx="195" cy="560" r="15" fill="#fff"/>
+<path d="M195 548 L 204 568 L 195 563 L 186 568 Z" fill="#0B5FD9"/>
+</svg>
+<div class="stack" style="position: absolute; left: 12px; right: 12px; top: 16px; gap: 8px">
+<div class="banner">
+<svg aria-hidden="true" viewBox="0 0 64 64"><path d="M20 56 V 30 C 20 22, 24 18, 32 18 H 50" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M40 6 L 54 18 L 40 30" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+<div><div class="dist">350 m</div><div class="street">Amersfoortseweg</div></div>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<div class="chip path"><span class="dot"></span>Moped path, limit 40</div>
+<div class="chip">Then left, 1.2 km</div>
+</div>
+</div>
+<div class="stack" style="position: absolute; right: 12px; top: 300px; gap: 12px">
+<button class="round shadow" aria-label="Report wrong data here">
+<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 21 V 4 M5 4 H 17 L 14.5 8.5 L 17 13 H 5" stroke="#9A3412" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+</button>
+<button class="round shadow" aria-label="Mute voice">
+<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10 V 14 H 8 L 13 18 V 6 L 8 10 Z M16.5 9 C 18 10.5, 18 13.5, 16.5 15 M19 6.5 C 22 9.5, 22 14.5, 19 17.5" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+</button>
+</div>
+<div style="position: absolute; left: 12px; bottom: 196px; display: flex; gap: 10px; align-items: flex-end">
+<div class="stack speed shadow"><b>38</b><span>km/h</span></div>
+<div class="limit" aria-label="Speed limit 40">40</div>
+</div>
+<div class="warn" style="position: absolute; left: 12px; right: 12px; bottom: 128px">
+<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 L 22 20 H 2 Z M12 10 V 14.5 M12 17.3 V 17.5" stroke="#9A3412" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+Unverified path in 1.2 km, for 300 m
+</div>
+<div class="sheet ride-bar">
+<div><b>24 min</b><span>16.8 km, arrive 14:52</span></div>
+<button class="end">End</button>
+</div>
+</div>
+</figure>
+
+<aside class="legend">
+<h2>How to read it</h2>
+<p><span class="swatch" style="background: #0B5FD9"></span>Verified legal for a bromfiets: carriageway or G12a moped path.</p>
+<p><span class="swatch" style="background: #C2410C"></span>Cycle path with no moped information in any source. Allowed with a penalty, always shown in the preview and announced while riding.</p>
+<p>The flag button logs your GPS position as "data is wrong here", so the access data can be corrected afterwards.</p>
+<p>"Verified roads only" recalculates without any unverified stretch.</p>
+</aside>
+
+</div>
+</body>
+</html>

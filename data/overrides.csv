@@ -1,0 +1,2 @@
+way_id,status,reason,date
+573252346,forbidden,"Valeriusplein, Amsterdam. Not surveyed. OSM has moped=designated (way v5, edited 2023-10-29); NDW has a G11 registered 2016-08-23 (record last modified 2025-09-09 in an NWB re-link batch) whose precise bearing (166) fits this path. Kept forbidden as the safe side until surveyed; review.",2026-11-14

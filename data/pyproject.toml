@@ -1,0 +1,25 @@
+[project]
+name = "naviscoot-data"
+version = "0.1.0"
+description = "Bromfiets access data pipeline for Naviscoot"
+requires-python = ">=3.13"
+dependencies = [
+    "osmium>=4.3.2",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+fetch = "naviscoot_data.fetch:main"
+audit = "naviscoot_data.audit:main"
+
+[build-system]
+requires = ["uv_build>=0.9,<1"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
