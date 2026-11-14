@@ -25,6 +25,6 @@ routing/tiles/
 routing/build/
 
 docs/audit/map.html
-docs/slides/*/status/
 
 .claude/
+docs/slides/
