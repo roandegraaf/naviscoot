@@ -27,6 +27,8 @@ cp ios/Config/Local.xcconfig.example ios/Config/Local.xcconfig   # gitignored; s
 - `Config/App.xcconfig` includes `Local.xcconfig` optionally. Without it the app builds but shows "not configured".
 - In an xcconfig file `//` starts a comment, so the URL is written as `http:/$()/127.0.0.1:8080`.
 - `NSAllowsLocalNetworking` lets the app call plain `http://127.0.0.1`.
+- For the deployed API, set `NAVISCOOT_API_BASE_URL = https:/$()/naviscoot.appj.nl` and the production key, which is kept
+  in Coolify (see `routing/README.md` "Deploy (Coolify)").
 
 The project is generated from `project.yml` with XcodeGen (`xcodegen generate` in `ios/`). The generated project is
 committed, so building doesn't need XcodeGen.
@@ -64,8 +66,9 @@ Two classes. `SearchAndPreviewUITests` is described below. `RideUITests` drives 
   chip "Unverified path in …, for 483 m" and one Dutch warning. On the stretch it expects "On unverified path, … left",
   the stretch chip "Unverified path, limit 30" and the limit sign 30. The warning must clear after the stretch.
 
-This test needs the local stack: Valhalla on 8002 (`routing/serve.sh start`) and the API on 8080 with the same key as
-`Local.xcconfig`.
+This test needs an API with the same key as `Local.xcconfig`. By default that's the local stack: Valhalla on 8002
+(`routing/serve.sh start`) and the API on 8080. To run it against the deployed API, add
+`TEST_RUNNER_NAVISCOOT_API_BASE_URL=https://naviscoot.appj.nl`. The proof's reports then land on the server.
 
 ```sh
 xcrun simctl location $U set 52.2977646,5.445363
