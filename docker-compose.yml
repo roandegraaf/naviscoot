@@ -1,0 +1,27 @@
+services:
+  valhalla:
+    image: ghcr.io/valhalla/valhalla:3.9.1
+    command: ["valhalla_service", "/repo/routing/build/nl/valhalla.json", "2"]
+    volumes:
+      - ${NAVISCOOT_GRAPH_DIR:-/data/naviscoot/nl}:/repo/routing/build/nl:ro
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+    environment:
+      API_KEY: ${API_KEY:?set API_KEY}
+      VALHALLA_URL: http://valhalla:8002
+      FUSED_ACCESS_CSV: /repo/routing/build/nl/fused_access.csv
+      REPORTS_PATH: /reports/reports.jsonl
+    volumes:
+      - ${NAVISCOOT_GRAPH_DIR:-/data/naviscoot/nl}:/repo/routing/build/nl:ro
+      - naviscoot-reports:/reports
+    depends_on:
+      - valhalla
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+volumes:
+  naviscoot-reports:

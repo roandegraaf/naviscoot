@@ -121,6 +121,45 @@ only the override check in the regression suite reads it.
     staging container was left.
 - Rollback was run twice: it went back to the slice 3 build and then forward again, with 12/12 regression cases passing on each.
 
+## Deploy (Coolify)
+
+The server only serves. The graph is built here (`routing/refresh.sh`) and uploaded; the API is built from `api/Dockerfile`.
+`docker-compose.yml` in the repo root holds both services:
+- `valhalla` (3.9.1) has no published port. Only the API reaches it, over the compose network.
+- `api` listens on 8080 inside the network. Coolify's proxy publishes it on the domain with TLS.
+- Both mount the graph unit read-only at `/repo/routing/build/nl`. That is the path `valhalla.json` already names, so the
+  config needs no rewrite.
+- Reports go to the named volume `naviscoot-reports`.
+
+| Variable | Value |
+|---|---|
+| `API_KEY` | required; a long random key, kept as a Coolify secret. The app's `Local.xcconfig` must send the same key |
+| `NAVISCOOT_GRAPH_DIR` | host directory of the graph unit, default `/data/naviscoot/nl` |
+
+Steps for `coolify-personal`, hostname `naviscoot.appj.nl`:
+1. Upload the graph unit: `DEPLOY_HOST=<user>@<server> routing/deploy-graph.sh`. It rsyncs `tiles.tar`, `valhalla.json`,
+   `admins.sqlite` and `fused_access.csv` (918 MB) into `/data/naviscoot/nl-next`, then swaps that directory to `nl` and
+   keeps the previous one as `nl-prev`.
+2. In Coolify, create a new resource from the GitHub repo with the Docker Compose build pack and compose file
+   `/docker-compose.yml`, on the server `localhost`.
+3. Set `API_KEY` (and `NAVISCOOT_GRAPH_DIR` if the directory differs). Give the `api` service the domain
+   `https://naviscoot.appj.nl:8080`; the `:8080` tells the proxy which container port to use. `valhalla` gets no domain.
+4. Deploy. After every later graph upload, restart the stack: both services read the graph only at start.
+
+Check with:
+```sh
+curl -s https://naviscoot.appj.nl/health                                                  # open
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://naviscoot.appj.nl/route            # 401
+curl -s -H "x-api-key: $API_KEY" -H 'content-type: application/json' https://naviscoot.appj.nl/route \
+  -d '{"origin":{"lat":52.2977646,"lon":5.445363},"destination":{"lat":52.0464515,"lon":5.4059619}}'   # a route
+```
+
+Measured locally with the same compose file (separate project, API port published only for the test):
+- `/health` is ok; without a key or with a wrong key the API answers 401.
+- With the key, the `verified-only-north-south` route is 36,255 m with 483 m unverified.
+- A report survives an API restart. Valhalla has no published port.
+- Idle memory: Valhalla 83 MB, API 53 MB. Valhalla grew to 1.7 GB while serving locally in slice 5.
+
 ## Rewrite step (`data/naviscoot_data/rewrite.py`)
 
 - Cycle paths in `fused_access.csv` are rewritten as follows:
