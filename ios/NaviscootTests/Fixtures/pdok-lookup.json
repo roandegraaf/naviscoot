@@ -1,0 +1,12 @@
+{
+  "response": {
+    "numFound": 1,
+    "docs": [
+      {
+        "weergavenaam": "Stationsplein 101, 3818LE Amersfoort",
+        "id": "adr-e0b99891093de18e817d861eb606e1a5",
+        "centroide_ll": "POINT(5.37290257 52.15333786)"
+      }
+    ]
+  }
+}

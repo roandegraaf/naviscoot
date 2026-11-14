@@ -1,36 +1,33 @@
 # Progress — moped-nav
 
 ## Current state
-**Slices done:** 1 (audit), 2 (fusion), 3 (routing graph + regression), 4 (thin API, local only), 5 (one-command refresh, local). One commit per slice on top of 0423a8b. `docs/audit/*.md` is committed. These are gitignored: `docs/audit/map.html`, `docs/slides/*/status/`, `api/data/`, `routing/build/`.
+**Slices done:** 1 (audit), 2 (fusion), 3 (routing graph + regression), 4 (thin API, local only), 5 (one-command refresh, local), 6 (iOS search + route preview, local API). One commit per slice on top of 0423a8b. `docs/audit/*.md` is committed. These are gitignored: `docs/audit/map.html`, `docs/slides/*/status/`, `api/data/`, `routing/build/`, `ios/build/`, `ios/Config/Local.xcconfig`.
 
 **Invariants in force**
 - Region = 50 km around 52.156, 5.387. Cycle path = OSM `highway=cycleway`; status per whole way. `mofa=*` is never moped evidence, anywhere (fusion, rewrite, Lua).
 - Precedence: `data/overrides.csv` > NDW newer and unambiguous > explicit OSM tag > NDW direct > NDW propagated > unknown. The user still has to review the 5 forbidden → allowed flips and the Valeriusplein override (`docs/audit/conflicts.md`).
-- Rewrite: allowed → `moped=designated`, forbidden → `moped=no` (drops `moped:forward/backward`, `oneway:moped`), unknown → `moped=unverified`. NL cycleways/paths get `naviscoot:builtup=yes|no`. Outside the region OSM is untouched.
-- Valhalla 3.9.1 pinned, patched `routing/valhalla/graph.lua`: `use_sidepath` closes; no `mofa`; `motorroad=yes` closes; bollard/block/cycle_barrier pass. Moped paths 30 built-up / 40 outside; unverified speed 15 (placeholder).
-- **Every motor_scooter route request sends `date_time: {"type": 0}`**, and the config raises level 1/2 `expand_within_distance` to 1,000 km (`routing/README.md`).
-- Classification = `trace_attributes` edge_walk `edge.way_id` looked up in the fused CSV. Verified-only = `exclude_locations` loop, cap 5, fallback with `unavoidable`.
-- API (`api/`, Fastify 5 + TS): `x-api-key` on everything but `/health`. `POST /route` = Valhalla JSON + `naviscoot` key; `format: osrm` for Ferrostar. Reports: append-only JSONL.
-- **Served unit = `routing/build/nl/`**: `tiles.tar`, `valhalla.json`, `admins.sqlite`, and the `fused_access.csv` the tiles were built from.
-  - The API (`FUSED_ACCESS_CSV`) and `pytest -m valhalla` default to that CSV.
-  - `data/build/fused_access.csv` and `routable.osm.pbf` are working copies, synced on promote/rollback. `FUSED_ACCESS_CSV`, `ROUTABLE_PBF` and `REGRESSION_CASES` env vars redirect them; the API integration test honours `REGRESSION_CASES` too.
-- **Refresh = `routing/refresh.sh [--force]`**: fetch → audit and rewrite into `routing/build/nl-next` → build (half the cores; 12 threads OOM next to the live Valhalla) → serve on 8003 → gate (regression suite + API integration) → swap `nl` → `nl-prev`, `nl-next` → `nl` → restart 8002 → verify (auto rollback on failure). `routing/refresh.sh rollback` swaps back. A failed gate leaves `nl`, its CSV and 8002 untouched. Log: `routing/build/refresh.log`.
+- Rewrite: allowed → `moped=designated`, forbidden → `moped=no`, unknown → `moped=unverified`; `naviscoot:builtup=yes|no` on NL cycleways/paths. Outside the region OSM is untouched.
+- Valhalla 3.9.1 pinned, patched `routing/valhalla/graph.lua`. Moped paths 30 built-up / 40 outside; unverified speed 15 (placeholder). **Every motor_scooter request sends `date_time: {"type": 0}`**; level 1/2 `expand_within_distance` = 1,000 km.
+- API (`api/`, Fastify 5 + TS): `x-api-key` on everything but `/health`. `POST /route` = Valhalla JSON + top-level `naviscoot` key (stretches with inclusive shared shape indices covering the whole route, `totals_m` summing to `length_m` exactly); `format: osrm` for Ferrostar. Verified-only = `exclude_locations` loop, cap 5. Reports: append-only JSONL.
+- Served unit = `routing/build/nl/` (`tiles.tar`, `valhalla.json`, `admins.sqlite`, `fused_access.csv`). Refresh = `routing/refresh.sh [--force]`, rollback = `routing/refresh.sh rollback`; restart the API after either.
+- **iOS** (`ios/`, SwiftUI, iOS 18+, Swift 5 mode, XcodeGen `project.yml` + committed `.xcodeproj` and `Package.resolved`): Ferrostar 0.59.0, swiftui-dsl 0.26.1, MapLibre 6.24.0, all `exactVersion` (swiftui-dsl would otherwise float to 0.27 → MapLibre 7). Every `xcodebuild` needs `-skipMacroValidation`.
+  - API URL/key from gitignored `ios/Config/Local.xcconfig` (`http:/$()/…` because `//` is an xcconfig comment) → Info.plist `NaviscootAPIBaseURL`/`NaviscootAPIKey`. `NSAllowsLocalNetworking` for plain http to 127.0.0.1.
+  - `RouteParser`: Ferrostar `createOsrmResponseParser(polylinePrecision: 6)` for the `Route`; duration and `naviscoot` decoded separately (Ferrostar's `Route` has no duration). Geometry count must equal last `end_shape_index + 1`.
+  - All UI strings in `ios/Naviscoot/App/Strings.swift` (English; Dutch voice later).
+- Simulator UI is driven by XCUITest (`NaviscootUITests` scheme), not idb: idb_companion 1.1.8 can't do HID on Xcode 27, and `~/.local/bin/idb` points at a removed pyenv Python (`uvx --python 3.12 --from fb-idb idb` works for `describe-all` only).
 - No code comments unless the reason is non-obvious. No pushes by agents; commits only when the run allows it.
 
-**Commands** (see `data/README.md`, `routing/README.md`, `api/README.md`)
-- Full refresh: `routing/refresh.sh` (~8.5 min; `--force` ~15 min). Single steps: `cd data && uv run fetch|audit|rewrite`, `routing/build.sh all`, `routing/serve.sh start|stop` (127.0.0.1:8002).
-- Tests from `data/`: `uv run pytest` (50), `-m docker` (6 fixture), `-m valhalla` (12 regression vs 8002).
-- `cd api`: `npm ci`, `npm run build`, `API_KEY=… npm start` (127.0.0.1:8080), `npm test` (34 unit + 7 integration), `npm run test:integration`.
+**Commands** (see `data/README.md`, `routing/README.md`, `api/README.md`, `ios/README.md`)
+- Refresh `routing/refresh.sh`; `routing/serve.sh start|stop` (8002); `cd api && API_KEY=… npm start` (8080).
+- Tests: `cd data && uv run pytest` (50; `-m docker` 6, `-m valhalla` 12); `cd api && npm test` (41); `cd ios && xcodebuild … -scheme Naviscoot test` (18 unit); `-scheme NaviscootUITests test` with `TEST_RUNNER_NAVISCOOT_API_KEY` (UI proof, needs 8002 + 8080).
+- Simulator: `naviscoot-iphone17` (iPhone 17, iOS 27.2 runtime 24B8117), boot headless with `xcrun simctl boot`.
 
 **Key files**
-- `data/naviscoot_data/`: `fuse.py`, `rewrite.py`, `valhalla.py`, `paths.py` (env-overridable paths).
-- `routing/`: `refresh.sh`, `build.sh` (`CONCURRENCY`), `serve.sh`, `valhalla/graph.lua` (+ `.patch`), `regression_cases.json`, `test/fixture.osm`.
-- `api/src/`: `app.ts`, `route.ts`, `classify.ts`, `reports.ts`, `valhalla.ts`, `config.ts`; `api/test/`.
+- `data/naviscoot_data/`: `fuse.py`, `rewrite.py`, `valhalla.py`, `paths.py`. `routing/`: `refresh.sh`, `build.sh`, `serve.sh`, `valhalla/graph.lua`, `regression_cases.json`.
+- `api/src/`: `app.ts`, `route.ts`, `classify.ts`, `reports.ts`, `valhalla.ts`, `config.ts`.
+- `ios/Naviscoot/`: `Routing/` (`NaviscootClient`, `RouteParser`, `RouteModels`), `Search/` (`PDOKClient`, `PlaceSearch`, `SearchMerge` in `SearchResult.swift`, `SearchModel`, `SearchView`), `Preview/` (`PreviewModel`, `PreviewView`, `RouteMapView`), `App/` (`NaviscootApp`, `LocationService`, `Strings`, `Format`, `Theme`).
 
-**Numbers:** OSM 2026-11-13, NDW 2026-11-14 17:41Z.
-- Fused: 72,552 cycle paths (18,988 allowed, 35,758 forbidden, 17,806 unverified).
-- `tiles.tar` 949 MB (10^6 bytes; the older "912 MB" was MiB).
-- Utrecht Domplein → Amersfoort: 22.19 km.
+**Numbers:** OSM 2026-11-13, NDW 2026-11-14 17:41Z. Fused 72,552 cycle paths (18,988 allowed, 35,758 forbidden, 17,806 unverified). Utrecht Domplein → Amersfoort 22.19 km. UI proof route (case origin → Woudenbergseweg 42 Maarsbergen): 36.11 km with 483 m unverified; verified-only 39.44 km.
 
 ## Slice: 1 — repo setup and coverage audit (2026-11-14)
 **Shipped**
@@ -203,3 +200,38 @@
 **Placeholder choices:** staging port 8003 and container name `naviscoot-valhalla-next`; build concurrency default half the cores; free-space precheck 6 GB; summary line format; restart warning instead of restarting the API.
 
 **Runtime-unverified:** none (no UI). Every path was exercised on this Mac against real data and the live local graph.
+
+## Slice: 6 — iOS search and route preview, local API (2026-11-14)
+**Shipped**
+- `ios/`: XcodeGen `project.yml`, committed `Naviscoot.xcodeproj` with `Package.resolved`, `Config/App.xcconfig` + `Local.xcconfig.example` (`Local.xcconfig` gitignored), `README.md`.
+- App: PDOK + MapKit search in one merged list → PDOK `lookup` on selection → preview from the current location.
+  - Preview: time, distance, arrival, per-class bar and rows from `totals_m`.
+  - Map: route drawn per stretch (verified solid blue, unverified dashed orange, forbidden dashed red) on OpenFreeMap.
+  - "Verified roads only" toggle re-requests with `verified_only: true`. Tapping the unverified row zooms to those stretches. Start button present but disabled.
+- `NaviscootTests` (18 unit): Ferrostar parse of a real OSRM fixture (1,457 points = last shape index + 1), segment split (contiguous, inclusive, ≥2 points, mismatch rejected), totals, all four classes, request shape, error mapping, formatting, PDOK parsing and request, search merge.
+- `NaviscootUITests` (1, own scheme): the full search → preview → zoom → verified-only flow, asserting every displayed figure against a direct API call for the same request. Screenshots are written to `SCREENSHOT_DIR`.
+
+**Key decisions**
+- Ferrostar now only for parsing; the preview draws with swiftui-dsl directly. For guidance, `NaviscootClient` can back a Ferrostar `RouteProvider.customProvider` (`CustomRouteProvider.getRoutes(userLocation:waypoints:)`), keeping the `naviscoot` metadata.
+- Pins: Ferrostar 0.59.0 (2026-10-22) with the swiftui-dsl/MapLibre pair its own demo resolves; 0.27.0 (2026-11-09, MapLibre 7) avoided.
+- The search merge interleaves; addresses lead when the query contains a digit; a place with an address's exact name is dropped. PDOK `suggest` is limited to `adres, weg, postcode, woonplaats` and biased with `lat`/`lon`.
+- Distances under 1 km show in metres ("483 m"), otherwise one decimal km. Time rounds to minutes, "1 h 11 min" above an hour.
+- The UI proof uses Woudenbergseweg 42 Maarsbergen, not the `verified-only-north-south` destination: the nearest address to that coordinate (Maarnse Grindweg 42) routes around the unverified way (0 m). Of 17 nearby addresses tested, the Woudenbergseweg/Scherpenzeelseweg ones keep the 483 m stretch.
+- UI driven by XCUITest instead of idb (see header).
+- Swift 5 language mode to stay clear of Swift 6 isolation errors around the Ferrostar/MapLibre types; LocationService and models are `@MainActor`.
+
+**Notes / leftovers**
+- Measured in the simulator, both matching the API exactly:
+  - Default: 1 h 11 min, 36.1 km, carriageway 21.0 km, moped path 14.7 km, unverified 483 m.
+  - Verified-only: 1 h 13 min, 39.4 km, 26.6 / 12.9 km, 0 m.
+- Screenshots (scratchpad, not committed): `02-search-address`, `03-search-station`, `04-preview-default`, `05-preview-unverified-zoom`, `06-preview-verified-only`.
+- Bug found and fixed during the proof: a long result list plus the keyboard pushed the search field under the status bar. The card now caps at its content height and shrinks.
+- `xcodebuild -downloadPlatform iOS` installed two iOS 27.2 runtimes (24B8117 and the device-specific 24B91016s), ~16 GB; free disk on the data volume went from 31 GB to 15 GB. The 24B91016s runtime can be removed with `xcrun simctl runtime delete` if space is needed (not done: not mine to delete).
+- `npm test` failed once (1 of 41) right after the simulator run and passed 4/4 times after; `api/` was not touched. Treat as a possible timing flake in the integration tests.
+- MapKit deprecation: `placemark` is used only below iOS 26 (`location`/`addressRepresentations` above).
+- The API was started for this slice with `API_KEY=naviscoot-dev` and stopped at the end.
+
+**Placeholder choices:** bundle id `nl.naviscoot.app`; OpenFreeMap `liberty` style; colours from the mockup (verified #0B5FD9 solid, unverified #C2410C dashed [1.6, 1.0] line widths, forbidden #B42318 dashed); line width 7 with an 11 white casing; SF Symbols `mappin.and.ellipse` (address), `building.2` (place), `scope`/arrows (zoom hint); PDOK type filter and 8 rows; MapKit region 60 km; merge limit 12; 300 ms search debounce; disabled Start button; copy in `Strings.swift`; skipped the mockup's Favourites/Recent sections; simulator device `naviscoot-iphone17`.
+
+**Runtime-unverified:** none for this slice's scope. Search and preview were exercised in the iOS 27.2 simulator by XCUITest with screenshots inspected; not yet on a real iPhone.
+

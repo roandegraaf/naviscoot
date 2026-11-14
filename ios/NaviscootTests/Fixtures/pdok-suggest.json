@@ -1,0 +1,27 @@
+{
+  "response": {
+    "numFound": 118,
+    "docs": [
+      {
+        "type": "weg",
+        "weergavenaam": "Stationsplein, Amersfoort",
+        "id": "weg-724b88570ef48bf173188bc23995cf66",
+        "score": 9.815578
+      },
+      {
+        "type": "adres",
+        "weergavenaam": "Stationsplein 12, Amersfoort",
+        "adrestype": "hoofdadres",
+        "id": "adr-4f43a691bebb2eb9198d11e86db9b4fc",
+        "score": 6.556119
+      },
+      {
+        "type": "adres",
+        "weergavenaam": "Stationsplein 51A, Amersfoort",
+        "adrestype": "hoofdadres",
+        "id": "adr-2ce851036f07aeddcd347c83db61dbcd",
+        "score": 6.556119
+      }
+    ]
+  }
+}

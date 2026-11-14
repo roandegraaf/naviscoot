@@ -126,9 +126,9 @@ own fused access dataset first and a navigation app on top of it.
   GIVEN the deployed service, WHEN called without the API key, THEN it is refused, and with the key it returns a route
 - [x] Data refresh is one command
   GIVEN newer OSM and NDW data, WHEN the refresh command runs, THEN it rebuilds the fused extract and graph and fails loudly if a regression case breaks
-- [ ] Search finds addresses and places
+- [x] Search finds addresses and places
   GIVEN the app, WHEN typing a street address or a place such as a station, THEN both appear and selecting one opens the route preview
-- [ ] Preview shows what the route consists of
+- [x] Preview shows what the route consists of
   GIVEN a selected destination, WHEN the preview opens, THEN it shows time, distance, the distance per type and unverified stretches drawn differently on the map
 - [ ] Turn-by-turn guidance with Dutch voice
   GIVEN a simulated ride in the iOS simulator, WHEN approaching a turn, THEN the banner shows distance and street and a Dutch instruction is spoken

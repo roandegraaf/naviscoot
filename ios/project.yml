@@ -1,0 +1,125 @@
+name: Naviscoot
+options:
+  bundleIdPrefix: nl.naviscoot
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+
+configFiles:
+  Debug: Config/App.xcconfig
+  Release: Config/App.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+
+packages:
+  Ferrostar:
+    url: https://github.com/stadiamaps/ferrostar
+    exactVersion: 0.59.0
+  MapLibreSwiftUI:
+    url: https://github.com/maplibre/swiftui-dsl
+    exactVersion: 0.26.1
+  MapLibre:
+    url: https://github.com/maplibre/maplibre-gl-native-distribution
+    exactVersion: 6.24.0
+
+targets:
+  Naviscoot:
+    type: application
+    platform: iOS
+    sources:
+      - path: Naviscoot
+        excludes:
+          - Info.plist
+    info:
+      path: Naviscoot/Info.plist
+      properties:
+        CFBundleDisplayName: Naviscoot
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: true
+        NSLocationWhenInUseUsageDescription: Naviscoot uses your location as the start of the route.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NaviscootAPIBaseURL: $(NAVISCOOT_API_BASE_URL)
+        NaviscootAPIKey: $(NAVISCOOT_API_KEY)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.naviscoot.app
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: false
+        ENABLE_PREVIEWS: true
+    dependencies:
+      - package: Ferrostar
+        product: FerrostarCore
+      - package: MapLibreSwiftUI
+        product: MapLibreSwiftUI
+      - package: MapLibreSwiftUI
+        product: MapLibreSwiftDSL
+      - package: MapLibre
+        product: MapLibre
+
+  NaviscootTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: NaviscootTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.naviscoot.app.tests
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: Naviscoot
+
+  NaviscootUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: NaviscootUITests
+        excludes:
+          - Info.plist
+    info:
+      path: NaviscootUITests/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: en
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: BNDL
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.naviscoot.app.uitests
+        GENERATE_INFOPLIST_FILE: false
+        TEST_TARGET_NAME: Naviscoot
+    dependencies:
+      - target: Naviscoot
+
+schemes:
+  Naviscoot:
+    build:
+      targets:
+        Naviscoot: all
+        NaviscootTests: [test]
+    test:
+      targets:
+        - NaviscootTests
+  NaviscootUITests:
+    build:
+      targets:
+        Naviscoot: all
+        NaviscootUITests: [test]
+    test:
+      targets:
+        - NaviscootUITests

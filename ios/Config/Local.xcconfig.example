@@ -1,0 +1,4 @@
+// Copy to Local.xcconfig (gitignored) and fill in.
+// "//" starts a comment in xcconfig files, so the URL is written as http:/$()/host.
+NAVISCOOT_API_BASE_URL = http:/$()/127.0.0.1:8080
+NAVISCOOT_API_KEY = change-me

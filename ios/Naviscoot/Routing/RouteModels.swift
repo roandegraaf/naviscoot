@@ -1,0 +1,123 @@
+import CoreLocation
+import FerrostarCoreFFI
+import Foundation
+
+struct Coordinate: Hashable, Codable {
+    let lat: Double
+    let lon: Double
+
+    init(lat: Double, lon: Double) {
+        self.lat = lat
+        self.lon = lon
+    }
+
+    init(_ coordinate: CLLocationCoordinate2D) {
+        self.init(lat: coordinate.latitude, lon: coordinate.longitude)
+    }
+
+    init(_ coordinate: GeographicCoordinate) {
+        self.init(lat: coordinate.lat, lon: coordinate.lng)
+    }
+
+    var clLocation: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+}
+
+enum StretchClass: String, Codable, CaseIterable {
+    case carriageway
+    case mopedPath = "moped_path"
+    case unverified
+    case forbidden
+}
+
+struct Stretch: Codable, Equatable {
+    let stretchClass: StretchClass
+    let startShapeIndex: Int
+    let endShapeIndex: Int
+    let lengthM: Int
+    let wayIds: [Int64]
+    let unavoidable: String?
+
+    enum CodingKeys: String, CodingKey {
+        case stretchClass = "class"
+        case startShapeIndex = "start_shape_index"
+        case endShapeIndex = "end_shape_index"
+        case lengthM = "length_m"
+        case wayIds = "way_ids"
+        case unavoidable
+    }
+}
+
+struct RouteTotals: Codable, Equatable {
+    let carriageway: Int
+    let mopedPath: Int
+    let unverified: Int
+    let forbidden: Int
+
+    enum CodingKeys: String, CodingKey {
+        case carriageway
+        case mopedPath = "moped_path"
+        case unverified
+        case forbidden
+    }
+
+    subscript(stretchClass: StretchClass) -> Int {
+        switch stretchClass {
+        case .carriageway: carriageway
+        case .mopedPath: mopedPath
+        case .unverified: unverified
+        case .forbidden: forbidden
+        }
+    }
+
+    var sum: Int { carriageway + mopedPath + unverified + forbidden }
+}
+
+struct VerifiedOnlyInfo: Codable, Equatable {
+    let requests: Int
+    let excludedPoints: Int
+    let converged: Bool
+    let stoppedBecause: String?
+
+    enum CodingKeys: String, CodingKey {
+        case requests
+        case excludedPoints = "excluded_points"
+        case converged
+        case stoppedBecause = "stopped_because"
+    }
+}
+
+struct NaviscootMeta: Codable, Equatable {
+    let routeId: String
+    let lengthM: Int
+    let totalsM: RouteTotals
+    let stretches: [Stretch]
+    let warnings: [String]
+    let verifiedOnly: VerifiedOnlyInfo?
+
+    enum CodingKeys: String, CodingKey {
+        case routeId = "route_id"
+        case lengthM = "length_m"
+        case totalsM = "totals_m"
+        case stretches
+        case warnings
+        case verifiedOnly = "verified_only"
+    }
+}
+
+struct RouteSegment: Equatable {
+    let stretchClass: StretchClass
+    let coordinates: [Coordinate]
+}
+
+struct RoutePlan {
+    let route: Route
+    let durationS: Double
+    let meta: NaviscootMeta
+    let segments: [RouteSegment]
+
+    var unverifiedStretches: [Stretch] {
+        meta.stretches.filter { $0.stretchClass == .unverified }
+    }
+}

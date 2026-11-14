@@ -19,6 +19,7 @@ api/data/
 ios/**/xcuserdata/
 ios/**/DerivedData/
 ios/build/
+ios/Config/Local.xcconfig
 
 routing/tiles/
 routing/build/

@@ -1,0 +1,4 @@
+NAVISCOOT_API_BASE_URL =
+NAVISCOOT_API_KEY =
+
+#include? "Local.xcconfig"
