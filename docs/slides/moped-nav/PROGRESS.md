@@ -3,7 +3,10 @@
 ## Current state
 **Slices done:** 1 (audit), 2 (fusion), 3 (routing graph + regression), 4 (thin API, local only), 5 (one-command refresh, local), 6 (iOS search + route preview), 7 (iOS guidance, voice, reroute, warning, reports; local API). One commit per slice on top of 0423a8b. `docs/audit/*.md` is committed. These are gitignored: `docs/audit/map.html`, `docs/slides/*/status/`, `api/data/`, `routing/build/`, `ios/build/`, `ios/Config/Local.xcconfig`.
 
-**Only open automatable item:** "The API is live and protected". It needs the user's hostname on `coolify-personal` and a deploy go-ahead. Also open: the two `[user-gated]` real-ride items and the placeholder reviews.
+**Only open automatable item:** "The API is live and protected". The user approved the deploy: hostname `naviscoot.appj.nl` (wildcard `*.appj.nl` exists), server `localhost` on `coolify-personal` (https://coolify.servertj.nl), repo on their GitHub.
+- Done: the compose stack (proven locally), `routing/deploy-graph.sh`, and the private repo https://github.com/roandegraaf/naviscoot (`master`).
+- Blocked on access the agent doesn't have: the Coolify API (its Keychain token read was denied; the `coolify-personal` MCP isn't loaded in worker sessions) and SSH to the server for the graph upload.
+- Also open: the two `[user-gated]` real-ride items and the placeholder reviews.
 
 **Invariants in force**
 - Region = 50 km around 52.156, 5.387. Cycle path = OSM `highway=cycleway`; status per whole way. `mofa=*` is never moped evidence, anywhere (fusion, rewrite, Lua).
@@ -11,6 +14,7 @@
 - Rewrite: allowed → `moped=designated`, forbidden → `moped=no`, unknown → `moped=unverified`; `naviscoot:builtup=yes|no` on NL cycleways/paths. Outside the region OSM is untouched.
 - Valhalla 3.9.1 pinned, patched `routing/valhalla/graph.lua`. Moped paths get `max_speed` 30 built-up / 40 outside (edge `speed_limit`); unverified speed 15 (placeholder). **Every motor_scooter request sends `date_time: {"type": 0}`**; level 1/2 `expand_within_distance` = 1,000 km.
 - API (`api/`, Fastify 5 + TS): `x-api-key` on everything but `/health`. `POST /route` = Valhalla JSON + top-level `naviscoot` key: stretches with inclusive shared shape indices covering the whole route, `totals_m` summing to `length_m` exactly, and `speed_limits` runs (carriageway 45, paths the edge's 30/40, default 30). `format: osrm` for Ferrostar. Verified-only = `exclude_locations` loop, cap 5. Reports: append-only JSONL.
+- Deploy = repo-root `docker-compose.yml` (Valhalla internal, no published port; API behind Coolify's proxy; graph unit bind-mounted read-only at `/repo/routing/build/nl` from `NAVISCOOT_GRAPH_DIR`, default `/data/naviscoot/nl`; reports volume) + `api/Dockerfile` + `routing/deploy-graph.sh`. Steps in `routing/README.md` "Deploy (Coolify)".
 - Served unit = `routing/build/nl/` (`tiles.tar`, `valhalla.json`, `admins.sqlite`, `fused_access.csv`). Refresh = `routing/refresh.sh [--force]`, rollback = `routing/refresh.sh rollback`; restart the API after either.
 - **iOS** (`ios/`, SwiftUI, iOS 18+, Swift 5 mode, XcodeGen `project.yml` + committed `.xcodeproj` and `Package.resolved`): Ferrostar 0.59.0, swiftui-dsl 0.26.1, MapLibre 6.24.0, all `exactVersion`. Every `xcodebuild` needs `-skipMacroValidation`.
   - API URL/key from gitignored `ios/Config/Local.xcconfig` → Info.plist. `NSAllowsLocalNetworking`. Background modes `audio` + `location`.
@@ -21,7 +25,7 @@
   - On the simulator rides are simulated by default (`-NaviscootSimulateRide`, `-NaviscootSimSpeedKmh`, `-NaviscootSimOrigin`).
   - All UI strings in `ios/Naviscoot/App/Strings.swift` (English; voice Dutch).
 - Simulator UI is driven by XCUITest (`NaviscootUITests` scheme), not idb (idb_companion 1.1.8 can't do HID on Xcode 27).
-- No code comments unless the reason is non-obvious. No pushes by agents; commits only when the run allows it.
+- No code comments unless the reason is non-obvious. Commits only when the run allows it. `origin` = private https://github.com/roandegraaf/naviscoot; a push needs the user's go-ahead (given once for publishing the repo).
 
 **Commands** (see `data/README.md`, `routing/README.md`, `api/README.md`, `ios/README.md`)
 - Refresh `routing/refresh.sh`; `routing/serve.sh start|stop` (8002); `cd api && API_KEY=… npm start` (8080).
@@ -289,4 +293,24 @@
 - the locked screen and background audio and location (user-gated);
 - real GPS deviation behaviour;
 - how the `nl-NL` voice actually sounds. Speech was proven by the recording hook, not by ear; the simulator has an nl-NL voice.
+
+### Slice 7, continued: deploy preparation (2026-11-14)
+The user approved the deploy (`naviscoot.appj.nl`, server `localhost` on `coolify-personal`, repo on their GitHub).
+- **Shipped:**
+  - `api/Dockerfile`: node 24 alpine, multi-stage, runs as the `node` user, `/reports` owned by node, healthcheck on `/health`.
+  - `api/.dockerignore`.
+  - Repo-root `docker-compose.yml`.
+  - `routing/deploy-graph.sh`: rsync into `nl-next`, then swap, keeping `nl-prev`.
+  - `routing/README.md` "Deploy (Coolify)".
+  - Commit fe675c3. The private repo https://github.com/roandegraaf/naviscoot (`master`) is pushed.
+- **Verified locally** with the same compose file (separate project, API published on 127.0.0.1:8090 by a scratch override only):
+  - `/health` is open; no key or a wrong key gives 401.
+  - With the key: 36,255 m, 483 m unverified, 20 speed-limit runs.
+  - A report survives an API restart. Valhalla has no published port. The test stack was removed afterwards.
+- **Blocked:**
+  - Reading the Coolify API token from the Keychain was denied by the permission system (classified as unauthorized access), so no Coolify resource was created and nothing on the server was touched.
+  - The graph upload needs SSH to the server; no host or user was given, so it was not attempted.
+- **Key decision:** the server keeps `valhalla.json` unchanged by mounting the unit at the path it already names, so local and server units are byte-identical and `refresh.sh` output can be uploaded as is.
+- **Incident:** while looking for the Coolify config, a redaction bug printed a bearer token from the SyncUp project's MCP entry in `~/.claude.json` (server coolify.servertj.nl) into the session transcript. It was not used or stored anywhere else. Consider rotating it.
+- **Runtime-unverified:** `routing/deploy-graph.sh` against a real server (syntax-checked only); Coolify's proxy, TLS and domain mapping.
 

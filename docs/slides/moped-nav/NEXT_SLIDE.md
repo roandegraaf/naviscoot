@@ -9,7 +9,7 @@ Deploy the routing service on `coolify-personal`. Targets the last automatable O
 - "The API is live and protected": GIVEN the deployed service, WHEN called without the API key, THEN it is refused, and
   with the key it returns a route.
 
-**Blocked on the user. Do not start deploying until both are given:**
+**Hostname and go-ahead are given** (see the boxes). **Still blocked on access, see the third box.** Original preconditions:
 1. The hostname for the API (for example a subdomain of a domain they own, pointed at `coolify-personal`).
 2. An explicit go-ahead to deploy: containers, volumes, DNS/proxy config and an uploaded graph of about 1.3 GB.
 
@@ -35,7 +35,9 @@ Deploy the routing service on `coolify-personal`. Targets the last automatable O
 
 ## Done when
 Tick each box in this file as it's met; a resumed attempt picks up at the first open one.
-- [ ] [user-gated] The user gave the hostname and the deploy go-ahead.
+- [x] [user-gated] The user gave the hostname and the deploy go-ahead (`naviscoot.appj.nl`, server `localhost` on `coolify-personal`, repo on their GitHub).
+- [x] Compose stack, API image and graph upload script exist and pass the 401/route/report checks locally; private repo https://github.com/roandegraaf/naviscoot pushed.
+- [ ] [user-gated] Access for the deploy: either the Coolify API (the `coolify-personal` MCP loaded in the worker session, or the Keychain token read allowed) or the user does steps 2-4 of `routing/README.md` "Deploy (Coolify)" by hand; plus SSH (`DEPLOY_HOST=<user>@<server>`) for `routing/deploy-graph.sh`.
 - [ ] [user-gated] The user has reviewed the five forbidden → allowed flips of the newer-NDW rule and the Valeriusplein override
       (`docs/audit/conflicts.md`), and the placeholder choices of slices 1-7 (penalty 15 km/h, built-up proxy, 1,000 m
       warning lead, Dutch warning wording, deviation 40 m, colours, icons, copy).
