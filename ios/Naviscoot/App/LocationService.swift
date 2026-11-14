@@ -13,6 +13,10 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func start() {
+        if let origin = RideOptions.current.simulatedOrigin {
+            coordinate = origin
+            return
+        }
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
     }
@@ -20,7 +24,10 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
     nonisolated func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let last = locations.last else { return }
         let coordinate = Coordinate(last.coordinate)
-        Task { @MainActor in self.coordinate = coordinate }
+        Task { @MainActor in
+            guard RideOptions.current.simulatedOrigin == nil else { return }
+            self.coordinate = coordinate
+        }
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

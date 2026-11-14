@@ -46,7 +46,10 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIRequiresFullScreen: true
-        NSLocationWhenInUseUsageDescription: Naviscoot uses your location as the start of the route.
+        NSLocationWhenInUseUsageDescription: Naviscoot uses your location as the start of the route and to guide you along it.
+        UIBackgroundModes:
+          - audio
+          - location
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         NaviscootAPIBaseURL: $(NAVISCOOT_API_BASE_URL)

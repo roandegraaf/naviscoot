@@ -37,6 +37,8 @@ const body = (c: Case, extra: Record<string, unknown> = {}) => ({
 
 interface Stretch {
   class: string;
+  start_shape_index: number;
+  end_shape_index: number;
   length_m: number;
   way_ids: number[];
   first_edge: number;
@@ -46,6 +48,7 @@ interface Naviscoot {
   edge_length_m: number;
   totals_m: Record<string, number>;
   stretches: Stretch[];
+  speed_limits: { start_shape_index: number; end_shape_index: number; kmh: number }[];
   warnings: string[];
   verified_only?: { requests: number; converged: boolean };
 }
@@ -100,6 +103,22 @@ describe.skipIf(!available)("against the local Valhalla", () => {
     expect(n.totals_m.unverified).toBeLessThan(600);
     expect(n.totals_m.carriageway).toBeGreaterThan(0);
     expect(n.totals_m.moped_path).toBeGreaterThan(0);
+  });
+
+  it("covers verified-only-north-south with speed limit runs that give paths the graph's 30 or 40", async () => {
+    const res = await route(body(caseById("verified-only-north-south")));
+    const n: Naviscoot = res.naviscoot;
+    const runs = n.speed_limits;
+    expect(runs[0]?.start_shape_index).toBe(0);
+    expect(runs.at(-1)?.end_shape_index).toBe(n.stretches.at(-1)?.end_shape_index);
+    runs.slice(1).forEach((r, i) => expect(r.start_shape_index).toBe(runs[i]!.end_shape_index));
+    const limitAt = (index: number) => runs.find((r) => r.start_shape_index <= index && index < r.end_shape_index)?.kmh;
+    for (const s of n.stretches) {
+      const kmh = limitAt(s.start_shape_index);
+      if (s.class === "carriageway") expect(kmh).toBe(45);
+      else expect([30, 40]).toContain(kmh);
+    }
+    expect(new Set(runs.map((r) => r.kmh))).toEqual(new Set([30, 40, 45]));
   });
 
   it("returns no unverified stretch at all when verified-only is requested", async () => {

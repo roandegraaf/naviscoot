@@ -30,6 +30,44 @@ enum Strings {
     static let routeParseFailed = "The route service sent a route the app cannot read."
     static let networkFailed = "Cannot reach the route service."
 
+    static let end = "End"
+    static let report = "Report wrong data here"
+    static let reportSending = "Saving report…"
+    static let reportSent = "Report saved with your position"
+    static let reportRejected = "The route service refused this report."
+    static let mute = "Mute voice"
+    static let unmute = "Unmute voice"
+    static let rerouting = "Off route. Finding a new legal route…"
+    static let arrived = "You have arrived"
+    static let kmh = "km/h"
+    static let startingGuidance = "Starting guidance…"
+    static let simulatedRide = "Simulated ride"
+    static let simulateDetour = "Detour"
+    static let chipCarriageway = "Carriageway"
+    static let chipMopedPath = "Moped path"
+    static let chipUnverified = "Unverified path"
+    static let chipForbidden = "Closed to mopeds"
+
+    static func reportQueued(_ pending: Int) -> String {
+        "No connection. Report kept, retrying (\(pending) waiting)"
+    }
+
+    static func unverifiedAhead(_ distance: String, length: String) -> String { "Unverified path in \(distance), for \(length)" }
+    static func unverifiedInside(_ remaining: String) -> String { "On unverified path, \(remaining) left" }
+    static func speedLimit(_ kmh: Int) -> String { "Speed limit \(kmh)" }
+    static func reroutes(_ count: Int) -> String { "reroutes \(count)" }
+
+    static func chip(for stretchClass: StretchClass, limit: Int?) -> String {
+        let label = switch stretchClass {
+        case .carriageway: chipCarriageway
+        case .mopedPath: chipMopedPath
+        case .unverified: chipUnverified
+        case .forbidden: chipForbidden
+        }
+        guard let limit else { return label }
+        return "\(label), limit \(limit)"
+    }
+
     static func skipsUnverified(_ distance: String) -> String { "Skips the unverified \(distance)" }
     static func stillUnverified(_ distance: String) -> String { "No alternative for \(distance) unverified" }
     static func arrive(_ time: String) -> String { "arrive \(time)" }

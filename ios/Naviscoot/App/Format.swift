@@ -8,6 +8,11 @@ enum Format {
         return String(format: "%.1f km", locale: Locale(identifier: "en_US_POSIX"), Double(meters) / 1000)
     }
 
+    static func approximateDistance(meters: Double) -> String {
+        let step: Double = meters < 1000 ? 10 : 100
+        return distance(meters: Int((meters / step).rounded() * step))
+    }
+
     static func duration(seconds: Double) -> String {
         let minutes = max(1, Int((seconds / 60).rounded()))
         if minutes < 60 {

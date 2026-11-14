@@ -8,6 +8,7 @@ struct RouteMapView: View {
     var segments: [RouteSegment] = []
     var origin: Coordinate?
     var destination: Coordinate?
+    var user: Coordinate?
 
     var body: some View {
         MapView(styleURL: Theme.mapStyleURL, camera: $camera) {
@@ -22,6 +23,13 @@ struct RouteMapView: View {
             }
             let endpoints = ShapeSource(identifier: "route-endpoints") {
                 [origin, destination].compactMap { $0 }.map { point -> MLNPointFeature in
+                    let feature = MLNPointFeature()
+                    feature.coordinate = point.clLocation
+                    return feature
+                }
+            }
+            let userPoint = ShapeSource(identifier: "route-user") {
+                [user].compactMap { $0 }.map { point -> MLNPointFeature in
                     let feature = MLNPointFeature()
                     feature.coordinate = point.clLocation
                     return feature
@@ -60,6 +68,14 @@ struct RouteMapView: View {
                 .color(.white)
                 .strokeColor(Theme.inkUI)
                 .strokeWidth(5)
+            CircleStyleLayer(identifier: "route-user-halo", source: userPoint)
+                .radius(24)
+                .color(Theme.verifiedUI.withAlphaComponent(0.18))
+            CircleStyleLayer(identifier: "route-user-dot", source: userPoint)
+                .radius(11)
+                .color(Theme.verifiedUI)
+                .strokeColor(.white)
+                .strokeWidth(4)
         }
         .ignoresSafeArea()
     }

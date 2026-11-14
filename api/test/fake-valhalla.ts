@@ -5,6 +5,7 @@ export interface FakeEdge {
   way_id: number;
   use?: string;
   km: number;
+  speed_limit?: number;
 }
 
 export interface FakeRoute {
@@ -18,7 +19,14 @@ export function fakeRoute(edges: FakeEdge[], lengthKm?: number): FakeRoute {
   const coords: LatLon[] = [[52, 5]];
   const trace: TraceEdge[] = edges.map((e, i) => {
     coords.push([52 + (i + 1) * 0.001, 5 + (i + 1) * 0.001]);
-    return { way_id: e.way_id, length: e.km, use: e.use ?? "road", begin_shape_index: i, end_shape_index: i + 1 };
+    return {
+      way_id: e.way_id,
+      length: e.km,
+      use: e.use ?? "road",
+      begin_shape_index: i,
+      end_shape_index: i + 1,
+      ...(e.speed_limit === undefined ? {} : { speed_limit: e.speed_limit }),
+    };
   });
   return {
     shape: encodePolyline6(coords),

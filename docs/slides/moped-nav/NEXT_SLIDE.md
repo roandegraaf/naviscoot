@@ -1,70 +1,50 @@
 # Next slice — moped-nav
 
 Read `docs/slides/moped-nav/OVERVIEW.md` first: it's the north star and guardrail. Then read the `## Current state` header of
-`docs/slides/moped-nav/PROGRESS.md` and the slice 6 entry. Read `ios/README.md` (pins, xcconfig, `-skipMacroValidation`,
-the XCUITest UI proof) and `api/README.md` (`POST /reports`, `GET /reports`). Look at screen 3 of `docs/mockup.html` (riding).
-Follow `~/.claude/skills/native-app-testing/SKILL.md`. Drive the simulator through XCUITest: idb taps don't work on Xcode 27.
+`docs/slides/moped-nav/PROGRESS.md` and the slice 7 entry. Read `routing/README.md` ("Refresh"), `api/README.md` and
+`ios/README.md` (Setup, `Local.xcconfig`).
 
 ## This slice
-Turn-by-turn guidance in the iOS app, against the **local** API. Targets these OVERVIEW items:
-- "Turn-by-turn guidance with Dutch voice": GIVEN a simulated ride in the iOS simulator, WHEN approaching a turn, THEN the
-  banner shows distance and street and a Dutch instruction is spoken.
-- "Reroutes when off route": GIVEN a simulated ride that leaves the route, WHEN the deviation is detected, THEN a new route is
-  requested and guidance continues.
-- "Warns before an unverified stretch": GIVEN a route with an unverified stretch, WHEN approaching it, THEN a warning is shown
-  and spoken.
-- "Report button records the location": GIVEN a ride in progress, WHEN the report button is tapped, THEN the position and time
-  are stored on the server and retrievable as a list. Here "the server" means the local API; the deployed one comes later.
+Deploy the routing service on `coolify-personal`. Targets the last automatable OVERVIEW item:
+- "The API is live and protected": GIVEN the deployed service, WHEN called without the API key, THEN it is refused, and
+  with the key it returns a route.
+
+**Blocked on the user. Do not start deploying until both are given:**
+1. The hostname for the API (for example a subdomain of a domain they own, pointed at `coolify-personal`).
+2. An explicit go-ahead to deploy: containers, volumes, DNS/proxy config and an uploaded graph of about 1.3 GB.
 
 ## Scope boundaries
 - Do:
-  - **Ferrostar session:** wire the preview's Start button to a Ferrostar navigation session (FerrostarCore 0.59.0 is already
-    pinned; add the `FerrostarMapLibreUI`/`FerrostarSwiftUI` products if useful).
-    - Routes come from `NaviscootClient` through `RouteProvider.customProvider` (`CustomRouteProvider.getRoutes(userLocation:waypoints:)`),
-      so rerouting goes through the API too. Keep the `naviscoot` metadata of the active route (stretches, totals) next to Ferrostar's state.
-    - Rerouting re-requests with the same `verified_only` choice. Check Ferrostar's deviation detection and its reroute
-      callback in the 0.59.0 sources (re-clone the tag or use ctx7).
-  - **Banner and voice:** large banner per the mockup, with distance to the maneuver and the street.
-    - Spoken instructions in Dutch via the system synthesizer (`nl-NL`); the API already returns Dutch `voiceInstructions` (`language: nl-NL`).
-    - English UI labels stay in `Strings.swift`.
-  - **Unverified warning:** before an unverified stretch, show a warning chip ("Unverified path in 1.2 km, for 300 m") and speak a
-    Dutch warning once per stretch.
-    - Use the stretch shape indices against the route geometry and the user's progress along it.
-    - Pick and record a lead distance (placeholder).
-  - **Report button:** `POST /reports` with position, time and `route_id`; visible confirmation; queue and retry if the request
-    fails. `GET /reports` shows it.
-  - **Ride screen:** current speed, the speed limit of the current stretch (45 carriageway; 30/40 moped path per the
-    OVERVIEW — the API's stretches don't carry built-up yet, so decide: add a small field to the API or derive it),
-    remaining time and distance, End button, screen kept awake (`isIdleTimerDisabled`).
-    - Background audio and location are configured, but proving them with a locked screen is the user's real-device item.
-  - **Simulated ride:** in the simulator, use Ferrostar's simulated location provider (or `simctl location` with a GPX-like
-    route) along the `verified-only-north-south` default route to Woudenbergseweg 42 Maarsbergen, which crosses the 483 m
-    unverified stretch.
-    - The proof must show: a banner with distance and street; a spoken Dutch instruction (assert via a hook that
-      records what was handed to the synthesizer, since audio can't be heard in CI); a reroute after a forced deviation;
-      the unverified warning; a report retrievable from `GET /reports`.
-    - Screenshots go to the scratchpad.
-  - **Tests:** unit tests for the warning trigger (distance-to-next-unverified from progress), the report queue, and the
-    custom route provider's mapping.
+  - Two services on `coolify-personal`:
+    - Valhalla 3.9.1 (`valhalla_service` on the uploaded `routing/build/nl/` unit, internal only, never public).
+    - The API (`api/`, Node, `API_KEY` from a Coolify secret, `VALHALLA_URL` pointing at the internal Valhalla).
+    - TLS via Coolify's proxy on the chosen hostname.
+  - The graph is built locally (OVERVIEW) and uploaded; the server only serves.
+    - A script (for example `routing/deploy.sh`) uploads `tiles.tar`, `valhalla.json` (paths rewritten for the server),
+      `admins.sqlite` and `fused_access.csv`, then restarts both services.
+    - Measure the server's free RAM and disk first; the OVERVIEW's 2 GB is an unmeasured estimate. Valhalla served 1.7 GB
+      locally.
+  - `api/data/` (reports) on a persistent volume.
+  - Prove: `curl` without the key → 401, with the key → a route for `verified-only-north-south`; `GET /health` open;
+    Valhalla's port not reachable from outside.
+  - Point the app at the hostname via `ios/Config/Local.xcconfig` (https, so no local-networking exception needed) and run
+    the UI proof against it once (reports from the proof will land on the server; note it).
 - Don't:
-  - No Coolify deployment, hostname or DNS. "The API is live and protected" needs the user's hostname choice and go-ahead.
-    If the rest of the task is done, end the slice with `needs_input` asking for both instead of deploying.
+  - Expose Valhalla publicly, commit the API key, or change API behaviour.
   - No CarPlay, offline routing, favourites or recent places.
-  - Don't change API behaviour beyond small, tested additions the app needs; re-run `cd api && npm test`.
 
 ## Done when
 Tick each box in this file as it's met; a resumed attempt picks up at the first open one.
+- [ ] [user-gated] The user gave the hostname and the deploy go-ahead.
 - [ ] [user-gated] The user has reviewed the five forbidden → allowed flips of the newer-NDW rule and the Valeriusplein override
-      (`docs/audit/conflicts.md`). Also: the unverified penalty (15 km/h), the built-up proxy and slice 6's placeholder UI
-      choices (colours, icons, copy) are placeholders to sanity-check.
-- [ ] Start opens guidance; GIVEN a simulated ride, WHEN approaching a turn, THEN the banner shows distance and street and a
-      Dutch instruction is handed to the synthesizer (exercised in the simulator, screenshot saved).
-- [ ] GIVEN the simulated ride leaves the route, WHEN the deviation is detected, THEN a new route is requested from the API and
-      guidance continues (exercised).
-- [ ] GIVEN the route with the 483 m unverified stretch, WHEN approaching it, THEN the warning is shown and spoken (exercised).
-- [ ] GIVEN a ride in progress, WHEN the report button is tapped, THEN the report appears in `GET /reports` of the local API with
-      position, time and `route_id` (exercised).
-- [ ] Unit tests pass via `xcodebuild test` (scheme `Naviscoot`); the UI proof passes (scheme `NaviscootUITests`);
-      `cd api && npm test` and `cd data && uv run pytest` still pass.
+      (`docs/audit/conflicts.md`), and the placeholder choices of slices 1-7 (penalty 15 km/h, built-up proxy, 1,000 m
+      warning lead, Dutch warning wording, deviation 40 m, colours, icons, copy).
+- [ ] GIVEN the deployed service, WHEN called without the API key, THEN 401; with the key, THEN a route (exercised with curl).
+- [ ] Valhalla is not reachable from outside the server (exercised).
+- [ ] The iOS UI proof passes against the deployed API.
+- [ ] `cd api && npm test` and `cd data && uv run pytest` still pass.
+
+Still `[user-gated]` in the OVERVIEW after this: "Guidance continues with the screen locked" and "A real ride is legal end
+to end" (real iPhone rides; background audio and location are configured but unproven).
 
 When finished, run `/handoff` to record progress and write the next slice.

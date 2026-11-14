@@ -1,33 +1,39 @@
 # Progress — moped-nav
 
 ## Current state
-**Slices done:** 1 (audit), 2 (fusion), 3 (routing graph + regression), 4 (thin API, local only), 5 (one-command refresh, local), 6 (iOS search + route preview, local API). One commit per slice on top of 0423a8b. `docs/audit/*.md` is committed. These are gitignored: `docs/audit/map.html`, `docs/slides/*/status/`, `api/data/`, `routing/build/`, `ios/build/`, `ios/Config/Local.xcconfig`.
+**Slices done:** 1 (audit), 2 (fusion), 3 (routing graph + regression), 4 (thin API, local only), 5 (one-command refresh, local), 6 (iOS search + route preview), 7 (iOS guidance, voice, reroute, warning, reports; local API). One commit per slice on top of 0423a8b. `docs/audit/*.md` is committed. These are gitignored: `docs/audit/map.html`, `docs/slides/*/status/`, `api/data/`, `routing/build/`, `ios/build/`, `ios/Config/Local.xcconfig`.
+
+**Only open automatable item:** "The API is live and protected". It needs the user's hostname on `coolify-personal` and a deploy go-ahead. Also open: the two `[user-gated]` real-ride items and the placeholder reviews.
 
 **Invariants in force**
 - Region = 50 km around 52.156, 5.387. Cycle path = OSM `highway=cycleway`; status per whole way. `mofa=*` is never moped evidence, anywhere (fusion, rewrite, Lua).
 - Precedence: `data/overrides.csv` > NDW newer and unambiguous > explicit OSM tag > NDW direct > NDW propagated > unknown. The user still has to review the 5 forbidden → allowed flips and the Valeriusplein override (`docs/audit/conflicts.md`).
 - Rewrite: allowed → `moped=designated`, forbidden → `moped=no`, unknown → `moped=unverified`; `naviscoot:builtup=yes|no` on NL cycleways/paths. Outside the region OSM is untouched.
-- Valhalla 3.9.1 pinned, patched `routing/valhalla/graph.lua`. Moped paths 30 built-up / 40 outside; unverified speed 15 (placeholder). **Every motor_scooter request sends `date_time: {"type": 0}`**; level 1/2 `expand_within_distance` = 1,000 km.
-- API (`api/`, Fastify 5 + TS): `x-api-key` on everything but `/health`. `POST /route` = Valhalla JSON + top-level `naviscoot` key (stretches with inclusive shared shape indices covering the whole route, `totals_m` summing to `length_m` exactly); `format: osrm` for Ferrostar. Verified-only = `exclude_locations` loop, cap 5. Reports: append-only JSONL.
+- Valhalla 3.9.1 pinned, patched `routing/valhalla/graph.lua`. Moped paths get `max_speed` 30 built-up / 40 outside (edge `speed_limit`); unverified speed 15 (placeholder). **Every motor_scooter request sends `date_time: {"type": 0}`**; level 1/2 `expand_within_distance` = 1,000 km.
+- API (`api/`, Fastify 5 + TS): `x-api-key` on everything but `/health`. `POST /route` = Valhalla JSON + top-level `naviscoot` key: stretches with inclusive shared shape indices covering the whole route, `totals_m` summing to `length_m` exactly, and `speed_limits` runs (carriageway 45, paths the edge's 30/40, default 30). `format: osrm` for Ferrostar. Verified-only = `exclude_locations` loop, cap 5. Reports: append-only JSONL.
 - Served unit = `routing/build/nl/` (`tiles.tar`, `valhalla.json`, `admins.sqlite`, `fused_access.csv`). Refresh = `routing/refresh.sh [--force]`, rollback = `routing/refresh.sh rollback`; restart the API after either.
-- **iOS** (`ios/`, SwiftUI, iOS 18+, Swift 5 mode, XcodeGen `project.yml` + committed `.xcodeproj` and `Package.resolved`): Ferrostar 0.59.0, swiftui-dsl 0.26.1, MapLibre 6.24.0, all `exactVersion` (swiftui-dsl would otherwise float to 0.27 → MapLibre 7). Every `xcodebuild` needs `-skipMacroValidation`.
-  - API URL/key from gitignored `ios/Config/Local.xcconfig` (`http:/$()/…` because `//` is an xcconfig comment) → Info.plist `NaviscootAPIBaseURL`/`NaviscootAPIKey`. `NSAllowsLocalNetworking` for plain http to 127.0.0.1.
-  - `RouteParser`: Ferrostar `createOsrmResponseParser(polylinePrecision: 6)` for the `Route`; duration and `naviscoot` decoded separately (Ferrostar's `Route` has no duration). Geometry count must equal last `end_shape_index + 1`.
-  - All UI strings in `ios/Naviscoot/App/Strings.swift` (English; Dutch voice later).
-- Simulator UI is driven by XCUITest (`NaviscootUITests` scheme), not idb: idb_companion 1.1.8 can't do HID on Xcode 27, and `~/.local/bin/idb` points at a removed pyenv Python (`uvx --python 3.12 --from fb-idb idb` works for `describe-all` only).
+- **iOS** (`ios/`, SwiftUI, iOS 18+, Swift 5 mode, XcodeGen `project.yml` + committed `.xcodeproj` and `Package.resolved`): Ferrostar 0.59.0, swiftui-dsl 0.26.1, MapLibre 6.24.0, all `exactVersion`. Every `xcodebuild` needs `-skipMacroValidation`.
+  - API URL/key from gitignored `ios/Config/Local.xcconfig` → Info.plist. `NSAllowsLocalNetworking`. Background modes `audio` + `location`.
+  - `RouteParser`: Ferrostar OSRM parser (precision 6) + separate decode of duration and `naviscoot`. Geometry count must equal last `end_shape_index + 1`.
+  - Guidance: `FerrostarCore(customRouteProvider:)`. Start uses the preview's plan; the provider only serves reroutes (same `verified_only`). `PlanBook` maps Ferrostar `Route` → `RoutePlan`. Reroutes are accepted by `RideNavigationDelegate` on main: the simulator follows the new route first, then `startNavigation`.
+  - Voice: `DutchSpeechSynthesizer` rebuilds every utterance as plain text with the `nl-NL` voice (Valhalla SSML has no language) and records each line. The unverified warning goes through the same `SpokenInstructionObserver`, so mute and audio focus apply.
+  - Progress index = step start (joints shared; the arrive step is a degenerate 2-point step) + `currentStepGeometryIndex`.
+  - On the simulator rides are simulated by default (`-NaviscootSimulateRide`, `-NaviscootSimSpeedKmh`, `-NaviscootSimOrigin`).
+  - All UI strings in `ios/Naviscoot/App/Strings.swift` (English; voice Dutch).
+- Simulator UI is driven by XCUITest (`NaviscootUITests` scheme), not idb (idb_companion 1.1.8 can't do HID on Xcode 27).
 - No code comments unless the reason is non-obvious. No pushes by agents; commits only when the run allows it.
 
 **Commands** (see `data/README.md`, `routing/README.md`, `api/README.md`, `ios/README.md`)
 - Refresh `routing/refresh.sh`; `routing/serve.sh start|stop` (8002); `cd api && API_KEY=… npm start` (8080).
-- Tests: `cd data && uv run pytest` (50; `-m docker` 6, `-m valhalla` 12); `cd api && npm test` (41); `cd ios && xcodebuild … -scheme Naviscoot test` (18 unit); `-scheme NaviscootUITests test` with `TEST_RUNNER_NAVISCOOT_API_KEY` (UI proof, needs 8002 + 8080).
+- Tests: `cd data && uv run pytest` (50; `-m docker` 6, `-m valhalla` 12); `cd api && npm test` (45); `cd ios && xcodebuild … -scheme Naviscoot test` (31 unit); `-scheme NaviscootUITests test` with `TEST_RUNNER_NAVISCOOT_API_KEY` (3 UI tests, ~3.5 min, needs 8002 + 8080; `SearchAndPreviewUITests` also needs `simctl location set 52.2977646,5.445363`).
 - Simulator: `naviscoot-iphone17` (iPhone 17, iOS 27.2 runtime 24B8117), boot headless with `xcrun simctl boot`.
 
 **Key files**
 - `data/naviscoot_data/`: `fuse.py`, `rewrite.py`, `valhalla.py`, `paths.py`. `routing/`: `refresh.sh`, `build.sh`, `serve.sh`, `valhalla/graph.lua`, `regression_cases.json`.
-- `api/src/`: `app.ts`, `route.ts`, `classify.ts`, `reports.ts`, `valhalla.ts`, `config.ts`.
-- `ios/Naviscoot/`: `Routing/` (`NaviscootClient`, `RouteParser`, `RouteModels`), `Search/` (`PDOKClient`, `PlaceSearch`, `SearchMerge` in `SearchResult.swift`, `SearchModel`, `SearchView`), `Preview/` (`PreviewModel`, `PreviewView`, `RouteMapView`), `App/` (`NaviscootApp`, `LocationService`, `Strings`, `Format`, `Theme`).
+- `api/src/`: `app.ts`, `route.ts`, `classify.ts` (incl. `speedLimits`), `reports.ts`, `valhalla.ts`, `config.ts`.
+- `ios/Naviscoot/`: `Routing/`, `Search/`, `Preview/`, `Ride/` (`RideModel`, `RideView`, `RideNavigation` [provider, delegate, options, simulator], `RouteProgress`, `DutchSpeech`, `ReportQueue`), `App/`.
 
-**Numbers:** OSM 2026-11-13, NDW 2026-11-14 17:41Z. Fused 72,552 cycle paths (18,988 allowed, 35,758 forbidden, 17,806 unverified). Utrecht Domplein → Amersfoort 22.19 km. UI proof route (case origin → Woudenbergseweg 42 Maarsbergen): 36.11 km with 483 m unverified; verified-only 39.44 km.
+**Numbers:** OSM 2026-11-13, NDW 2026-11-14 17:41Z. Fused 72,552 cycle paths (18,988 allowed, 35,758 forbidden, 17,806 unverified). Utrecht Domplein → Amersfoort 22.19 km. UI proof route (case origin → Woudenbergseweg 42 Maarsbergen): 36.11 km with 483 m unverified (way 1497802338, limit 30); verified-only 39.44 km.
 
 ## Slice: 1 — repo setup and coverage audit (2026-11-14)
 **Shipped**
@@ -234,4 +240,53 @@
 **Placeholder choices:** bundle id `nl.naviscoot.app`; OpenFreeMap `liberty` style; colours from the mockup (verified #0B5FD9 solid, unverified #C2410C dashed [1.6, 1.0] line widths, forbidden #B42318 dashed); line width 7 with an 11 white casing; SF Symbols `mappin.and.ellipse` (address), `building.2` (place), `scope`/arrows (zoom hint); PDOK type filter and 8 rows; MapKit region 60 km; merge limit 12; 300 ms search debounce; disabled Start button; copy in `Strings.swift`; skipped the mockup's Favourites/Recent sections; simulator device `naviscoot-iphone17`.
 
 **Runtime-unverified:** none for this slice's scope. Search and preview were exercised in the iOS 27.2 simulator by XCUITest with screenshots inspected; not yet on a real iPhone.
+
+## Slice: 7 — iOS guidance, Dutch voice, reroute, unverified warning, reports (2026-11-14)
+**Shipped**
+- `ios/Naviscoot/Ride/`. The preview's Start opens a Ferrostar session; the ride screen follows mockup screen 3:
+  - Banner: maneuver symbol, distance to the maneuver, street or instruction text.
+  - Stretch chip with its limit ("Moped path, limit 40"), a rerouting chip, and Report and Mute buttons.
+  - Speed circle and limit sign; the unverified warning chip.
+  - Remaining time, distance and arrival, and End (back to search). The screen stays awake during a ride.
+- Dutch voice through `DutchSpeechSynthesizer` (see header) and a spoken Dutch warning once per unverified stretch.
+- Reroute: Ferrostar's deviation detection → `NaviscootRouteProvider` → `POST /route` with the same `verified_only` → the new plan and its `naviscoot` metadata.
+- Reports: `ReportQueue`, persisted in Application Support. It retries with backoff and at app start, and drops 400/413/422. The toast reads "Report saved with your position" or "No connection. Report kept, retrying (n waiting)".
+- `RideSimulator` (simulated location provider with a Detour) and launch arguments for simulated rides.
+- API: `naviscoot.speed_limits` from `edge.speed_limit` (`classify.ts`, `valhalla.ts`). Tests: 3 unit + 1 live integration. Fixtures refreshed (same geometry, now with `speed_limits`).
+- Tests: 13 new unit tests (`RideTests`, `ReportQueueTests`) and the `RideUITests` proof (2 tests). READMEs: `api/` (speed limits), `ios/` (guidance, simulated rides, UI proof).
+
+**Key decisions**
+- Built-up for the ride screen comes from a separate API array, not from splitting stretches. Splitting would have changed `first_edge`/`last_edge`, the verified-only exclude points and the `unavoidable` labels. Valhalla already holds the Lua's 30/40 decision as edge `speed_limit` (checked live: cycleway 30 ×33, 40 ×77).
+- An own simulator instead of Ferrostar's `SimulatedLocationProvider`. It needs a settable km/h and a sideways detour, and must switch routes before `startNavigation` restarts it. Otherwise it would replay the old route and reroute every 5 s.
+- Warning position: shape indices against the step-derived global index plus projection, not Ferrostar's `distanceRemaining`. The fixture proves the step joints (Σ counts − joints = 1,457, plus the 2-point arrive step).
+- The warning is spoken through `SpokenInstructionObserver`, not straight to the synthesizer, so audio focus (ducking, background) and Mute apply to it too.
+- The speech hook is visible only in simulated rides: a debug panel whose accessibility value is the full log. XCUITest can't read app memory.
+- The warning proof starts 1.4 km before the stretch, computed from the API's own geometry. A full 33 km ride would take minutes even at warp. The test first checks that the route from that point still crosses way 1497802338 (Bellman: a suffix of a shortest path stays shortest).
+
+**Notes / leftovers**
+- Measured in the simulator:
+  - Banner "20 m / Holkerpad".
+  - Spoken lines, all `nl-NL`: "Richting het zuiden rijden.", "Over 50 meter, Rechts afslaan.", "Links afslaan naar Holkerpad.", …
+  - The report reached `GET /reports` with that `route_id`, the position near Holkerpad and the tap time.
+  - Detour → new `route_id`, "reroutes 1", "Richting het westen rijden." spoken, the banner moved on.
+  - Warning "Unverified path in 930 m, for 483 m". Spoken: "Let op: over 1 kilometer een onbevestigd fietspad van 500 meter."
+  - On the stretch: "On unverified path, 450 m left", chip "Unverified path, limit 30", sign 30. Spoken exactly once; cleared after the stretch.
+- Screenshots (scratchpad, not committed): `07-ride-banner-voice` … `11-ride-warning-inside`.
+- MapLibre's compass poked out behind the banner corner; it is hidden on the ride screen (logo and attribution stay).
+- Skipped from the mockup: the "Then left, 1.2 km" next-maneuver chip. Arrival only shows "You have arrived" in the banner.
+- A 30-zone road still shows limit 45 (OVERVIEW rule). `min(45, posted)` would be one line in `edgeLimitKmh` if wanted.
+- The local API was started for this slice and stopped at the end; `api/data/reports.jsonl` now holds the proof's reports.
+
+**Placeholder choices:**
+- Warning: lead distance 1,000 m (chip and voice); Dutch wording "Let op: over … een onbevestigd fietspad van …" / "u rijdt op een onbevestigd fietspad, nog …"; Dutch distances rounded to 10 m (<100 m), 50 m, then 0.1 km.
+- Deviation: 40 m, needing an accuracy of 25 m or better. Steps advance at 30 m before / 5 m after. Waypoint range 100 m.
+- Simulator: 0.5 s ticks, default 45 km/h, detour 150 m sideways; proof speeds 120 and 90 km/h.
+- Reports: retry delays 10/30/60/120/300 s; 400/413/422 dropped; toast copy; flag icon.
+- Maneuver SF Symbols; camera zoom 16.5, pitch 40, rotated to course; puck colours; warning chip #FFF1E7 with #C2410C border; limit sign ring #DC2626.
+- End returns to search. Mute also silences the warning. Ride copy in `Strings.swift`.
+
+**Runtime-unverified:** everything on a real iPhone:
+- the locked screen and background audio and location (user-gated);
+- real GPS deviation behaviour;
+- how the `nl-NL` voice actually sounds. Speech was proven by the recording hook, not by ear; the simulator has an nl-NL voice.
 

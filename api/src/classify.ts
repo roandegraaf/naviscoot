@@ -17,13 +17,24 @@ export interface Stretch {
   unavoidable?: UnavoidableReason;
 }
 
+export interface SpeedLimitRun {
+  start_shape_index: number;
+  end_shape_index: number;
+  kmh: number;
+}
+
 export interface Classification {
   length_m: number;
   edge_length_m: number;
   totals_m: Record<StretchClass, number>;
   stretches: Stretch[];
+  speed_limits: SpeedLimitRun[];
   warnings: string[];
 }
+
+export const CARRIAGEWAY_LIMIT_KMH = 45;
+export const PATH_LIMITS_KMH = new Set([30, 40]);
+export const DEFAULT_PATH_LIMIT_KMH = 30;
 
 const PATH_USES = new Set([
   "cycleway",
@@ -49,6 +60,25 @@ export function edgeClass(edge: TraceEdge, fused: FusedAccess): StretchClass {
     default:
       return PATH_USES.has(edge.use) ? "moped_path" : "carriageway";
   }
+}
+
+export function edgeLimitKmh(edge: TraceEdge, cls: StretchClass): number {
+  if (cls === "carriageway") return CARRIAGEWAY_LIMIT_KMH;
+  return edge.speed_limit !== undefined && PATH_LIMITS_KMH.has(edge.speed_limit) ? edge.speed_limit : DEFAULT_PATH_LIMIT_KMH;
+}
+
+export function speedLimits(edges: TraceEdge[], fused: FusedAccess): SpeedLimitRun[] {
+  const runs: SpeedLimitRun[] = [];
+  for (const edge of edges) {
+    const kmh = edgeLimitKmh(edge, edgeClass(edge, fused));
+    const current = runs.at(-1);
+    if (current && current.kmh === kmh) {
+      current.end_shape_index = edge.end_shape_index;
+    } else {
+      runs.push({ start_shape_index: edge.begin_shape_index, end_shape_index: edge.end_shape_index, kmh });
+    }
+  }
+  return runs;
 }
 
 export function classifyRoute(edges: TraceEdge[], routeLengthM: number, fused: FusedAccess): Classification {
@@ -97,7 +127,14 @@ export function classifyRoute(edges: TraceEdge[], routeLengthM: number, fused: F
     warnings.push(`edge lengths sum to ${Math.round(edgeLengthM)} m but the route is ${lengthM} m`);
   }
 
-  return { length_m: lengthM, edge_length_m: Math.round(edgeLengthM), totals_m: totals, stretches, warnings };
+  return {
+    length_m: lengthM,
+    edge_length_m: Math.round(edgeLengthM),
+    totals_m: totals,
+    stretches,
+    speed_limits: speedLimits(edges, fused),
+    warnings,
+  };
 }
 
 export function roundToTotal(values: number[], total: number): number[] {

@@ -13,27 +13,35 @@
 		31B111209AD90F5F07242B3A /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 874576FAC5B263C49304EBE0 /* PreviewView.swift */; };
 		331983C3A099B3669806C6FA /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = 711A24A8DBCFB682AC40797C /* Format.swift */; };
 		3589953263128B0E4BA4DB0F /* pdok-lookup.json in Resources */ = {isa = PBXBuildFile; fileRef = 76EF5234DF8535F117C35D22 /* pdok-lookup.json */; };
+		4106FE78DE86801B556B8C74 /* RideTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF105E8A79E7439283AFE4B /* RideTests.swift */; };
 		424C5DE94430EC1AE1001B75 /* RouteParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9927FEFB7332A2F2923BED3 /* RouteParser.swift */; };
 		472A2A5CB0ACEEEC914844F7 /* RouteParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0595E53B80272A7EBCA54604 /* RouteParsingTests.swift */; };
 		56783EA23D392243B8C75410 /* SearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E06754939C12B838C133BCE /* SearchTests.swift */; };
 		57E1CB3AB31041E1442A6925 /* MapLibreSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = F63C43915DAC31F97AD8C5D1 /* MapLibreSwiftUI */; };
 		5DA0AC617789193B6B440289 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6A993423B8AF02850658BF /* Theme.swift */; };
+		5E344B54428A211CFF740C46 /* RouteProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCCE2F6AA31EC43BE2B5A95A /* RouteProgress.swift */; };
+		6606373DAF74328903387B0C /* RideUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9595E301BEF3B6BE4D24A21 /* RideUITests.swift */; };
 		6A72223F6E7CBC6A728222CB /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = 2001C528AFB2FF289E8AEE71 /* MapLibre */; };
 		70ABF4620BEC243887DE1533 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171D629D3782B25FBF86E9A /* LocationService.swift */; };
 		90E579C6037F0EC0EB01CABB /* route-verified-only.json in Resources */ = {isa = PBXBuildFile; fileRef = B7AEB19736C67ADC1844F056 /* route-verified-only.json */; };
 		997EB0D75FD8B8EFDEA1671F /* PreviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EB37A9CD970402C47441331 /* PreviewModel.swift */; };
 		9C2A6DEB099601137CA0B44C /* MapLibreSwiftDSL in Frameworks */ = {isa = PBXBuildFile; productRef = 43FAE71A13F8D41F85B120E3 /* MapLibreSwiftDSL */; };
 		9C758167211D6967066BD13C /* SearchResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0770DC0FAEE051D6B6DBD913 /* SearchResult.swift */; };
+		9DA1732A53D0E24250545B36 /* RideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62A9B80A9149EBEE3C5B07D4 /* RideView.swift */; };
 		A08D867BE0E40A3DE0E9C901 /* route-default.json in Resources */ = {isa = PBXBuildFile; fileRef = 9B3BA1516AB6C7082F299CBB /* route-default.json */; };
 		A5D4174F6EF8178A3669DFBF /* RouteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBC7B381CFB87A6189D9A28 /* RouteModels.swift */; };
 		B32D12C79B9CF2D4C9E4785E /* PlaceSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2E13419B77B69871E7E8A /* PlaceSearch.swift */; };
 		C0ECDAC558E298BAADEA6524 /* PDOKClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 681B3084E9093C0CA329B049 /* PDOKClient.swift */; };
 		C5C506956B1D2C85B3FD67A9 /* NaviscootClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168BBA0746EF2121441D9BFF /* NaviscootClient.swift */; };
 		C67F23480F02ADB0DB64F9B3 /* NaviscootApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ABCF4F7038DE5295306726A /* NaviscootApp.swift */; };
+		C81BEBF469A904D747A7DDA8 /* RideNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 441785CCBC97347259ECF456 /* RideNavigation.swift */; };
 		D242D95074B0384A2E1B41B8 /* SearchAndPreviewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9C9EC761A3D7A11411BFE9 /* SearchAndPreviewUITests.swift */; };
 		D2BEEA8837059FC9C3001975 /* FerrostarCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7753A9191323D891A5F09FC4 /* FerrostarCore */; };
 		DAA10FBD501034F191EB4AAF /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD4E08F65EBC25B2DC8B4B2 /* Strings.swift */; };
+		DFAEFFB2311D2C97240FA904 /* ReportQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B239176311AAF8059E4A48 /* ReportQueue.swift */; };
 		E1821A51A737F9A19AF55147 /* pdok-suggest.json in Resources */ = {isa = PBXBuildFile; fileRef = F5B457237649F5B77EF9567E /* pdok-suggest.json */; };
+		F5B7FEB8703344C7E55ED9CF /* DutchSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAEFB249BCA66A3C7E22DD66 /* DutchSpeech.swift */; };
+		FA2F371CAE060BD269B5BE2D /* RideModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF81C16736962E91AF056E7 /* RideModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,12 +65,16 @@
 		0595E53B80272A7EBCA54604 /* RouteParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteParsingTests.swift; sourceTree = "<group>"; };
 		0770DC0FAEE051D6B6DBD913 /* SearchResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResult.swift; sourceTree = "<group>"; };
 		0E06754939C12B838C133BCE /* SearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchTests.swift; sourceTree = "<group>"; };
+		10B239176311AAF8059E4A48 /* ReportQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportQueue.swift; sourceTree = "<group>"; };
 		168BBA0746EF2121441D9BFF /* NaviscootClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaviscootClient.swift; sourceTree = "<group>"; };
 		2B40D1C55D380E160BC559BA /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
 		3BBC7B381CFB87A6189D9A28 /* RouteModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteModels.swift; sourceTree = "<group>"; };
+		441785CCBC97347259ECF456 /* RideNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideNavigation.swift; sourceTree = "<group>"; };
 		459014632C4724D9DA65FCFF /* NaviscootUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NaviscootUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5EB37A9CD970402C47441331 /* PreviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewModel.swift; sourceTree = "<group>"; };
+		62A9B80A9149EBEE3C5B07D4 /* RideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideView.swift; sourceTree = "<group>"; };
 		681B3084E9093C0CA329B049 /* PDOKClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDOKClient.swift; sourceTree = "<group>"; };
+		6DF81C16736962E91AF056E7 /* RideModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideModel.swift; sourceTree = "<group>"; };
 		711A24A8DBCFB682AC40797C /* Format.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Format.swift; sourceTree = "<group>"; };
 		76EF5234DF8535F117C35D22 /* pdok-lookup.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pdok-lookup.json"; sourceTree = "<group>"; };
 		874576FAC5B263C49304EBE0 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
@@ -72,15 +84,19 @@
 		9B3BA1516AB6C7082F299CBB /* route-default.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "route-default.json"; sourceTree = "<group>"; };
 		A171D629D3782B25FBF86E9A /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		A7C2E13419B77B69871E7E8A /* PlaceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearch.swift; sourceTree = "<group>"; };
+		AAEFB249BCA66A3C7E22DD66 /* DutchSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DutchSpeech.swift; sourceTree = "<group>"; };
 		B7AEB19736C67ADC1844F056 /* route-verified-only.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "route-verified-only.json"; sourceTree = "<group>"; };
 		C7EA584608DFC7F7368E6667 /* NaviscootTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NaviscootTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C9595E301BEF3B6BE4D24A21 /* RideUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideUITests.swift; sourceTree = "<group>"; };
 		CBA41FB2C85701FC2A16567B /* RouteMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteMapView.swift; sourceTree = "<group>"; };
 		DA1DF0B036A916247EE32109 /* Naviscoot.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Naviscoot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDD4E08F65EBC25B2DC8B4B2 /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
 		E9927FEFB7332A2F2923BED3 /* RouteParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteParser.swift; sourceTree = "<group>"; };
+		ECF105E8A79E7439283AFE4B /* RideTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideTests.swift; sourceTree = "<group>"; };
 		F5B457237649F5B77EF9567E /* pdok-suggest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pdok-suggest.json"; sourceTree = "<group>"; };
 		FA6A993423B8AF02850658BF /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		FB88329B867E263A6EA9E0EE /* SearchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchModel.swift; sourceTree = "<group>"; };
+		FCCE2F6AA31EC43BE2B5A95A /* RouteProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteProgress.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +160,7 @@
 		4D974F491931C25B80A1C71F /* NaviscootTests */ = {
 			isa = PBXGroup;
 			children = (
+				ECF105E8A79E7439283AFE4B /* RideTests.swift */,
 				0595E53B80272A7EBCA54604 /* RouteParsingTests.swift */,
 				0E06754939C12B838C133BCE /* SearchTests.swift */,
 				38388A2726461E8B26DBDEDD /* Fixtures */,
@@ -165,6 +182,7 @@
 		60A8D52C66A836D99C47A2C5 /* NaviscootUITests */ = {
 			isa = PBXGroup;
 			children = (
+				C9595E301BEF3B6BE4D24A21 /* RideUITests.swift */,
 				8A9C9EC761A3D7A11411BFE9 /* SearchAndPreviewUITests.swift */,
 			);
 			path = NaviscootUITests;
@@ -200,11 +218,25 @@
 			path = Preview;
 			sourceTree = "<group>";
 		};
+		ECB9343B44A037DB58E05250 /* Ride */ = {
+			isa = PBXGroup;
+			children = (
+				AAEFB249BCA66A3C7E22DD66 /* DutchSpeech.swift */,
+				10B239176311AAF8059E4A48 /* ReportQueue.swift */,
+				6DF81C16736962E91AF056E7 /* RideModel.swift */,
+				441785CCBC97347259ECF456 /* RideNavigation.swift */,
+				62A9B80A9149EBEE3C5B07D4 /* RideView.swift */,
+				FCCE2F6AA31EC43BE2B5A95A /* RouteProgress.swift */,
+			);
+			path = Ride;
+			sourceTree = "<group>";
+		};
 		F4C72F203331F659AD3C84A3 /* Naviscoot */ = {
 			isa = PBXGroup;
 			children = (
 				015FDD30E0E2152655F7BF74 /* App */,
 				DA3BCFE6F08A4D8560480F73 /* Preview */,
+				ECB9343B44A037DB58E05250 /* Ride */,
 				166C06FA8F6BB03DE0BB9455 /* Routing */,
 				716A1B30D6434BB84E8B89F7 /* Search */,
 			);
@@ -339,6 +371,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6606373DAF74328903387B0C /* RideUITests.swift in Sources */,
 				D242D95074B0384A2E1B41B8 /* SearchAndPreviewUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -347,6 +380,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F5B7FEB8703344C7E55ED9CF /* DutchSpeech.swift in Sources */,
 				331983C3A099B3669806C6FA /* Format.swift in Sources */,
 				70ABF4620BEC243887DE1533 /* LocationService.swift in Sources */,
 				C67F23480F02ADB0DB64F9B3 /* NaviscootApp.swift in Sources */,
@@ -355,9 +389,14 @@
 				B32D12C79B9CF2D4C9E4785E /* PlaceSearch.swift in Sources */,
 				997EB0D75FD8B8EFDEA1671F /* PreviewModel.swift in Sources */,
 				31B111209AD90F5F07242B3A /* PreviewView.swift in Sources */,
+				DFAEFFB2311D2C97240FA904 /* ReportQueue.swift in Sources */,
+				FA2F371CAE060BD269B5BE2D /* RideModel.swift in Sources */,
+				C81BEBF469A904D747A7DDA8 /* RideNavigation.swift in Sources */,
+				9DA1732A53D0E24250545B36 /* RideView.swift in Sources */,
 				2228D37E18D6F5FB31CB4460 /* RouteMapView.swift in Sources */,
 				A5D4174F6EF8178A3669DFBF /* RouteModels.swift in Sources */,
 				424C5DE94430EC1AE1001B75 /* RouteParser.swift in Sources */,
+				5E344B54428A211CFF740C46 /* RouteProgress.swift in Sources */,
 				1D60F819474B26B28CED9264 /* SearchModel.swift in Sources */,
 				9C758167211D6967066BD13C /* SearchResult.swift in Sources */,
 				0B519DB06921B3C2088EC7B0 /* SearchView.swift in Sources */,
@@ -370,6 +409,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4106FE78DE86801B556B8C74 /* RideTests.swift in Sources */,
 				472A2A5CB0ACEEEC914844F7 /* RouteParsingTests.swift in Sources */,
 				56783EA23D392243B8C75410 /* SearchTests.swift in Sources */,
 			);

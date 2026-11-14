@@ -88,11 +88,24 @@ struct VerifiedOnlyInfo: Codable, Equatable {
     }
 }
 
+struct SpeedLimitRun: Codable, Equatable {
+    let startShapeIndex: Int
+    let endShapeIndex: Int
+    let kmh: Int
+
+    enum CodingKeys: String, CodingKey {
+        case startShapeIndex = "start_shape_index"
+        case endShapeIndex = "end_shape_index"
+        case kmh
+    }
+}
+
 struct NaviscootMeta: Codable, Equatable {
     let routeId: String
     let lengthM: Int
     let totalsM: RouteTotals
     let stretches: [Stretch]
+    let speedLimits: [SpeedLimitRun]?
     let warnings: [String]
     let verifiedOnly: VerifiedOnlyInfo?
 
@@ -101,6 +114,7 @@ struct NaviscootMeta: Codable, Equatable {
         case lengthM = "length_m"
         case totalsM = "totals_m"
         case stretches
+        case speedLimits = "speed_limits"
         case warnings
         case verifiedOnly = "verified_only"
     }

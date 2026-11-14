@@ -130,13 +130,13 @@ own fused access dataset first and a navigation app on top of it.
   GIVEN the app, WHEN typing a street address or a place such as a station, THEN both appear and selecting one opens the route preview
 - [x] Preview shows what the route consists of
   GIVEN a selected destination, WHEN the preview opens, THEN it shows time, distance, the distance per type and unverified stretches drawn differently on the map
-- [ ] Turn-by-turn guidance with Dutch voice
+- [x] Turn-by-turn guidance with Dutch voice
   GIVEN a simulated ride in the iOS simulator, WHEN approaching a turn, THEN the banner shows distance and street and a Dutch instruction is spoken
-- [ ] Reroutes when off route
+- [x] Reroutes when off route
   GIVEN a simulated ride that leaves the route, WHEN the deviation is detected, THEN a new route is requested and guidance continues
-- [ ] Warns before an unverified stretch
+- [x] Warns before an unverified stretch
   GIVEN a route with an unverified stretch, WHEN approaching it, THEN a warning is shown and spoken
-- [ ] Report button records the location
+- [x] Report button records the location
   GIVEN a ride in progress, WHEN the report button is tapped, THEN the position and time are stored on the server and retrievable as a list
 - [ ] Guidance continues with the screen locked `[user-gated]`
   GIVEN a real iPhone on a ride, WHEN the screen is locked, THEN voice instructions keep coming

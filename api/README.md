@@ -86,7 +86,11 @@ Every endpoint except `GET /health` needs the header `x-api-key: <API_KEY>`. A m
       {"class": "unverified", "start_shape_index": 1341, "end_shape_index": 1377, "first_edge": 412, "last_edge": 413,
        "length_m": 483, "way_ids": [1497802338]}
     ],
-    "warnings": [],
+    "speed_limits": [
+      {"start_shape_index": 0, "end_shape_index": 48, "kmh": 45},
+      {"start_shape_index": 48, "end_shape_index": 61, "kmh": 40}
+    ],
+    "warnings": []
   }
 }
 ```
@@ -115,6 +119,14 @@ Errors:
    scaled to the route length and rounded with the largest-remainder method, so `totals_m` and the stretches sum to
    `length_m` (the route length rounded to whole metres) with zero tolerance. The raw sum stays visible as
    `edge_length_m`; a gap over 0.5% adds a warning.
+
+### Speed limits
+
+`speed_limits` holds runs of one legal bromfiets limit, in the same shape indices as the stretches and covering the whole
+route. It is independent of the stretches, so it never changes their edges or the verified-only loop.
+- Carriageway edges: 45 (OVERVIEW: 45 on the carriageway, also on a road whose own limit is lower).
+- Every other edge: the edge's `speed_limit` from `trace_attributes`. The patched `graph.lua` writes the built-up decision into
+  it (30 in the built-up area, 40 outside), also on unverified paths. A missing value or anything other than 30/40 gives 30.
 
 ### Verified only
 

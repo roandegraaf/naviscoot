@@ -71,3 +71,39 @@ final class NaviscootClient {
         }
     }
 }
+
+extension NaviscootClient: ReportSending {
+    func makeReportRequest(_ report: PendingReport) throws -> URLRequest {
+        var request = URLRequest(url: config.baseURL.appending(path: "reports"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue(config.apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        var body: [String: Any] = [
+            "lat": report.lat,
+            "lon": report.lon,
+            "time": ISO8601DateFormatter().string(from: report.time),
+        ]
+        if let routeId = report.routeId {
+            body["route_id"] = routeId
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    func send(_ report: PendingReport) async throws {
+        let request = try makeReportRequest(report)
+        let response: URLResponse
+        do {
+            (_, response) = try await session.data(for: request)
+        } catch {
+            throw ReportSendError.retryable
+        }
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        switch status {
+        case 200 ..< 300: return
+        case 400, 413, 422: throw ReportSendError.rejected(status: status)
+        default: throw ReportSendError.retryable
+        }
+    }
+}

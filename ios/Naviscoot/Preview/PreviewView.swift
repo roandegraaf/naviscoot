@@ -6,15 +6,23 @@ struct PreviewView: View {
     @StateObject private var model: PreviewModel
     @ObservedObject var location: LocationService
     let onBack: () -> Void
+    let onStart: (RoutePlan, Bool) -> Void
 
     @State private var camera: MapViewCamera
     @State private var focusedOnUnverified = false
     private static let sheetHeight: CGFloat = 470
 
-    init(destination: Destination, client: NaviscootClient?, location: LocationService, onBack: @escaping () -> Void) {
+    init(
+        destination: Destination,
+        client: NaviscootClient?,
+        location: LocationService,
+        onBack: @escaping () -> Void,
+        onStart: @escaping (RoutePlan, Bool) -> Void
+    ) {
         _model = StateObject(wrappedValue: PreviewModel(destination: destination, client: client))
         self.location = location
         self.onBack = onBack
+        self.onStart = onStart
         _camera = State(initialValue: .center(destination.coordinate.clLocation, zoom: 13))
     }
 
@@ -107,12 +115,16 @@ struct PreviewView: View {
             summary(plan)
             breakdown(plan.meta.totalsM)
             verifiedOnlyToggle(plan: plan)
-            Button(Strings.start) {}
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 60)
-                .background(Theme.verified.opacity(0.45), in: Capsule())
-                .disabled(true)
+            Button {
+                onStart(plan, model.verifiedOnly)
+            } label: {
+                Text(Strings.start)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 60)
+                    .background(Theme.verified, in: Capsule())
+            }
+            .accessibilityIdentifier("preview.start")
         }
     }
 
