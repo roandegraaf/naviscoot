@@ -92,7 +92,11 @@ Every endpoint except `GET /health` needs the header `x-api-key: <API_KEY>`. A m
 The example is the default route of `verified-only-north-south`. With `verified_only: true` the same trip comes back as
 39.54 km with no unverified stretch and `"verified_only": {"requests": 2, "excluded_points": 2, "converged": true}`.
 
-Errors: `400` invalid body, `422 {"error":"no_route"}` when Valhalla finds no route, `502 {"error":"valhalla_unavailable"}`.
+Errors:
+- `400`: invalid body.
+- `422 {"error":"no_route"}`: Valhalla finds no route.
+- `502 {"error":"valhalla_unavailable"}`: Valhalla is unreachable or answers 5xx.
+- `502 {"error":"classification_failed"}`: a route exists but its edge walk failed, so it can't be classified.
 
 ### Classification
 

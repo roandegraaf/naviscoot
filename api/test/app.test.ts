@@ -125,6 +125,19 @@ describe("POST /route", () => {
     const down = await makeApp(() => new ValhallaError("valhalla route unreachable", 0));
     const res2 = await down.inject({ method: "POST", url: "/route", payload: routeBody, headers: { "x-api-key": KEY } });
     expect(res2.statusCode).toBe(502);
+    expect(res2.json().error).toBe("valhalla_unavailable");
+  });
+
+  it("does not claim there is no route when only the edge walk fails", async () => {
+    const valhalla = fakeValhalla(() => crossing);
+    valhalla.edgeWalk = async () => {
+      throw new ValhallaError("valhalla trace_attributes 400: Exceeded max distance", 400, 154);
+    };
+    const app = buildApp({ apiKey: KEY, valhalla, fused, reports: await ReportStore.open(join(dir, "r.jsonl")), maxVerifiedRequests: 5 });
+    apps.push(app);
+    const res = await app.inject({ method: "POST", url: "/route", payload: routeBody, headers: { "x-api-key": KEY } });
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error).toBe("classification_failed");
   });
 });
 

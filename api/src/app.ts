@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { FusedAccess } from "./fused.js";
 import type { ReportInput, ReportStore } from "./reports.js";
-import { type Point, planRoute, type RouteFormat } from "./route.js";
+import { ClassificationError, type Point, planRoute, type RouteFormat } from "./route.js";
 import { type ValhallaClient, ValhallaError } from "./valhalla.js";
 
 export interface AppDeps {
@@ -81,6 +81,10 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof ClassificationError) {
+      request.log.error({ err: error }, "classification failed");
+      return reply.code(502).send({ error: "classification_failed", message: error.message });
+    }
     if (error instanceof ValhallaError) {
       request.log.warn({ err: error }, "valhalla error");
       if (error.unavailable) return reply.code(502).send({ error: "valhalla_unavailable", message: error.message });

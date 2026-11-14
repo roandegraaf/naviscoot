@@ -24,9 +24,26 @@ the one being served. Uploading tiles to Coolify is not part of this slice. The 
     - Run the API integration tests with `REQUIRE_VALHALLA=1` and `VALHALLA_URL` set (`cd api && npm run test:integration`).
     - Any failure → non-zero exit, a clear message naming the failed step, the staging container stopped, and the live
       graph (`routing/build/nl`, port 8002) untouched.
+  - **Stage the data too, not only the tiles.** Today `uv run audit` and `uv run rewrite` overwrite `data/build/fused_access.csv`
+    and `routable.osm.pbf` in place, before any gate.
+    - Without staging, a failed refresh leaves the old served graph paired with a new fused CSV. The API then misclassifies
+      (that drift is what its `forbidden` class and warning exist for), and the Python suite compares against the wrong
+      `unverified_ids`.
+    - The promoted (and rolled-back) unit is `tiles.tar` + `valhalla.json` + the `fused_access.csv` the graph was built from.
+      One option: copy the CSV into the OUT dir and point the API's `FUSED_ACCESS_CSV` at `routing/build/nl/fused_access.csv`.
+      The gate's tests must read the staged CSV.
+    - On failure, the CSV that belongs to the live graph must be the old one.
   - **Promote:** only on success. Swap staging into `routing/build/nl` (keep the previous build as `nl-prev` for one rollback),
-    then restart `routing/serve.sh`. Note: `valhalla.json` contains in-container paths with the `OUT` dir in them, so
-    regenerate it for the final location (`build.sh config` with the final `OUT`) or make the config relocatable.
+    then restart `routing/serve.sh`.
+    - `valhalla.json` contains in-container paths with the `OUT` dir in them. Regenerate it for the final location
+      (`build.sh config` with the final `OUT`) or make the config relocatable.
+    - The API reads the CSV only at startup, so promote must restart the API if one is running, or at least print that it
+      must be restarted.
+  - Audit rewrites the tracked `docs/audit/coverage.md` and `conflicts.md` on every run, including failed refreshes. Mention this
+    in the README; don't commit refreshed audit docs as part of a failed run.
+  - **If a real refresh fails a regression case because OSM or NDW data changed**, that is a finding, not a bug to paper over.
+    Don't loosen or delete the case. Report it with `STATUS: needs_input` and name the case and what changed.
+    - The API integration assertion that `verified-only-north-south` has 400–600 m unverified is the most likely to trip.
   - **Report:** print a short summary at the end: OSM and NDW dates, fused counts (allowed/forbidden/unknown), tile size,
     test counts, total time. Append the same line to a gitignored log, e.g. `routing/build/refresh.log`.
   - **Prove the gate fails loudly:** add a deliberately broken case to a copy of `regression_cases.json`, or point the gate at
@@ -51,6 +68,8 @@ Tick each box in this file as it's met; a resumed attempt picks up at the first 
       step, and the served graph on 8002 is unchanged (exercised, not just written).
 - [ ] A real end-to-end refresh succeeded: the new graph is served on 8002, `uv run pytest -m valhalla` and
       `cd api && npm run test:integration` pass against it, and the timing is recorded.
+- [ ] The fused CSV moves with its graph: after a failed refresh the live graph and the CSV the API reads are still the old
+      pair; after a successful one both are new and the API was restarted (or told to).
 - [ ] Previous build kept for one rollback, with the rollback command documented.
 - [ ] `uv run pytest` and `cd api && npm test` still pass.
 

@@ -23,7 +23,7 @@
   - `uv run pytest`: 50 unit tests.
   - `-m docker`: 6 fixture tests, stock vs patched Lua.
   - `-m valhalla`: 12 regression tests against the served NL graph.
-- `cd api`: `npm ci`, `npm run build`, `API_KEY=… npm start` (127.0.0.1:8080), `npm test` (33 unit + 7 integration, integration skipped without Valhalla), `npm run test:integration` (`REQUIRE_VALHALLA=1`).
+- `cd api`: `npm ci`, `npm run build`, `API_KEY=… npm start` (127.0.0.1:8080), `npm test` (34 unit + 7 integration, integration skipped without Valhalla), `npm run test:integration` (`REQUIRE_VALHALLA=1`).
 
 **Key files**
 - `data/naviscoot_data/`:
@@ -149,7 +149,7 @@
 - `api/`: Fastify 5, TypeScript (strict, ESM), Vitest, `package-lock.json`. `npm run build|typecheck|test|test:integration`, `npm start`.
 - `POST /route` (origin, destination, `verified_only`, `format` valhalla|osrm, `language` default nl-NL), `POST /reports`, `GET /reports`, open `GET /health`.
 - Classification via edge_walk + `fused_access.csv` in memory; verified-only loop ported from `valhalla.py` (cap 5, fallback with `unavoidable`).
-- Tests: 33 unit (fake Valhalla: classification, totals, loop incl. failure/cap/endpoint, auth, errors, reports incl. restart and crash-truncated line) and 7 integration (`verified-only-north-south`, OSRM format, Domplein, 422, Groningen → Maastricht 200+ km).
+- Tests: 34 unit (fake Valhalla: classification, totals, loop incl. failure/cap/endpoint, auth, errors incl. classification_failed, reports incl. restart and crash-truncated line) and 7 integration (`verified-only-north-south`, OSRM format, Domplein, 422, Groningen → Maastricht 200+ km).
 - `api/README.md`; `.gitignore` gets `api/data/`.
 
 **Key decisions**
@@ -158,6 +158,7 @@
 - Lengths: Valhalla edge lengths fall 0.02-0.03% short of the route length (8 m on 36 km, 27 m on 129 km). Stretches use edge lengths scaled to the route length with largest-remainder rounding, so totals equal `length_m` exactly. The raw sum is exposed as `edge_length_m`; a gap > 0.5% adds a warning.
 - A fourth class `forbidden` (always 0 in practice) plus a warning, so graph/CSV drift is visible instead of being called a moped path.
 - `unavoidable`: `endpoint` when an unverified stretch lies only on the first/last edge, `no_alternative` when the loop failed or hit the cap.
+- Errors: `422 no_route` only when Valhalla finds no route; `502 classification_failed` when a route exists but its edge walk fails; `502 valhalla_unavailable` when Valhalla is down.
 - Reports: append-only JSONL with fsync per write; a crash-truncated last line is dropped at start. Chosen over SQLite (no native module; `node:sqlite` is still experimental on Node 24.14).
 - Valhalla service limits were already raised in slice 3 (trace 400 km, 2,000 exclude locations), so long routes edge-walk fine.
 

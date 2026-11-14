@@ -71,10 +71,17 @@ function geometry(response: ValhallaResponse, format: RouteFormat): { shape: str
   return { shape: leg.shape, lengthM: trip.summary.length * 1000 };
 }
 
+export class ClassificationError extends Error {}
+
 async function attempt(deps: RouteDeps, req: RouteRequest, exclude: Point[]): Promise<Attempt> {
   const response = await deps.valhalla.route(valhallaBody(req, exclude));
   const { shape, lengthM } = geometry(response, req.format);
-  const edges = await deps.valhalla.edgeWalk(shape);
+  let edges: TraceEdge[];
+  try {
+    edges = await deps.valhalla.edgeWalk(shape);
+  } catch (err) {
+    throw new ClassificationError(`route found but edge walk failed: ${(err as Error).message}`);
+  }
   return { response, shape, edges, classification: classifyRoute(edges, lengthM, deps.fused) };
 }
 
