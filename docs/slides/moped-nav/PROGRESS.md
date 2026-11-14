@@ -1,7 +1,7 @@
 # Progress — moped-nav
 
 ## Current state
-**Slices done:** 1 (audit), 2 (fusion), 3 (routing graph + regression). First commit 0423a8b holds slices 1-2. `docs/audit/*.md` is committed; `docs/audit/map.html` and `docs/slides/*/status/` are gitignored.
+**Slices done:** 1 (audit), 2 (fusion), 3 (routing graph + regression), 4 (thin API, local only). Commits: 0423a8b (slices 1-2), 0773b35 (slice 3), slice 4 on top. `docs/audit/*.md` is committed; `docs/audit/map.html`, `docs/slides/*/status/` and `api/data/` are gitignored.
 
 **Invariants in force**
 - Region = 50 km around 52.156, 5.387. Cycle path = OSM `highway=cycleway`; status per whole way. `mofa=*` is never moped evidence, anywhere (fusion, rewrite, Lua).
@@ -12,8 +12,9 @@
   - Moped paths: speed limit and speed 30 built-up / 40 outside. Unverified paths: speed 15 (placeholder), limit 30/40.
 - **Every motor_scooter route request sends `date_time: {"type": 0}`** (unidirectional A*). The server config raises level 1/2 `expand_within_distance` to 1,000 km. Without both, long routes fail ("No path") or are suboptimal. See `routing/README.md`.
 - Route classification = `trace_attributes` edge_walk with `edge.way_id`, looked up in `fused_access.csv` (confirmed).
-- Verified-only = re-request with `exclude_locations` at unverified edge midpoints, first/last edge exempt. 2-4 requests on real trips.
-- No code comments unless the reason is non-obvious. No commits/pushes by agents unless the run allows it.
+- Verified-only = re-request with `exclude_locations` at unverified edge midpoints, first/last edge exempt. 2-4 requests on real trips. The API caps at 5 and falls back to the last route with `unavoidable` stretches; it never errors when a route exists.
+- API (`api/`, Fastify 5 + TS + Vitest): `x-api-key` on everything but `/health` (checked in `onRequest`, before validation). `POST /route` returns Valhalla's response unchanged plus a top-level `naviscoot` key (stretches, `totals_m`, `verified_only`). `format: osrm` = Ferrostar's format. Totals sum exactly to the route length (edge lengths scaled, largest-remainder rounding). Reports: append-only JSONL at `REPORTS_PATH`.
+- No code comments unless the reason is non-obvious. No pushes by agents; commits only when the run allows it.
 
 **Commands** (see `data/README.md`, `routing/README.md`)
 - `cd data`: `uv run fetch`, `uv run audit` (~45 s), `uv run rewrite` (~330 s → `build/routable.osm.pbf`).
@@ -22,6 +23,7 @@
   - `uv run pytest`: 50 unit tests.
   - `-m docker`: 6 fixture tests, stock vs patched Lua.
   - `-m valhalla`: 12 regression tests against the served NL graph.
+- `cd api`: `npm ci`, `npm run build`, `API_KEY=… npm start` (127.0.0.1:8080), `npm test` (33 unit + 7 integration, integration skipped without Valhalla), `npm run test:integration` (`REQUIRE_VALHALLA=1`).
 
 **Key files**
 - `data/naviscoot_data/`:
@@ -30,6 +32,7 @@
 - `routing/valhalla/graph.lua` + `graph.lua.patch` (diff vs stock), `routing/build.sh`, `routing/serve.sh`.
 - `routing/test/fixture.osm` (6 synthetic scenes), `routing/regression_cases.json` (11 real cases).
 - Tests: `data/tests/test_graph_lua.py`, `test_regression_routes.py`, `test_rewrite.py`.
+- `api/src/`: `app.ts` (routes, auth, errors), `route.ts` (Valhalla body, verified-only loop), `classify.ts`, `reports.ts`, `valhalla.ts`, `config.ts`; `api/test/` (fake Valhalla, unit, `integration.test.ts`). `api/README.md` documents endpoints and env vars.
 
 **Numbers:** OSM 2026-11-13, NDW 2026-11-14.
 - Fused: 72,552 cycle paths (18,988 allowed, 35,758 forbidden, 17,806 unverified).
@@ -140,4 +143,35 @@
 - Fixture coordinates and names.
 
 **Runtime-unverified:** none (no UI). All routing behaviour was exercised against the live local NL graph and the fixture graphs.
+
+## Slice: 4 — thin API, local (2026-11-14)
+**Shipped**
+- `api/`: Fastify 5, TypeScript (strict, ESM), Vitest, `package-lock.json`. `npm run build|typecheck|test|test:integration`, `npm start`.
+- `POST /route` (origin, destination, `verified_only`, `format` valhalla|osrm, `language` default nl-NL), `POST /reports`, `GET /reports`, open `GET /health`.
+- Classification via edge_walk + `fused_access.csv` in memory; verified-only loop ported from `valhalla.py` (cap 5, fallback with `unavoidable`).
+- Tests: 33 unit (fake Valhalla: classification, totals, loop incl. failure/cap/endpoint, auth, errors, reports incl. restart and crash-truncated line) and 7 integration (`verified-only-north-south`, OSRM format, Domplein, 422, Groningen → Maastricht 200+ km).
+- `api/README.md`; `.gitignore` gets `api/data/`.
+
+**Key decisions**
+- Fastify over Hono: built-in JSON-schema validation and `inject()`, no Node adapter. Auth runs in `onRequest`, so a keyless request with a bad body gets 401, not 400.
+- Response = Valhalla's own JSON plus a top-level `naviscoot` key. Ferrostar's Valhalla integration only parses the extended OSRM format (confirmed in its docs), so `format: osrm` returns `routes/waypoints/code` at the top level with banner and voice instructions.
+- Lengths: Valhalla edge lengths fall 0.02-0.03% short of the route length (8 m on 36 km, 27 m on 129 km). Stretches use edge lengths scaled to the route length with largest-remainder rounding, so totals equal `length_m` exactly. The raw sum is exposed as `edge_length_m`; a gap > 0.5% adds a warning.
+- A fourth class `forbidden` (always 0 in practice) plus a warning, so graph/CSV drift is visible instead of being called a moped path.
+- `unavoidable`: `endpoint` when an unverified stretch lies only on the first/last edge, `no_alternative` when the loop failed or hit the cap.
+- Reports: append-only JSONL with fsync per write; a crash-truncated last line is dropped at start. Chosen over SQLite (no native module; `node:sqlite` is still experimental on Node 24.14).
+- Valhalla service limits were already raised in slice 3 (trace 400 km, 2,000 exclude locations), so long routes edge-walk fine.
+
+**Notes / leftovers**
+- Measured live (built server, curl): 401 without/with a wrong key; `verified-only-north-south` 36.25 km with one 483 m unverified stretch (way 1497802338); verified-only 39.54 km, 2 requests, no unverified stretch; report survives a restart.
+- For iOS:
+  - Ferrostar needs a custom `RouteRequestGenerator` (POST `/route` with `x-api-key` and `format: osrm`).
+  - It also needs a response parser that hands the body to the OSRM parser and reads `naviscoot` separately.
+  - Ferrostar's `ValhallaExtendedOSRMAnnotation` (speed limits) may need extra Valhalla options (shape attributes / filters) in `valhallaBody` (`api/src/route.ts`). Check this in the iOS slice.
+- Only origin + destination (one leg). No via points.
+- A point in the North Sea snapped to the Hull–Rotterdam ferry and routed. `motor_scooter` takes ferries; this is not a legality issue.
+- The Python regression suite still passes (12/12). Graph, Lua and fusion were not touched.
+
+**Placeholder choices:** header name `x-api-key`; default port 8080; `MAX_VERIFIED_REQUESTS` 5; 0.5% edge-length warning threshold; note ≤ 2,000 chars, `route_id` ≤ 100; default language `nl-NL`; Valhalla uses counted as moped path when the way is not in the CSV (cycleway, path, mountain_bike, footway, sidewalk, pedestrian, pedestrian_crossing, bridleway); Groningen/Maastricht test coordinates.
+
+**Runtime-unverified:** none (no UI). Every endpoint was called on the built server against the live local graph.
 

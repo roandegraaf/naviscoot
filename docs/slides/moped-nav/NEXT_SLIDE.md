@@ -1,71 +1,57 @@
 # Next slice — moped-nav
 
-Read `docs/slides/moped-nav/OVERVIEW.md` first: it's the north star and guardrail. Then read the
-`## Current state` header of `docs/slides/moped-nav/PROGRESS.md` and the slice 3 entry. Read
-`routing/README.md`, especially "Search configuration (required)", "Route classification for the API" and "Verified-only
-alternative". `data/naviscoot_data/valhalla.py` is a working Python reference for everything this slice ports to TypeScript.
+Read `docs/slides/moped-nav/OVERVIEW.md` first: it's the north star and guardrail. Then read the `## Current state` header of
+`docs/slides/moped-nav/PROGRESS.md` and the slice 3 and 4 entries. Read `data/README.md` (fetch is incremental, `--force`
+re-downloads), `routing/README.md` ("Commands", "Build figures", "Regression suite") and `api/README.md` ("Tests").
 
 ## This slice
-Build the thin API in `api/` (TypeScript, Node) in front of the local Valhalla:
-- route with per-stretch classification;
-- the verified-only alternative;
-- a reports endpoint;
-- a static API key.
+Make the data refresh one command, run locally. It targets this OVERVIEW item:
+- "Data refresh is one command": GIVEN newer OSM and NDW data, WHEN the refresh command runs, THEN it rebuilds the fused
+  extract and graph and fails loudly if a regression case breaks.
 
-Everything runs and is tested locally. No deployment.
-
-This targets these OVERVIEW items:
-- "Unverified stretches are reported per route"
-- "A verified-only alternative is available"
-- the local half of "The API is live and protected" (refused without the key, a route with it). Going live on Coolify is a later,
-  user-approved slice.
+The command chains the existing steps and gates the new graph on the regression suite, so a broken graph never replaces
+the one being served. Uploading tiles to Coolify is not part of this slice. The output should be a finished, tested
+`tiles.tar` that a later deploy slice can upload.
 
 ## Scope boundaries
 - Do:
-  - **Project:** `api/` with a lockfile, `tsc` typecheck and a test runner. Pick a small HTTP framework (e.g. Fastify or Hono) and
-    note why in `api/README.md`. Config by env vars: `VALHALLA_URL` (default `http://127.0.0.1:8002`), `API_KEY`, the
-    fused CSV path, the reports store path, and the port.
-  - **Auth:** every endpoint except a health check requires the API key header (e.g. `x-api-key`). Wrong or missing → 401.
-  - **Route endpoint** (e.g. `POST /route` with origin, destination and `verified_only`):
-    - calls Valhalla `motor_scooter` **with `date_time: {"type": 0}`** (required, see routing README);
-    - returns the Valhalla trip for the client (shape, maneuvers; Ferrostar's Valhalla adapter will consume it later, so keep
-      the native Valhalla response available rather than reinventing it);
-    - plus a classification: per stretch carriageway / moped path / unverified, with totals per type.
-  - **Classification rules:**
-    - Get way ids with `trace_attributes` edge_walk (`edge.way_id`, plus `edge.road_class`/`edge.use` or similar as needed).
-    - Look them up in `data/build/fused_access.csv`, loaded into memory at start.
-    - unknown → unverified; allowed → moped path; any other edge whose use is a cycleway/path → moped path; else carriageway.
-    - Merge consecutive edges of the same class into stretches with start/end shape indices and length.
-    - Totals must add up to the route length (allow rounding tolerance and state it).
-  - **Verified-only:**
-    - Port the `exclude_locations` loop: midpoints of unverified edges, first and last edge exempt, cap about 5 requests.
-    - On a failed re-request, return the last successful route with its remaining unverified stretches flagged as
-      unavoidable. Never return an error when a route exists.
-  - **Reports:**
-    - `POST /reports` stores position (lat, lon), time, optional note and optional route id.
-    - `GET /reports` lists them.
-    - Use a simple durable store (SQLite or an append-only JSON file under a gitignored data dir); say which and why.
-  - **Tests:**
-    - Unit tests with a mocked Valhalla for classification, totals, the verified-only loop and auth.
-    - Integration tests (skippable without a local Valhalla) using real cases from `routing/regression_cases.json`: the
-      `verified-only-north-south` route crosses a 483 m unverified path. GIVEN that route, the API classifies it unverified and
-      the totals add up; WHEN verified-only is requested, there is no unverified stretch.
+  - **One entry point**, e.g. `./refresh.sh` at the repo root or `routing/refresh.sh`. Say which and why in `routing/README.md`.
+  - **Chain:** `uv run fetch` (pass `--force` through as an option) → `uv run audit` → `uv run rewrite` → `routing/build.sh all`.
+    - Build into a **staging** output dir, e.g. `OUT=routing/build/nl-next`. `build.sh` and `serve.sh` already read `OUT`, `NAME` and `PORT`.
+  - **Gate:**
+    - Serve the staging graph on a spare port (e.g. 8003, its own container `NAME`).
+    - Run `uv run pytest -m valhalla` with `VALHALLA_URL` pointing at it.
+    - Run the API integration tests with `REQUIRE_VALHALLA=1` and `VALHALLA_URL` set (`cd api && npm run test:integration`).
+    - Any failure → non-zero exit, a clear message naming the failed step, the staging container stopped, and the live
+      graph (`routing/build/nl`, port 8002) untouched.
+  - **Promote:** only on success. Swap staging into `routing/build/nl` (keep the previous build as `nl-prev` for one rollback),
+    then restart `routing/serve.sh`. Note: `valhalla.json` contains in-container paths with the `OUT` dir in them, so
+    regenerate it for the final location (`build.sh config` with the final `OUT`) or make the config relocatable.
+  - **Report:** print a short summary at the end: OSM and NDW dates, fused counts (allowed/forbidden/unknown), tile size,
+    test counts, total time. Append the same line to a gitignored log, e.g. `routing/build/refresh.log`.
+  - **Prove the gate fails loudly:** add a deliberately broken case to a copy of `regression_cases.json`, or point the gate at
+    a stock-Lua graph (`GRAPH_LUA=stock`). Show a non-zero exit and that the live graph was not swapped. Make the cases file
+    path an env var if needed (the Python test reads `routing/regression_cases.json`). Don't commit the broken case.
+  - Run the real refresh once end to end (expect ~10 minutes: rewrite ~330 s, tiles ~110 s, audit ~45 s, fetch depends on
+    Geofabrik). Record the timing in `routing/README.md`.
 - Don't:
-  - No Coolify deployment, Dockerfile push, DNS or hostname choices.
-  - No iOS. No one-command refresh yet.
-  - Don't change the graph, Lua or fusion unless a bug is found. If you do, rebuild and re-run all three test tiers
-    (`uv run pytest`, `-m docker`, `-m valhalla`).
+  - No Coolify deployment, no upload, no DNS or hostname choices. Those need the user's go-ahead and belong to a later slice.
+  - No iOS.
+  - Don't change fusion rules, Lua or the API behaviour. A bug found on the way may be fixed; then re-run all test tiers
+    (`uv run pytest`, `-m docker`, `-m valhalla`, `cd api && npm test`).
+  - Disk: the tile build needs ~2 GB per output dir. Check free space before keeping three dirs (`nl`, `nl-next`,
+    `nl-prev`); if tight, keep only `nl-prev`'s `tiles.tar` and `valhalla.json`.
 
 ## Done when
 Tick each box in this file as it's met; a resumed attempt picks up at the first open one.
 - [ ] [user-gated] The user has reviewed the five forbidden → allowed flips of the newer-NDW rule and the Valeriusplein override
       (`docs/audit/conflicts.md`). Also: the unverified penalty (15 km/h) and built-up proxy are placeholders to sanity-check.
-- [ ] `api/` builds, typechecks and its unit tests pass. `api/README.md` documents run, env vars and endpoints.
-- [ ] Requests without the API key are refused (401) and with the key a route is returned (test + a live local call).
-- [ ] GIVEN a route crossing an unknown cycle path, WHEN the API responds, THEN that stretch is classified unverified and the
-      totals per type add up to the route length (integration test against local Valhalla).
-- [ ] GIVEN that same route, WHEN verified-only is requested, THEN the result contains no unverified stretch (integration test).
-- [ ] A report posted with position and time is returned by the list endpoint and survives an API restart.
-- [ ] The Python regression suite still passes (`cd data && uv run pytest -m valhalla`) against the served graph.
+- [ ] One command runs fetch → audit → rewrite → build → gate → promote, documented in `routing/README.md`.
+- [ ] GIVEN a regression case that fails on the new graph, WHEN the refresh runs, THEN it exits non-zero, names the failed
+      step, and the served graph on 8002 is unchanged (exercised, not just written).
+- [ ] A real end-to-end refresh succeeded: the new graph is served on 8002, `uv run pytest -m valhalla` and
+      `cd api && npm run test:integration` pass against it, and the timing is recorded.
+- [ ] Previous build kept for one rollback, with the rollback command documented.
+- [ ] `uv run pytest` and `cd api && npm test` still pass.
 
 When finished, run `/handoff` to record progress and write the next slice.

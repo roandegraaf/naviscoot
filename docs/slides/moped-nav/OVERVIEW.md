@@ -116,9 +116,9 @@ own fused access dataset first and a navigation app on top of it.
   GIVEN a road tagged `moped=use_sidepath` with a parallel G12a path, WHEN routed along it, THEN the route uses the path, not the carriageway
 - [x] Snorfiets tags grant nothing
   GIVEN a cycle path with `mofa=yes` and no moped information, WHEN routed, THEN it is treated as unverified, not as allowed
-- [ ] Unverified stretches are reported per route
+- [x] Unverified stretches are reported per route
   GIVEN a route that crosses an unknown cycle path, WHEN the API responds, THEN that stretch is classified unverified and the totals per type add up to the route length
-- [ ] A verified-only alternative is available
+- [x] A verified-only alternative is available
   GIVEN that same route, WHEN "verified roads only" is requested, THEN the result contains no unverified stretch
 - [x] Routing outside the region still works
   GIVEN a destination 100 km from Amersfoort, WHEN a route is requested, THEN a route is returned

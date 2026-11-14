@@ -14,6 +14,7 @@ data/build/
 
 node_modules/
 api/dist/
+api/data/
 
 ios/**/xcuserdata/
 ios/**/DerivedData/
