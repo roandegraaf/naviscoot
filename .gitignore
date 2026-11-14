@@ -7,6 +7,7 @@ data/raw/
 data/build/
 *.osm.pbf
 *.osm
+!routing/test/*.osm
 *.o5m
 *.gz
 *.part

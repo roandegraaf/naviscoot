@@ -11,6 +11,7 @@ dependencies = [
 [project.scripts]
 fetch = "naviscoot_data.fetch:main"
 audit = "naviscoot_data.audit:main"
+rewrite = "naviscoot_data.rewrite:main"
 
 [build-system]
 requires = ["uv_build>=0.9,<1"]
@@ -23,3 +24,10 @@ module-root = ""
 dev = [
     "pytest>=9.2.0",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "docker: builds and serves small Valhalla graphs in Docker (run with -m docker)",
+    "valhalla: needs the local NL Valhalla from routing/serve.sh (run with -m valhalla)",
+]
+addopts = "-m 'not docker and not valhalla'"

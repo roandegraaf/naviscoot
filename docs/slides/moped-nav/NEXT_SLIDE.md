@@ -1,81 +1,71 @@
 # Next slice — moped-nav
 
 Read `docs/slides/moped-nav/OVERVIEW.md` first: it's the north star and guardrail. Then read the
-`## Current state` header of `docs/slides/moped-nav/PROGRESS.md` and the slice 2 entry. `data/README.md`
-describes `data/build/fused_access.csv`, the input of this slice.
+`## Current state` header of `docs/slides/moped-nav/PROGRESS.md` and the slice 3 entry. Read
+`routing/README.md`, especially "Search configuration (required)", "Route classification for the API" and "Verified-only
+alternative". `data/naviscoot_data/valhalla.py` is a working Python reference for everything this slice ports to TypeScript.
 
 ## This slice
-Turn the fused access into a routable graph and prove it with regression routes:
-- rewrite tags into an OSM extract;
-- build a patched Valhalla graph locally in Docker;
-- add a regression suite that every rebuild must pass.
+Build the thin API in `api/` (TypeScript, Node) in front of the local Valhalla:
+- route with per-stretch classification;
+- the verified-only alternative;
+- a reports endpoint;
+- a static API key.
+
+Everything runs and is tested locally. No deployment.
 
 This targets these OVERVIEW items:
-- "An override wins over every source"
-- "Never routes over a forbidden way"
-- "Uses moped paths instead of detouring"
-- "Stays off the carriageway where the moped path is mandatory"
-- "Snorfiets tags grant nothing"
-- "Routing outside the region still works"
+- "Unverified stretches are reported per route"
+- "A verified-only alternative is available"
+- the local half of "The API is live and protected" (refused without the key, a route with it). Going live on Coolify is a later,
+  user-approved slice.
 
 ## Scope boundaries
 - Do:
-  - **Tag rewriting** (Python, in `data/`, e.g. `uv run rewrite`)
-    - Read `data/raw/netherlands-latest.osm.pbf` and `data/build/fused_access.csv`; write a routable NL extract to
-      `data/build/` (gitignored).
-    - For each cycle path in the CSV, set an explicit moped tag from the fused status:
-      - allowed → `moped=designated`;
-      - forbidden → `moped=no`;
-      - unknown → a marker the patched Lua turns into "allowed with a penalty" (the unverified class).
-    - Outside the region, leave OSM as is.
-    - Record the class so a later API slice can classify route stretches. Valhalla does not return custom tags;
-      the likely route is `trace_attributes` edge `way_id` looked up in the CSV. Confirm this is feasible, don't build the API.
-  - **Valhalla** (in `routing/`)
-    - First, confirm that the pinned Valhalla version still applies its OSM tag transform through `lua/graph.lua`
-      (check the source tree or changelog of that tag). If it doesn't, apply the three fixes in the tag-rewriting step
-      instead and note it in `routing/README.md`.
-    - Pin a Valhalla Docker image version and patch its `graph.lua` for the three stock defects from the OVERVIEW:
-      `moped=use_sidepath` is ignored, `mofa` leaks into moped access, and moped paths get 8 km/h.
-    - Apply the speed rules: 45 on the carriageway, 30 on a moped path in the built-up area, 40 outside.
-    - Give unverified cycle paths a reduced edge speed as their penalty. Pick a first value and record it as a
-      placeholder to tune.
-    - Build tiles for all of the Netherlands locally with Docker and serve them locally. No deploy to Coolify.
-  - **Verified-only alternative**: validate the proposed mechanism (re-request with `exclude_locations` on unverified
-    stretches until none remain) on at least one real route. Report whether it converges and how many re-requests
-    it needs. If it doesn't converge, propose an alternative such as a second costing or a separate graph.
-  - **Regression suite** (a script or pytest marked as needing the local Valhalla)
-    - Real cases taken from the data:
-      - a G11 path, a G13 path, a footway, an autoweg and an autosnelweg that a naive route would use;
-      - Utrecht Domplein → Amersfoort centre, under 25 km along the N237 (stock gives 42.6 km);
-      - a `moped=use_sidepath` road with a parallel G12a path;
-      - a cycle path with `mofa=yes` and no moped information;
-      - the override way 573252346;
-      - a destination about 100 km from Amersfoort.
-    - Each case states the way ids it must avoid or use.
-    - The suite fails loudly with a non-zero exit.
+  - **Project:** `api/` with a lockfile, `tsc` typecheck and a test runner. Pick a small HTTP framework (e.g. Fastify or Hono) and
+    note why in `api/README.md`. Config by env vars: `VALHALLA_URL` (default `http://127.0.0.1:8002`), `API_KEY`, the
+    fused CSV path, the reports store path, and the port.
+  - **Auth:** every endpoint except a health check requires the API key header (e.g. `x-api-key`). Wrong or missing → 401.
+  - **Route endpoint** (e.g. `POST /route` with origin, destination and `verified_only`):
+    - calls Valhalla `motor_scooter` **with `date_time: {"type": 0}`** (required, see routing README);
+    - returns the Valhalla trip for the client (shape, maneuvers; Ferrostar's Valhalla adapter will consume it later, so keep
+      the native Valhalla response available rather than reinventing it);
+    - plus a classification: per stretch carriageway / moped path / unverified, with totals per type.
+  - **Classification rules:**
+    - Get way ids with `trace_attributes` edge_walk (`edge.way_id`, plus `edge.road_class`/`edge.use` or similar as needed).
+    - Look them up in `data/build/fused_access.csv`, loaded into memory at start.
+    - unknown → unverified; allowed → moped path; any other edge whose use is a cycleway/path → moped path; else carriageway.
+    - Merge consecutive edges of the same class into stretches with start/end shape indices and length.
+    - Totals must add up to the route length (allow rounding tolerance and state it).
+  - **Verified-only:**
+    - Port the `exclude_locations` loop: midpoints of unverified edges, first and last edge exempt, cap about 5 requests.
+    - On a failed re-request, return the last successful route with its remaining unverified stretches flagged as
+      unavoidable. Never return an error when a route exists.
+  - **Reports:**
+    - `POST /reports` stores position (lat, lon), time, optional note and optional route id.
+    - `GET /reports` lists them.
+    - Use a simple durable store (SQLite or an append-only JSON file under a gitignored data dir); say which and why.
+  - **Tests:**
+    - Unit tests with a mocked Valhalla for classification, totals, the verified-only loop and auth.
+    - Integration tests (skippable without a local Valhalla) using real cases from `routing/regression_cases.json`: the
+      `verified-only-north-south` route crosses a 483 m unverified path. GIVEN that route, the API classifies it unverified and
+      the totals add up; WHEN verified-only is requested, there is no unverified stretch.
 - Don't:
-  - No API service, no Coolify deployment, no iOS.
-  - No one-command refresh yet; that is a later slice. Separate commands are fine.
-  - Don't change the fusion rules from slice 2, except to fix a bug found along the way.
-    If you do fix one, re-run `uv run pytest` and `uv run audit`.
-  - No WKD.
+  - No Coolify deployment, Dockerfile push, DNS or hostname choices.
+  - No iOS. No one-command refresh yet.
+  - Don't change the graph, Lua or fusion unless a bug is found. If you do, rebuild and re-run all three test tiers
+    (`uv run pytest`, `-m docker`, `-m valhalla`).
 
 ## Done when
 Tick each box in this file as it's met; a resumed attempt picks up at the first open one.
-- [ ] [user-gated] The user has made the first commit (command in `docs/slides/moped-nav/status/slice-1.md`) and decided
-      whether the generated `docs/audit/*` is committed or gitignored. The user should also review the five forbidden → allowed
-      flips of the newer-NDW rule and the Valeriusplein override (`docs/audit/conflicts.md`).
-- [ ] The tag-rewriting command produces a routable NL extract in which every cycle path in `fused_access.csv` carries
-      the fused class. A unit test covers allowed, forbidden and unknown, and that `mofa=*` grants nothing.
-- [ ] The patched `graph.lua` is in `routing/` and fixes the three stock defects. A small synthetic OSM file proves each fix
-      (e.g. a graph built from a hand-written .osm, or a Lua unit test).
-- [ ] A local Valhalla built from the rewritten extract answers `motor_scooter` routes. Build command, image version,
-      build time and tile size are recorded in `routing/README.md`.
-- [ ] The regression suite passes against the local Valhalla, with every case listed above.
-      GIVEN Utrecht Domplein → Amersfoort centre, WHEN routed, THEN the route is under 25 km.
-- [ ] The override way 573252346 is avoided: GIVEN the override, WHEN the graph is rebuilt and a route across it is
-      requested, THEN the route does not use it.
-- [ ] The `exclude_locations` verified-only mechanism is validated on a real route with an unverified stretch,
-      and the result is recorded (converges or not, number of requests).
+- [ ] [user-gated] The user has reviewed the five forbidden → allowed flips of the newer-NDW rule and the Valeriusplein override
+      (`docs/audit/conflicts.md`). Also: the unverified penalty (15 km/h) and built-up proxy are placeholders to sanity-check.
+- [ ] `api/` builds, typechecks and its unit tests pass. `api/README.md` documents run, env vars and endpoints.
+- [ ] Requests without the API key are refused (401) and with the key a route is returned (test + a live local call).
+- [ ] GIVEN a route crossing an unknown cycle path, WHEN the API responds, THEN that stretch is classified unverified and the
+      totals per type add up to the route length (integration test against local Valhalla).
+- [ ] GIVEN that same route, WHEN verified-only is requested, THEN the result contains no unverified stretch (integration test).
+- [ ] A report posted with position and time is returned by the list endpoint and survives an API restart.
+- [ ] The Python regression suite still passes (`cd data && uv run pytest -m valhalla`) against the served graph.
 
 When finished, run `/handoff` to record progress and write the next slice.

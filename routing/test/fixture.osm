@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="naviscoot-handwritten">
+  <node id="100" version="1" lat="52.0000" lon="4.9950"/>
+  <node id="101" version="1" lat="52.0000" lon="5.0000"/>
+  <node id="102" version="1" lat="52.0000" lon="5.0150"/>
+  <node id="103" version="1" lat="52.0040" lon="5.0010"/>
+  <node id="104" version="1" lat="52.0040" lon="5.0140"/>
+  <node id="105" version="1" lat="52.0000" lon="5.0200"/>
+  <way id="1001" version="1">
+    <nd ref="100"/><nd ref="101"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Sidepath West"/>
+  </way>
+  <way id="1002" version="1">
+    <nd ref="101"/><nd ref="102"/>
+    <tag k="highway" v="secondary"/><tag k="name" v="Sidepath Carriageway"/>
+    <tag k="moped" v="use_sidepath"/><tag k="maxspeed" v="80"/>
+  </way>
+  <way id="1003" version="1">
+    <nd ref="101"/><nd ref="103"/><nd ref="104"/><nd ref="102"/>
+    <tag k="highway" v="cycleway"/><tag k="name" v="Sidepath Moped Path"/>
+    <tag k="moped" v="designated"/><tag k="naviscoot:builtup" v="no"/>
+  </way>
+  <way id="1004" version="1">
+    <nd ref="102"/><nd ref="105"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Sidepath East"/>
+  </way>
+
+  <node id="200" version="1" lat="52.0200" lon="4.9950"/>
+  <node id="201" version="1" lat="52.0200" lon="5.0000"/>
+  <node id="202" version="1" lat="52.0200" lon="5.0100"/>
+  <node id="203" version="1" lat="52.0280" lon="5.0050"/>
+  <node id="204" version="1" lat="52.0200" lon="5.0150"/>
+  <way id="2001" version="1">
+    <nd ref="200"/><nd ref="201"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Mofa West"/>
+  </way>
+  <way id="2002" version="1">
+    <nd ref="201"/><nd ref="202"/>
+    <tag k="highway" v="cycleway"/><tag k="name" v="Mofa Path"/>
+    <tag k="mofa" v="yes"/><tag k="oneway:mofa" v="no"/>
+  </way>
+  <way id="2003" version="1">
+    <nd ref="201"/><nd ref="203"/><nd ref="202"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Mofa Detour"/>
+  </way>
+  <way id="2004" version="1">
+    <nd ref="202"/><nd ref="204"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Mofa East"/>
+  </way>
+
+  <node id="300" version="1" lat="52.0400" lon="4.9950"/>
+  <node id="301" version="1" lat="52.0400" lon="5.0000"/>
+  <node id="302" version="1" lat="52.0400" lon="5.0100"/>
+  <node id="303" version="1" lat="52.0415" lon="5.0050"/>
+  <node id="304" version="1" lat="52.0400" lon="5.0150"/>
+  <way id="3001" version="1">
+    <nd ref="300"/><nd ref="301"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Unverified West"/>
+  </way>
+  <way id="3002" version="1">
+    <nd ref="301"/><nd ref="302"/>
+    <tag k="highway" v="cycleway"/><tag k="name" v="Unverified Path"/>
+    <tag k="moped" v="unverified"/><tag k="mofa" v="yes"/><tag k="naviscoot:builtup" v="no"/>
+  </way>
+  <way id="3003" version="1">
+    <nd ref="301"/><nd ref="303"/><nd ref="302"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Unverified Detour"/>
+  </way>
+  <way id="3004" version="1">
+    <nd ref="302"/><nd ref="304"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Unverified East"/>
+  </way>
+
+  <node id="400" version="1" lat="52.0600" lon="4.9950"/>
+  <node id="401" version="1" lat="52.0600" lon="5.0000"/>
+  <node id="402" version="1" lat="52.0600" lon="5.0100"/>
+  <node id="403" version="1" lat="52.0600" lon="5.0200"/>
+  <node id="404" version="1" lat="52.0600" lon="5.0250"/>
+  <way id="4001" version="1">
+    <nd ref="400"/><nd ref="401"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Speed West"/>
+  </way>
+  <way id="4002" version="1">
+    <nd ref="401"/><nd ref="402"/>
+    <tag k="highway" v="cycleway"/><tag k="name" v="Rural Moped Path"/>
+    <tag k="moped" v="designated"/><tag k="naviscoot:builtup" v="no"/><tag k="surface" v="asphalt"/>
+  </way>
+  <way id="4003" version="1">
+    <nd ref="402"/><nd ref="403"/>
+    <tag k="highway" v="cycleway"/><tag k="name" v="Urban Moped Path"/>
+    <tag k="moped" v="designated"/><tag k="naviscoot:builtup" v="yes"/><tag k="surface" v="asphalt"/>
+  </way>
+  <way id="4004" version="1">
+    <nd ref="403"/><nd ref="404"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Speed East"/>
+  </way>
+
+  <node id="500" version="1" lat="52.0800" lon="4.9950"/>
+  <node id="501" version="1" lat="52.0800" lon="5.0000"/>
+  <node id="502" version="1" lat="52.0800" lon="5.0150"/>
+  <node id="503" version="1" lat="52.0880" lon="5.0075"/>
+  <node id="504" version="1" lat="52.0800" lon="5.0200"/>
+  <way id="5001" version="1">
+    <nd ref="500"/><nd ref="501"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Autoweg West"/>
+  </way>
+  <way id="5002" version="1">
+    <nd ref="501"/><nd ref="502"/>
+    <tag k="highway" v="trunk"/><tag k="name" v="Autoweg"/>
+    <tag k="motorroad" v="yes"/><tag k="maxspeed" v="100"/>
+  </way>
+  <way id="5003" version="1">
+    <nd ref="501"/><nd ref="503"/><nd ref="502"/>
+    <tag k="highway" v="tertiary"/><tag k="name" v="Autoweg Detour"/>
+  </way>
+  <way id="5004" version="1">
+    <nd ref="502"/><nd ref="504"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Autoweg East"/>
+  </way>
+  <node id="600" version="1" lat="52.1000" lon="4.9950"/>
+  <node id="601" version="1" lat="52.1000" lon="5.0000"/>
+  <node id="602" version="1" lat="52.1000" lon="5.0050">
+    <tag k="barrier" v="bollard"/>
+  </node>
+  <node id="603" version="1" lat="52.1000" lon="5.0100"/>
+  <node id="604" version="1" lat="52.1080" lon="5.0050"/>
+  <node id="605" version="1" lat="52.1000" lon="5.0150"/>
+  <way id="6001" version="1">
+    <nd ref="600"/><nd ref="601"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Bollard West"/>
+  </way>
+  <way id="6002" version="1">
+    <nd ref="601"/><nd ref="602"/><nd ref="603"/>
+    <tag k="highway" v="cycleway"/><tag k="name" v="Bollard Moped Path"/>
+    <tag k="moped" v="designated"/><tag k="naviscoot:builtup" v="yes"/>
+  </way>
+  <way id="6003" version="1">
+    <nd ref="601"/><nd ref="604"/><nd ref="603"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Bollard Detour"/>
+  </way>
+  <way id="6004" version="1">
+    <nd ref="603"/><nd ref="605"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Bollard East"/>
+  </way>
+</osm>

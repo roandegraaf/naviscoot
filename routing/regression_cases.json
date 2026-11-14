@@ -1,0 +1,252 @@
+{
+  "cases": [
+    {
+      "id": "g11-malesluispad",
+      "kind": "route",
+      "description": "Malesluispad, west of Amersfoort: cycle path with traffic_sign NL:G11, a 0.6 km shortcut against a 9 km moped detour",
+      "points": [
+        [
+          52.1832213,
+          5.336427
+        ],
+        [
+          52.1865893,
+          5.3425294
+        ]
+      ],
+      "avoid_way_ids": [
+        25238224
+      ],
+      "naive_costing": "bicycle"
+    },
+    {
+      "id": "g13-jaagpad",
+      "kind": "route",
+      "description": "Jaagpad, south-east of Amersfoort: onverplicht fietspad (NL:G13)",
+      "points": [
+        [
+          52.1094919,
+          5.4375923
+        ],
+        [
+          52.1127946,
+          5.4398737
+        ]
+      ],
+      "avoid_way_ids": [
+        44686871
+      ],
+      "naive_costing": "bicycle"
+    },
+    {
+      "id": "footway-amersfoort",
+      "kind": "route",
+      "description": "Footway in north Amersfoort that a pedestrian takes as a shortcut",
+      "points": [
+        [
+          52.1768366,
+          5.3907754
+        ],
+        [
+          52.1777304,
+          5.3883329
+        ]
+      ],
+      "avoid_way_ids": [
+        1150836136
+      ],
+      "naive_costing": "pedestrian"
+    },
+    {
+      "id": "autoweg-nijkerkerweg",
+      "kind": "route",
+      "description": "Nijkerkerweg, motorroad=yes (autoweg)",
+      "points": [
+        [
+          52.2676951,
+          5.4684623
+        ],
+        [
+          52.2794091,
+          5.4628755
+        ]
+      ],
+      "avoid_way_ids": [
+        6971583
+      ],
+      "naive_costing": "auto"
+    },
+    {
+      "id": "autosnelweg-a28",
+      "kind": "route",
+      "description": "A28 north-east of Amersfoort (highway=motorway)",
+      "points": [
+        [
+          52.1904499,
+          5.4081497
+        ],
+        [
+          52.1983954,
+          5.397063
+        ]
+      ],
+      "avoid_way_ids": [
+        6983364
+      ],
+      "naive_costing": "auto"
+    },
+    {
+      "id": "override-valeriusplein",
+      "kind": "route",
+      "description": "Valeriusplein, Amsterdam: OSM moped=designated, forbidden by data/overrides.csv",
+      "points": [
+        [
+          52.3516312,
+          4.8646307
+        ],
+        [
+          52.3511725,
+          4.8648972
+        ]
+      ],
+      "avoid_way_ids": [
+        573252346
+      ],
+      "naive_costing": "bicycle"
+    },
+    {
+      "id": "use-sidepath-n701",
+      "kind": "route",
+      "description": "N701 Oostvaardersdijk (moped=use_sidepath) with the parallel G12a path",
+      "points": [
+        [
+          52.3857158,
+          5.1379305
+        ],
+        [
+          52.4161112,
+          5.2075179
+        ]
+      ],
+      "avoid_way_ids": [
+        7030056
+      ],
+      "use_way_ids": [
+        22991949,
+        22997423,
+        147137906
+      ],
+      "naive_costing": "auto"
+    },
+    {
+      "id": "mofa-only-oude-groenewoudseweg",
+      "kind": "match",
+      "description": "Cycle path with mofa=yes and no moped information: unverified (15 km/h), not allowed",
+      "points": [
+        [
+          51.831882,
+          5.8607901
+        ],
+        [
+          51.8313273,
+          5.8616727
+        ],
+        [
+          51.8312403,
+          5.8618134
+        ],
+        [
+          51.8311684,
+          5.8619298
+        ],
+        [
+          51.8308157,
+          5.8625004
+        ],
+        [
+          51.8303551,
+          5.8632418
+        ],
+        [
+          51.8301814,
+          5.8635117
+        ],
+        [
+          51.830145,
+          5.8635426
+        ],
+        [
+          51.8301086,
+          5.8635594
+        ],
+        [
+          51.8300566,
+          5.8635523
+        ],
+        [
+          51.8299617,
+          5.8635331
+        ],
+        [
+          51.8299069,
+          5.8635223
+        ]
+      ],
+      "way_id": 198687728,
+      "expect_speed": 15
+    },
+    {
+      "id": "utrecht-domplein-to-amersfoort",
+      "kind": "route",
+      "description": "Utrecht Domplein to Amersfoort centre along the N237 moped paths; stock Valhalla gave 42.6 km",
+      "points": [
+        [
+          52.0907,
+          5.1214
+        ],
+        [
+          52.1561,
+          5.3878
+        ]
+      ],
+      "use_way_ids": [
+        33433662,
+        27508395,
+        222531282
+      ],
+      "max_length_km": 25
+    },
+    {
+      "id": "outside-region-venlo",
+      "kind": "route",
+      "description": "Amersfoort to Venlo station, about 100 km straight line, mostly outside the fused region",
+      "points": [
+        [
+          52.1561,
+          5.3878
+        ],
+        [
+          51.3647,
+          6.1718
+        ]
+      ],
+      "min_length_km": 80
+    },
+    {
+      "id": "verified-only-north-south",
+      "kind": "verified_only",
+      "description": "36 km trip whose default route crosses a 483 m unverified cycle path",
+      "points": [
+        [
+          52.2977646,
+          5.445363
+        ],
+        [
+          52.0464515,
+          5.4059619
+        ]
+      ],
+      "max_requests": 5
+    }
+  ]
+}

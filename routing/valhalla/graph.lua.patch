@@ -1,0 +1,121 @@
+--- graph.lua (valhalla 3.9.1, lua/graph.lua)
++++ graph.lua (naviscoot)
+@@ -65,6 +65,8 @@
+ ["no_turn"] = 9
+ }
+ 
++naviscoot_unverified_speed = 15
++
+ --the default speed for tracks is lowered after
+ --the call to default_speed
+ default_speed = {
+@@ -168,6 +170,8 @@
+ vehicle = motor_vehicle
+ 
+ moped = {
++["unverified"] = "true",
++["use_sidepath"] = "false",
+ ["yes"] = "true",
+ ["designated"] = "true",
+ ["private"] = "true",
+@@ -1038,7 +1042,6 @@
+ 
+     --check for moped forward overrides
+     kv["moped_tag"] = any_in(moped, kv["moped"]) or
+-                      any_in(moped, kv["mofa"]) or
+                       motor_vehicle_access
+     kv["moped_forward"] = kv["moped_tag"] or kv["moped_forward"]
+ 
+@@ -1112,7 +1115,6 @@
+ 
+     --check for moped forward overrides
+     kv["moped_tag"] = any_in(moped, kv["moped"]) or
+-                      any_in(moped, kv["mofa"]) or
+                       motor_vehicle_access
+     kv["moped_forward"] = kv["moped_tag"] or default_val
+ 
+@@ -1249,12 +1251,12 @@
+     kv["moped_backward"] = "false"
+   end
+ 
+-  if ((kv["oneway"] == "yes" and (kv["oneway:moped"] == "no" or kv["oneway:mofa"] == "no")) or kv["moped:backward"] == "yes" or kv["mofa:backward"] == "yes") then
++  if ((kv["oneway"] == "yes" and kv["oneway:moped"] == "no") or kv["moped:backward"] == "yes") then
+     kv["moped_backward"] = "true"
+   end
+ 
+   if kv["moped_backward"] == "true" then
+-    oneway_moped = oneway[kv["oneway:moped"]] or oneway[kv["oneway:mofa"]]
++    oneway_moped = oneway[kv["oneway:moped"]]
+   end
+ 
+   if kv["motorcycle_backward"] == nil then
+@@ -1368,8 +1370,7 @@
+       kv["taxi_backward"] = kv["taxi_forward"]
+     end
+ 
+-    if (kv["moped_backward"] == "false" and (kv["oneway:moped"] == nil or oneway[kv["oneway:moped"]] == false or kv["oneway:moped"] == "no") and
+-       (kv["oneway:mofa"] == nil or oneway[kv["oneway:mofa"]] == false or kv["oneway:mofa"] == "no")) then
++    if (kv["moped_backward"] == "false" and (kv["oneway:moped"] == nil or oneway[kv["oneway:moped"]] == false or kv["oneway:moped"] == "no")) then
+       kv["moped_backward"] = kv["moped_forward"]
+     end
+ 
+@@ -1484,7 +1485,7 @@
+     kv["bike_backward"] = forwards
+   end
+ 
+-  if (kv["oneway:moped"] == "-1" or kv["oneway:mofa"] == "-1") then
++  if kv["oneway:moped"] == "-1" then
+     local forwards = kv["moped_forward"]
+     kv["moped_forward"] = kv["moped_backward"]
+     kv["moped_backward"] = forwards
+@@ -1774,6 +1775,29 @@
+   kv["average_speed"] = normalize_speed(kv["maxspeed:practical"])
+   kv["backward_speed"] = normalize_speed(kv["maxspeed:backward"])
+   kv["forward_speed"] = normalize_speed(kv["maxspeed:forward"])
++
++  -- Naviscoot (NL bromfiets): RVV 1990 closes an autoweg to mopeds whatever the moped tag says;
++  -- stock Valhalla only does this through admin-based country overrides on RC <= primary.
++  if kv["motorroad"] == "yes" then
++    kv["moped_forward"] = "false"
++    kv["moped_backward"] = "false"
++  end
++
++  -- Naviscoot: a moped path gets the legal bromfiets limit (30 in the built-up area, 40 outside)
++  -- instead of the 20-25 km/h service-road default. naviscoot:builtup comes from the rewrite step;
++  -- without it 30 is assumed. moped=unverified marks a fused-unknown cycle path, ridden at a reduced
++  -- speed so that the router prefers verified ways.
++  if (kv["highway"] == "cycleway" or kv["highway"] == "path") and
++     (kv["moped_forward"] == "true" or kv["moped_backward"] == "true") then
++    local limit = 30
++    if kv["naviscoot:builtup"] == "no" then
++      limit = 40
++    end
++    kv["max_speed"] = limit
++    if kv["moped"] == "unverified" then
++      kv["average_speed"] = naviscoot_unverified_speed
++    end
++  end
+   kv["int"] = kv["int"]
+   kv["int_ref"] = kv["int_ref"]
+   kv["surface"] = kv["surface"]
+@@ -2064,7 +2088,7 @@
+   local truck_tag = any_in_num(truck_node, kv["hgv"])
+   local auto_tag = any_in_num(motor_vehicle_node, kv["motorcar"])
+   local motor_vehicle_tag = any_in_num(motor_vehicle_node, kv["motor_vehicle"])
+-  local moped_tag = any_in_num(moped_node, kv["moped"]) or any_in_num(moped_node, kv["mofa"])
++  local moped_tag = any_in_num(moped_node, kv["moped"])
+   local motorcycle_tag = any_in_num(motor_cycle_node, kv["motorcycle"])
+ 
+   if auto_tag == nil then
+@@ -2205,6 +2229,11 @@
+       wheelchair = wheelchair_tag or 256
+       bike = bike_tag or 4
+       moped = moped_tag or 0
++      -- Naviscoot: a two-wheeled bromfiets passes bollards, blocks and cycle barriers like a bicycle;
++      -- stock closed 1,062 moped paths in the Amersfoort region at untagged bollards.
++      if kv["barrier"] == "bollard" or kv["barrier"] == "block" or kv["barrier"] == "cycle_barrier" then
++        moped = moped_tag or 512
++      end
+       motorcycle = motorcycle_tag or 0
+       emergency = emergency_tag or 0
+       hov = hov_tag or 0

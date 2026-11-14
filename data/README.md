@@ -9,7 +9,10 @@ Python pipeline that builds the bromfiets access dataset. Requires Python 3.13 a
 cd data
 uv run fetch     # download and clip all sources
 uv run audit     # fuse OSM, NDW and overrides; write build/fused_access.csv and docs/audit/*
-uv run pytest    # unit tests for sign attachment, propagation and precedence (no downloaded data needed)
+uv run rewrite   # write the fused classes into build/routable.osm.pbf for the Valhalla build (~6 min)
+uv run pytest    # unit tests (no downloaded data needed)
+uv run pytest -m docker     # build the synthetic routing/test fixture with stock and patched graph.lua
+uv run pytest -m valhalla   # regression routes against the local NL Valhalla (routing/serve.sh start)
 ```
 
 `uv run audit` (about 45 s) writes:
@@ -47,5 +50,7 @@ marked "NDW newer" are the usual candidates.
 - `raw/` downloads (gitignored)
 - `build/` generated data (gitignored)
 - `naviscoot_data/` pipeline code (`fuse.py` holds attachment, propagation and precedence)
-- `tests/` unit tests
+- `tests/` unit tests, fixture tests (`-m docker`) and the routing regression suite (`-m valhalla`)
 - `overrides.csv` hand-maintained override list
+
+See `routing/README.md` for the rewrite rules, the Valhalla build and the regression cases.

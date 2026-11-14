@@ -106,21 +106,21 @@ own fused access dataset first and a navigation app on top of it.
   GIVEN the 50 km region, WHEN the audit runs, THEN it reports cycle-path length per status (allowed, forbidden, unknown) and lists OSM-versus-NDW conflicts
 - [x] Fusion measurably reduces unknown cycle paths
   GIVEN the audit before and after fusion, WHEN compared, THEN the unknown length is lower and both figures are in the report
-- [ ] An override wins over every source
+- [x] An override wins over every source
   GIVEN a way marked forbidden in the override list, WHEN the graph is rebuilt and a route is requested across it, THEN the route avoids that way
-- [ ] Never routes over a forbidden way
+- [x] Never routes over a forbidden way
   GIVEN the regression cases for G11, G13, footway, autoweg and autosnelweg, WHEN each route is requested, THEN no route uses the forbidden way
-- [ ] Uses moped paths instead of detouring
+- [x] Uses moped paths instead of detouring
   GIVEN Utrecht Domplein to Amersfoort centre, WHEN a route is requested, THEN it follows the N237 corridor and is under 25 km (stock Valhalla gives 42.6 km)
-- [ ] Stays off the carriageway where the moped path is mandatory
+- [x] Stays off the carriageway where the moped path is mandatory
   GIVEN a road tagged `moped=use_sidepath` with a parallel G12a path, WHEN routed along it, THEN the route uses the path, not the carriageway
-- [ ] Snorfiets tags grant nothing
+- [x] Snorfiets tags grant nothing
   GIVEN a cycle path with `mofa=yes` and no moped information, WHEN routed, THEN it is treated as unverified, not as allowed
 - [ ] Unverified stretches are reported per route
   GIVEN a route that crosses an unknown cycle path, WHEN the API responds, THEN that stretch is classified unverified and the totals per type add up to the route length
 - [ ] A verified-only alternative is available
   GIVEN that same route, WHEN "verified roads only" is requested, THEN the result contains no unverified stretch
-- [ ] Routing outside the region still works
+- [x] Routing outside the region still works
   GIVEN a destination 100 km from Amersfoort, WHEN a route is requested, THEN a route is returned
 - [ ] The API is live and protected
   GIVEN the deployed service, WHEN called without the API key, THEN it is refused, and with the key it returns a route

@@ -1,38 +1,40 @@
 # Progress — moped-nav
 
 ## Current state
-**Slices done:** 1 (repo + coverage audit), 2 (fusion). No commit yet; the user owns version control (command in `status/slice-1.md`).
+**Slices done:** 1 (audit), 2 (fusion), 3 (routing graph + regression). First commit 0423a8b holds slices 1-2. `docs/audit/*.md` is committed; `docs/audit/map.html` and `docs/slides/*/status/` are gitignored.
 
 **Invariants in force**
-- Region = 50 km around 52.156, 5.387 (`geo.py`). Cycle path = OSM `highway=cycleway` way with ≥1 node in the region. Status is per whole way.
-- `mofa=*`, `motor_vehicle=no`, `access=no` are never moped evidence. The moped tag wins over a contradicting `traffic_sign` on the same way.
-- Precedence (user decision 2026-11-14, relayed by the orchestrator): `data/overrides.csv` > NDW sign newer than the OSM edit AND attached unambiguously > explicit OSM tag > NDW direct > NDW propagated > unknown.
-  - Unambiguous: matched (not junction arm or hand-over), ≤10 m from the path, no other fitting cycle path and no cycle junction within 20 m, no OB505/OB502 sub-sign. These conditions are the orchestrator's reading of "if trustworthy", not the user's words.
-  - Propagated NDW never beats OSM. Every disagreement is in `docs/audit/conflicts.md` with the reason NDW did or didn't win.
-- NDW sign date = newest of `validatedOn`, `placedOn`, `registeredOn`. `lastModifiedOn` is NOT used: it tracks NDW's NWB re-link batches (2,886 regional records on 2025-09-09, NWB version 2025-09-01).
-  - Of 50,959 regional G11/G12a/G13 records: 1,034 have `validatedOn`, 1,076 `placedOn`, all have `registeredOn`, 0 undated.
-  - Undated records would never win on recency.
-- NDW `bearing` = travel direction of the addressed traffic (calibrated: 10,375 into the path vs 367 out of it).
-- `onleesbaar` sub-sign drops a sign as evidence; "snorfietsen niet / niet brommen / naar de rijbaan" only marks G11/G13 as confirmed; speed-pedelec exemptions are ignored; OB505/OB502 are not interpreted (meaning unverified).
-- Downloaded data in `data/raw/`, generated data in `data/build/` (gitignored). Pending user decision on committing generated `docs/audit/*` (map.html is now 7.6 MB, conflicts.md 0.18 MB).
-- No code comments unless the reason is non-obvious.
+- Region = 50 km around 52.156, 5.387. Cycle path = OSM `highway=cycleway`; status per whole way. `mofa=*` is never moped evidence, anywhere (fusion, rewrite, Lua).
+- Precedence: `data/overrides.csv` > NDW newer and unambiguous > explicit OSM tag > NDW direct > NDW propagated > unknown. The user still has to review the 5 forbidden → allowed flips and the Valeriusplein override (`docs/audit/conflicts.md`).
+- Rewrite: allowed → `moped=designated`, forbidden → `moped=no` (drops `moped:forward/backward`, `oneway:moped`), unknown → `moped=unverified`. Every NL cycleway/path also gets `naviscoot:builtup=yes|no` (road-speed proxy + network spread). Outside the region OSM is untouched; untagged cycleways there stay closed.
+- Valhalla 3.9.1 pinned, patched `routing/valhalla/graph.lua`:
+  - `use_sidepath` closes; no `mofa`; `motorroad=yes` closes; bollard/block/cycle_barrier pass mopeds.
+  - Moped paths: speed limit and speed 30 built-up / 40 outside. Unverified paths: speed 15 (placeholder), limit 30/40.
+- **Every motor_scooter route request sends `date_time: {"type": 0}`** (unidirectional A*). The server config raises level 1/2 `expand_within_distance` to 1,000 km. Without both, long routes fail ("No path") or are suboptimal. See `routing/README.md`.
+- Route classification = `trace_attributes` edge_walk with `edge.way_id`, looked up in `fused_access.csv` (confirmed).
+- Verified-only = re-request with `exclude_locations` at unverified edge midpoints, first/last edge exempt. 2-4 requests on real trips.
+- No code comments unless the reason is non-obvious. No commits/pushes by agents unless the run allows it.
 
-**Commands** (from `data/`, see `data/README.md`)
-- `uv run fetch`: Geofabrik NL + clip to `build/region.osm.pbf`, NDW G11/G12a/G12b/G13 (20 h TTL).
-- `uv run audit` (~45 s): fusion → `build/fused_access.csv` (way_id,status,source,source_id,date; one row per cycle path); `docs/audit/coverage.md`, `conflicts.md`, `map.html`; `build/handcheck_sample.json`.
-- `uv run pytest`: 42 unit tests, synthetic data only.
+**Commands** (see `data/README.md`, `routing/README.md`)
+- `cd data`: `uv run fetch`, `uv run audit` (~45 s), `uv run rewrite` (~330 s → `build/routable.osm.pbf`).
+- `routing/build.sh all` (~110 s: config, admins, tiles → `routing/build/nl/`), `routing/serve.sh start|stop` (127.0.0.1:8002).
+- Tests from `data/`:
+  - `uv run pytest`: 50 unit tests.
+  - `-m docker`: 6 fixture tests, stock vs patched Lua.
+  - `-m valhalla`: 12 regression tests against the served NL graph.
 
 **Key files**
-- `fuse.py`: `attach` (sign → way + travel direction; junction arms; hand-over), `propagate`, `fuse_way` (precedence), `conflict_for`, `load_overrides`, `run`.
-- `model.py` dataclasses; `audit.py` OSM pass (cycleways with node ids, road-node `IdSet`), slice 1 point matching, calls `fuse.run`; `report.py` reports + map; `classify.py` OSM-only rules.
-- `data/overrides.csv` (1 entry, way 573252346 forbidden, not surveyed); `docs/audit/handcheck.md` hand-maintained, embedded in coverage.md.
+- `data/naviscoot_data/`:
+  - `fuse.py` (precedence), `rewrite.py` (tags + builtup);
+  - `valhalla.py` (client, edge_walk way ids, map_match, `verified_only_route`).
+- `routing/valhalla/graph.lua` + `graph.lua.patch` (diff vs stock), `routing/build.sh`, `routing/serve.sh`.
+- `routing/test/fixture.osm` (6 synthetic scenes), `routing/regression_cases.json` (11 real cases).
+- Tests: `data/tests/test_graph_lua.py`, `test_regression_routes.py`, `test_rewrite.py`.
 
-**Numbers (OSM 2026-11-13, NDW 2026-11-14)**
-- 72,552 cycle paths, 9,623 km. Unknown: OSM alone 2,117.3 km → slice 1 point evidence 1,177.9 km → fusion 1,108.4 km.
-- Fused: allowed 3,297 km, forbidden 5,217 km. Propagation resolves 1,877 ways / 106 km; 6,218 signs are ambiguous at cycle junctions.
-- 702 conflict rows; 66 with NDW newer.
-  - 16 won by NDW (3.6 km): 11 allowed → forbidden, 5 forbidden → allowed.
-  - 685 won by OSM, 1 by the override.
+**Numbers:** OSM 2026-11-13, NDW 2026-11-14.
+- Fused: 72,552 cycle paths (18,988 allowed, 35,758 forbidden, 17,806 unverified).
+- Tiles: 912 MB tar, 228 tiles.
+- Utrecht Domplein → Amersfoort: 22.19 km, 36.5 min.
 
 ## Slice: 1 — repo setup and coverage audit (2026-11-14)
 **Shipped**
@@ -102,3 +104,40 @@
 - Re-checked after the precedence change.
 - Way and sign popups work on a propagated way.
 - 48/48 PDOK tiles load; no console messages.
+
+## Slice: 3 — routable graph, patched Valhalla, regression suite (2026-11-14)
+**Shipped**
+- `uv run rewrite` (`data/naviscoot_data/rewrite.py`): writes the NL extract with the fused classes and `naviscoot:builtup`; exits 1 if a CSV way is missing.
+  - Unit tests in `data/tests/test_rewrite.py`: allowed/forbidden/unknown, `mofa` grants nothing, zones, spread, a pbf round trip.
+- `routing/`: patched `graph.lua` (+ `.patch`), `build.sh`, `serve.sh`, `README.md` (fixes, build figures, search configuration, verified-only results, known gaps).
+- Synthetic fixture `routing/test/fixture.osm` (`.gitignore` gets `!routing/test/*.osm`). `test_graph_lua.py` builds it with stock and patched Lua and proves each fix against stock.
+- `data/naviscoot_data/valhalla.py` client. Regression suite: `routing/regression_cases.json` + `test_regression_routes.py` (11 cases plus an override-in-extract check), markers `docker`/`valhalla` deselected by default.
+
+**Key decisions**
+- `graph.lua` is still the tag transform in 3.9.1 (`mjolnir.graph_lua_name`), so all fixes live in Lua.
+- Two fixes beyond the OVERVIEW's three, both in the regression evidence:
+  - `motorroad=yes` always closes moped access. Stock only does this via admin country overrides on road class ≤ primary.
+  - Bollard, block and cycle_barrier nodes don't close mopeds. Untagged bollards sit on 1,062 allowed moped paths in the region.
+- Speeds: carriageway relies on `top_speed` 45. Moped paths get the legal limit as tagged speed; built-up comes from road speed limits around the path.
+  - Stock 3.9.1 measured 25 km/h rural / 20 urban on paved cycleways, not the OVERVIEW's 8.
+- Long-route fix (found here): stock hierarchy limits expand cycle paths only within 5 km of either end, so Amersfoort → Arnhem/Zwolle/Amsterdam got "No path". Raised to 1,000 km in config.
+  - With wide limits the bidirectional A* returned a suboptimal 25.35 km Domplein route. `date_time` type 0 switches to the unidirectional A*, which finds the 22.19 km N237 route. Max 1.1 s for 180 km.
+- Regression cases carry a `naive_costing` (bicycle/pedestrian/auto) that must still use the avoided way, so a case that stops tempting a router fails instead of passing silently.
+- Against a stock NL graph, 6 of 11 cases fail (override, use_sidepath, mofa, Domplein 27.4 km, G11 edge-walk error, verified-only). The other four (G13, footway, autoweg, motorway) guard regressions.
+
+**Notes / leftovers**
+- Verified-only: 11/11 real trips that touched an unverified way converged in 2-4 requests (+0-3.3 km).
+  - 5 degenerate 0.2-0.3 km trips along a single unverified way fail ("No path"), because the exclude point hits the snapped origin/destination edge. The API should cap at ~5 requests and fall back to the last route with the stretch labelled unavoidable.
+- `motor_vehicle=no` on roads still closes mopeds (C12 is not binding on a bromfiets). This causes detours, not illegal routes.
+- Side-tagged cycle tracks can't be separated from the carriageway. Outside the region, untagged and mofa-only cycleways are closed (plain OSM quality).
+- The regression run reads `routable.osm.pbf` and the region pbf for the override check (~2 s).
+
+**Placeholder choices:**
+- Unverified speed 15 km/h.
+- Built-up proxy thresholds: ≤50 urban, ≥60 rural; residential/living_street urban; 8 spread rounds; unset → 30.
+- `LOCAL_EXPANSION_M` = 1,000 km.
+- Regression case picks: largest detour among the 60 candidates nearest Amersfoort; N701 for use_sidepath (all such roads with a parallel G12a are in Flevoland); random-OD case for verified-only.
+- Fixture coordinates and names.
+
+**Runtime-unverified:** none (no UI). All routing behaviour was exercised against the live local NL graph and the fixture graphs.
+
