@@ -1783,6 +1783,13 @@ function filter_tags_generic(kv)
     kv["moped_backward"] = "false"
   end
 
+  -- Naviscoot: a forbidden entry in data/overrides.csv closes the way even where vehicle:forward,
+  -- motor_vehicle:backward and the like would reopen it after the moped tag was read.
+  if kv["naviscoot:override"] == "forbidden" then
+    kv["moped_forward"] = "false"
+    kv["moped_backward"] = "false"
+  end
+
   -- Naviscoot: a moped path gets the legal bromfiets limit (30 in the built-up area, 40 outside)
   -- instead of the 20-25 km/h service-road default. naviscoot:builtup comes from the rewrite step;
   -- without it 30 is assumed. moped=unverified marks a fused-unknown cycle path, ridden at a reduced

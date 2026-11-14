@@ -239,8 +239,10 @@ def main(argv: list[str] | None = None) -> int:
     conflicts = _apply_ndw(cycleways, signs)
     sample = _sample(cycleways, conflicts, signs)
     overrides = fuse.load_overrides(paths.OVERRIDES_CSV)
-    for way_id in sorted(set(overrides) - set(cycleways)):
-        print(f"Audit: warning: override for way {way_id} matches no cycle path in the region", file=sys.stderr)
+    elsewhere = sorted(set(overrides) - set(cycleways))
+    if elsewhere:
+        print(f"Audit: {len(elsewhere)} override(s) not on a cycle path in the region"
+              f" ({', '.join(map(str, elsewhere))}); the rewrite step applies them and fails if it cannot")
     fusion = fuse.run(cycleways, signs, road_nodes, overrides)
     fuse.write_fused_csv(cycleways, fusion["fused"], paths.FUSED_ACCESS_CSV)
     print(f"Audit: fused {len(fusion['attachments'])} attached signs, wrote {paths.FUSED_ACCESS_CSV}"

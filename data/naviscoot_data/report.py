@@ -406,7 +406,8 @@ def _fusion_sections(ctx: dict, ways: list, before: dict, after: dict) -> list[s
     for way_id, o in sorted(overrides.items()):
         w = by_way.get(way_id)
         if w is None:
-            lines.append(f"| {_way_link(way_id)} | {o.status} | not a cycle path in the region | | | {o.reason} |")
+            lines.append(f"| {_way_link(way_id)} | {o.status} | not a cycle path in the region"
+                         f" (applied by the rewrite step) | | | {o.reason} |")
             continue
         f = fused[way_id]
         lines.append(f"| {_way_link(way_id)} v{w.version} | {o.status} ({o.date}) | {w.osm_status} ({w.timestamp})"

@@ -75,4 +75,4 @@ def test_overrides_are_written_into_the_routable_extract():
     routable = _moped_tags(paths.ROUTABLE_PBF, set(overrides))
     for way_id, override in overrides.items():
         assert routable[way_id] == MOPED_VALUE[override.status], f"override {way_id} not applied"
-    assert any(osm[w] != routable[w] for w in overrides), "no override changes OSM; the override cases prove nothing"
+    assert any(osm.get(w) != routable[w] for w in overrides), "no override changes OSM; the override cases prove nothing"

@@ -1,9 +1,16 @@
+import re
 from array import array
 
 import osmium
+import pytest
 
+from naviscoot_data import paths
+from naviscoot_data import rewrite as rewrite_module
 from naviscoot_data.classify import ALLOWED, FORBIDDEN, UNKNOWN
-from naviscoot_data.rewrite import builtup_value, rewrite, rewrite_tags, road_zone, spread_builtup
+from naviscoot_data.fuse import Override
+from naviscoot_data.rewrite import (
+    OVERRIDE_TAG, ROUTABLE_HIGHWAYS, OverrideError, builtup_value, rewrite, rewrite_tags, road_zone, spread_builtup,
+)
 
 
 def test_allowed_becomes_designated():
@@ -82,3 +89,86 @@ def test_rewrite_writes_class_and_builtup(tmp_path):
     assert "moped" not in tags[5] and "naviscoot:builtup" not in tags[5]
     assert stats["class unknown"] == stats["class allowed"] == stats["class forbidden"] == 1
     assert len(list(osmium.FileProcessor(str(target), osmium.osm.NODE))) == 7
+
+
+def _override(way_id, status, line=2):
+    return Override(way_id=way_id, status=status, reason="test", date="2026-11-14", line=line)
+
+
+def _tags(path):
+    return {w.id: dict(w.tags) for w in osmium.FileProcessor(str(path), osmium.osm.WAY)}
+
+
+def test_override_applies_to_any_routable_way(tmp_path):
+    source, target = tmp_path / "in.osm.pbf", tmp_path / "out.osm.pbf"
+    _write(source, [
+        (1, [1, 2], {"highway": "residential", "motor_vehicle:forward": "yes", "moped:backward": "yes"}),
+        (2, [2, 3], {"highway": "path"}),
+        (3, [3, 4], {"highway": "footway"}),
+        (4, [4, 5], {"highway": "cycleway", "moped": "designated"}),
+        (5, [5, 6], {"highway": "cycleway", "moped": "designated"}),
+        (6, [6, 7], {"highway": "secondary", "maxspeed": "50"}),
+    ])
+    overrides = {
+        1: _override(1, FORBIDDEN, 2),
+        2: _override(2, FORBIDDEN, 3),
+        3: _override(3, ALLOWED, 4),
+        4: _override(4, FORBIDDEN, 5),
+        5: _override(5, FORBIDDEN, 6),
+    }
+    stats = rewrite(source, target, {5: FORBIDDEN}, overrides)
+    tags = _tags(target)
+    assert tags[1]["moped"] == "no" and tags[1][OVERRIDE_TAG] == "forbidden" and "moped:backward" not in tags[1]
+    assert tags[2]["moped"] == "no" and tags[2][OVERRIDE_TAG] == "forbidden"
+    assert tags[3]["moped"] == "designated" and tags[3][OVERRIDE_TAG] == "allowed"
+    assert tags[4]["moped"] == "no" and tags[4][OVERRIDE_TAG] == "forbidden"
+    assert tags[5]["moped"] == "no" and tags[5][OVERRIDE_TAG] == "forbidden"
+    assert tags[6] == {"highway": "secondary", "maxspeed": "50"}
+    assert stats["class forbidden"] == 1
+    assert stats["override forbidden"] == 4 and stats["override allowed"] == 1
+
+
+def test_override_on_a_cycle_path_outside_the_fused_region(tmp_path):
+    source, target = tmp_path / "in.osm.pbf", tmp_path / "out.osm.pbf"
+    _write(source, [(1, [1, 2], {"highway": "cycleway", "mofa": "yes"})])
+    rewrite(source, target, {}, {1: _override(1, FORBIDDEN)})
+    assert _tags(target)[1]["moped"] == "no"
+
+
+def test_rewrite_without_overrides_adds_no_marker(tmp_path):
+    source, target = tmp_path / "in.osm.pbf", tmp_path / "out.osm.pbf"
+    _write(source, [(1, [1, 2], {"highway": "cycleway"})])
+    rewrite(source, target, {1: FORBIDDEN})
+    assert OVERRIDE_TAG not in _tags(target)[1]
+
+
+@pytest.mark.parametrize("ways, expected", [
+    ([], "way 99 (overrides.csv:7) is not in in.osm.pbf"),
+    ([(99, [1, 2], {"highway": "proposed"})], "way 99 (overrides.csv:7) is highway=proposed, not a routable highway"),
+    ([(99, [1, 2], {"building": "yes"})], "way 99 (overrides.csv:7) has no highway tag, so it is not routable"),
+])
+def test_unapplicable_override_fails_without_writing(tmp_path, ways, expected):
+    source, target = tmp_path / "in.osm.pbf", tmp_path / "out.osm.pbf"
+    _write(source, [(1, [1, 2], {"highway": "residential"}), *ways])
+    with pytest.raises(OverrideError) as e:
+        rewrite(source, target, {}, {99: _override(99, FORBIDDEN, 7)})
+    assert str(e.value) == expected
+    assert not target.exists() and not (tmp_path / "partial-out.osm.pbf").exists()
+
+
+def test_main_exits_nonzero_naming_the_override(tmp_path, monkeypatch, capsys):
+    source, target, csv_path = tmp_path / "in.osm.pbf", tmp_path / "out.osm.pbf", tmp_path / "overrides.csv"
+    _write(source, [(1, [1, 2], {"highway": "residential"})])
+    csv_path.write_text("way_id,status,reason,date\n1,forbidden,ok,2026-11-14\n424242,forbidden,typo,2026-11-14\n")
+    monkeypatch.setattr(rewrite_module, "load_fused", lambda: {})
+    code = rewrite_module.main(["--source", str(source), "--target", str(target), "--overrides", str(csv_path)])
+    assert code == 1
+    assert "way 424242 (overrides.csv:3) is not in in.osm.pbf" in capsys.readouterr().err
+    assert not target.exists()
+
+
+def test_routable_highways_match_the_graph_lua_table():
+    lua = (paths.REPO_DIR / "routing" / "valhalla" / "graph.lua").read_text()
+    table = lua.split("\nhighway = {\n", 1)[1].split("\n}", 1)[0]
+    keys = set(re.findall(r'^\["(\w+)"\]', table, re.M))
+    assert ROUTABLE_HIGHWAYS == keys - {"undefined", "unknown"}

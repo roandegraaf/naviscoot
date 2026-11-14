@@ -11,10 +11,18 @@ import osmium
 
 from . import paths
 from .classify import ALLOWED, FORBIDDEN, UNKNOWN
+from .fuse import Override, load_overrides
 
 MOPED_VALUE = {ALLOWED: "designated", FORBIDDEN: "no", UNKNOWN: "unverified"}
 REOPENING_KEYS = ("moped:forward", "moped:backward", "oneway:moped")
+OVERRIDE_TAG = "naviscoot:override"
 PATH_HIGHWAYS = {"cycleway", "path"}
+ROUTABLE_HIGHWAYS = {
+    "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link",
+    "tertiary", "tertiary_link", "unclassified", "residential", "residential_link", "living_street", "service", "road",
+    "track", "footway", "pedestrian", "steps", "bridleway", "cycleway", "path", "bus_guideway", "busway", "corridor",
+    "elevator", "platform", "via_ferrata",
+}
 ROAD_HIGHWAYS = {
     "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary",
     "secondary_link", "tertiary", "tertiary_link", "unclassified", "residential", "living_street", "road",
@@ -66,8 +74,13 @@ def builtup_value(tags: dict[str, str], urban_contacts: int, rural_contacts: int
     return None
 
 
-def rewrite_tags(tags: dict[str, str], status: str | None, builtup: str | None) -> dict[str, str]:
+def rewrite_tags(
+    tags: dict[str, str], status: str | None, builtup: str | None, override: Override | None = None
+) -> dict[str, str]:
     out = dict(tags)
+    if override is not None:
+        status = override.status
+        out[OVERRIDE_TAG] = override.status
     if status is not None:
         out["moped"] = MOPED_VALUE[status]
         if status == FORBIDDEN:
@@ -76,6 +89,24 @@ def rewrite_tags(tags: dict[str, str], status: str | None, builtup: str | None) 
     if builtup is not None:
         out["naviscoot:builtup"] = builtup
     return out
+
+
+class OverrideError(Exception):
+    pass
+
+
+def unapplied_problems(overrides: dict[int, Override], applied: set[int], highways: dict[int, str | None],
+                       source: Path) -> list[str]:
+    problems = []
+    for way_id in sorted(set(overrides) - applied):
+        where = f"way {way_id} ({paths.OVERRIDES_CSV.name}:{overrides[way_id].line})"
+        if way_id not in highways:
+            problems.append(f"{where} is not in {source.name}")
+        elif highways[way_id] is None:
+            problems.append(f"{where} has no highway tag, so it is not routable")
+        else:
+            problems.append(f"{where} is highway={highways[way_id]}, not a routable highway")
+    return problems
 
 
 def spread_builtup(
@@ -128,9 +159,15 @@ def _builtup_labels(source: Path) -> dict[int, str | None]:
     return spread_builtup(labels, path_nodes)
 
 
-def rewrite(source: Path, target: Path, fused: dict[int, str]) -> collections.Counter:
+def rewrite(
+    source: Path, target: Path, fused: dict[int, str], overrides: dict[int, Override] | None = None
+) -> collections.Counter:
+    """Raises OverrideError, without writing target, when an override names no routable highway way in source."""
+    overrides = overrides or {}
     builtup = _builtup_labels(source)
     stats: collections.Counter = collections.Counter()
+    applied: set[int] = set()
+    override_highways: dict[int, str | None] = {}
     tmp = target.with_name("partial-" + target.name)
     with osmium.SimpleWriter(str(tmp), overwrite=True) as writer:
         for obj in osmium.FileProcessor(str(source)):
@@ -139,15 +176,27 @@ def rewrite(source: Path, target: Path, fused: dict[int, str]) -> collections.Co
                 continue
             highway = obj.tags.get("highway")
             status = fused.get(obj.id) if highway == "cycleway" else None
+            override = overrides.get(obj.id)
+            if override is not None:
+                override_highways[obj.id] = highway
+                if highway in ROUTABLE_HIGHWAYS:
+                    applied.add(obj.id)
+                    stats[f"override {override.status}"] += 1
+                else:
+                    override = None
             label = builtup.get(obj.id) if highway in PATH_HIGHWAYS else None
             if highway in PATH_HIGHWAYS:
                 stats[f"builtup {label or 'unset'}"] += 1
-            if status is None and label is None:
+            if status is None and label is None and override is None:
                 writer.add(obj)
                 continue
             if status is not None:
                 stats[f"class {status}"] += 1
-            writer.add(obj.replace(tags=rewrite_tags(dict(obj.tags), status, label)))
+            writer.add(obj.replace(tags=rewrite_tags(dict(obj.tags), status, label, override)))
+    problems = unapplied_problems(overrides, applied, override_highways, source)
+    if problems:
+        tmp.unlink()
+        raise OverrideError("\n".join(problems))
     tmp.rename(target)
     return stats
 
@@ -156,11 +205,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Write the fused bromfiets access into a routable OSM extract.")
     parser.add_argument("--source", type=Path, default=paths.OSM_COUNTRY_PBF)
     parser.add_argument("--target", type=Path, default=paths.ROUTABLE_PBF)
+    parser.add_argument("--overrides", type=Path, default=paths.OVERRIDES_CSV)
     args = parser.parse_args(argv)
 
     started = time.monotonic()
     fused = load_fused()
-    stats = rewrite(args.source, args.target, fused)
+    overrides = load_overrides(args.overrides)
+    try:
+        stats = rewrite(args.source, args.target, fused, overrides)
+    except OverrideError as e:
+        for line in str(e).splitlines():
+            print(f"error: override cannot be applied: {line}", file=sys.stderr)
+        return 1
     rewritten = sum(n for k, n in stats.items() if k.startswith("class "))
     for key in sorted(stats):
         print(f"{key}: {stats[key]:,}")

@@ -68,7 +68,7 @@
      local forwards = kv["moped_forward"]
      kv["moped_forward"] = kv["moped_backward"]
      kv["moped_backward"] = forwards
-@@ -1774,6 +1775,29 @@
+@@ -1774,6 +1775,36 @@
    kv["average_speed"] = normalize_speed(kv["maxspeed:practical"])
    kv["backward_speed"] = normalize_speed(kv["maxspeed:backward"])
    kv["forward_speed"] = normalize_speed(kv["maxspeed:forward"])
@@ -76,6 +76,13 @@
 +  -- Naviscoot (NL bromfiets): RVV 1990 closes an autoweg to mopeds whatever the moped tag says;
 +  -- stock Valhalla only does this through admin-based country overrides on RC <= primary.
 +  if kv["motorroad"] == "yes" then
++    kv["moped_forward"] = "false"
++    kv["moped_backward"] = "false"
++  end
++
++  -- Naviscoot: a forbidden entry in data/overrides.csv closes the way even where vehicle:forward,
++  -- motor_vehicle:backward and the like would reopen it after the moped tag was read.
++  if kv["naviscoot:override"] == "forbidden" then
 +    kv["moped_forward"] = "false"
 +    kv["moped_backward"] = "false"
 +  end
@@ -98,7 +105,7 @@
    kv["int"] = kv["int"]
    kv["int_ref"] = kv["int_ref"]
    kv["surface"] = kv["surface"]
-@@ -2064,7 +2088,7 @@
+@@ -2064,7 +2095,7 @@
    local truck_tag = any_in_num(truck_node, kv["hgv"])
    local auto_tag = any_in_num(motor_vehicle_node, kv["motorcar"])
    local motor_vehicle_tag = any_in_num(motor_vehicle_node, kv["motor_vehicle"])
@@ -107,7 +114,7 @@
    local motorcycle_tag = any_in_num(motor_cycle_node, kv["motorcycle"])
  
    if auto_tag == nil then
-@@ -2205,6 +2229,11 @@
+@@ -2205,6 +2236,11 @@
        wheelchair = wheelchair_tag or 256
        bike = bike_tag or 4
        moped = moped_tag or 0

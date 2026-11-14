@@ -30,6 +30,14 @@ uv run pytest -m valhalla   # regression routes against the local NL Valhalla (r
 anything else stops the audit. Say in the reason whether the entry was surveyed. Rows in `conflicts.md`
 marked "NDW newer" are the usual candidates.
 
+An override may name any routable highway way in the country extract: a cycle path in the region, but also a
+carriageway, a `highway=path`, a footway or a cycle path outside the region. The audit fuses the in-region cycle paths
+as before (only those appear in `fused_access.csv`). The rewrite step applies every override to the routable extract
+as `moped=designated|no` plus `naviscoot:override=allowed|forbidden`; graph.lua closes a `forbidden` way even when
+tags like `motor_vehicle:forward` would reopen it. An override whose way id is not in the extract, or is not a
+routable highway (the `highway` table in `graph.lua`), stops `uv run rewrite` (and so the refresh) with exit 1, naming
+the way and its `overrides.csv` line.
+
 `uv run fetch` is safe to run repeatedly:
 
 - **OSM**: the Geofabrik Netherlands extract is requested with `If-None-Match` / `If-Modified-Since`;
