@@ -45,6 +45,13 @@ marked "NDW newer" are the usual candidates.
 
 `uv run fetch --force` re-downloads everything.
 
+## Paths and the served graph
+
+`build/fused_access.csv` and `build/routable.osm.pbf` are working files. The env vars `FUSED_ACCESS_CSV` and
+`ROUTABLE_PBF` redirect them; `routing/refresh.sh` uses that to write a staged build. The CSV that belongs to the
+served graph is `routing/build/nl/fused_access.csv`, and that is what the API and `uv run pytest -m valhalla` read
+by default (`REGRESSION_CASES` swaps the cases file). For the whole chain, see "Refresh" in `routing/README.md`.
+
 ## Layout
 
 - `raw/` downloads (gitignored)

@@ -22,7 +22,8 @@ interface Case {
   points: [number, number][];
   max_requests?: number;
 }
-const cases: Case[] = JSON.parse(await readFile(new URL("../../routing/regression_cases.json", import.meta.url), "utf8")).cases;
+const casesFile = process.env.REGRESSION_CASES ?? new URL("../../routing/regression_cases.json", import.meta.url);
+const cases: Case[] = JSON.parse(await readFile(casesFile, "utf8")).cases;
 const caseById = (id: string) => {
   const c = cases.find((x) => x.id === id);
   if (!c) throw new Error(`regression case ${id} missing`);

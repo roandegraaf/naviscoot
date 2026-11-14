@@ -20,14 +20,15 @@ npm run build
 API_KEY=change-me npm start            # http://127.0.0.1:8080
 ```
 
-Valhalla must be up first (`routing/serve.sh start`), and `data/build/fused_access.csv` must exist
-(`cd data && uv run audit`).
+Valhalla must be up first (`routing/serve.sh start`), and `routing/build/nl/fused_access.csv` must exist. That is the
+copy the served graph was built from; `routing/refresh.sh` puts it there (see `routing/README.md`, "Refresh").
+The API reads it only at start, so restart the API after a refresh or rollback.
 
 | Env var | Default | Meaning |
 |---|---|---|
 | `API_KEY` | required | Static key every request except `/health` must send in `x-api-key`. The server refuses to start without it. |
 | `VALHALLA_URL` | `http://127.0.0.1:8002` | Valhalla service. |
-| `FUSED_ACCESS_CSV` | `../data/build/fused_access.csv` | Fused cycle path statuses, loaded into memory at start (72,552 ways). |
+| `FUSED_ACCESS_CSV` | `../routing/build/nl/fused_access.csv` | Fused cycle path statuses, loaded into memory at start (72,552 ways). |
 | `REPORTS_PATH` | `api/data/reports.jsonl` | Report store (gitignored directory). |
 | `HOST` / `PORT` | `127.0.0.1` / `8080` | Listen address. |
 | `MAX_VERIFIED_REQUESTS` | `5` | Cap on Valhalla requests for one verified-only route. |
@@ -40,8 +41,9 @@ npm test                    # unit tests (mocked Valhalla) + integration tests, 
 npm run test:integration    # integration only; REQUIRE_VALHALLA=1 turns a missing Valhalla into a failure
 ```
 
-The integration tests use the served NL graph, the real `fused_access.csv` and cases from
-`routing/regression_cases.json`.
+The integration tests use the served NL graph, its `fused_access.csv` and cases from
+`routing/regression_cases.json`. `VALHALLA_URL`, `FUSED_ACCESS_CSV` and `REGRESSION_CASES` override these; the refresh
+gate uses them to test a staged graph.
 
 ## Endpoints
 

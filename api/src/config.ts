@@ -18,7 +18,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     apiKey,
     valhallaUrl: env.VALHALLA_URL ?? "http://127.0.0.1:8002",
-    fusedCsvPath: env.FUSED_ACCESS_CSV ?? fromApiDir("../data/build/fused_access.csv"),
+    fusedCsvPath: env.FUSED_ACCESS_CSV ?? fromApiDir("../routing/build/nl/fused_access.csv"),
     reportsPath: env.REPORTS_PATH ?? fromApiDir("data/reports.jsonl"),
     host: env.HOST ?? "127.0.0.1",
     port: Number(env.PORT ?? 8080),

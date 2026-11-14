@@ -1,4 +1,6 @@
 import json
+import os
+from pathlib import Path
 
 import osmium
 import pytest
@@ -10,8 +12,8 @@ from naviscoot_data.valhalla import Valhalla, verified_only_route
 
 pytestmark = pytest.mark.valhalla
 
-CASES_FILE = paths.REPO_DIR / "routing" / "regression_cases.json"
-CASES = json.loads(CASES_FILE.read_text())["cases"]
+CASES = json.loads(paths.REGRESSION_CASES.read_text())["cases"]
+FUSED_CSV = Path(os.environ.get("FUSED_ACCESS_CSV", paths.SERVED_FUSED_CSV))
 
 
 @pytest.fixture(scope="module")
@@ -23,7 +25,7 @@ def valhalla() -> Valhalla:
 
 @pytest.fixture(scope="module")
 def unverified_ids() -> set[int]:
-    return {way_id for way_id, status in load_fused().items() if status == "unknown"}
+    return {way_id for way_id, status in load_fused(FUSED_CSV).items() if status == "unknown"}
 
 
 def _points(case: dict) -> list[tuple[float, float]]:

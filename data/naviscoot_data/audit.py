@@ -243,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Audit: warning: override for way {way_id} matches no cycle path in the region", file=sys.stderr)
     fusion = fuse.run(cycleways, signs, road_nodes, overrides)
     fuse.write_fused_csv(cycleways, fusion["fused"], paths.FUSED_ACCESS_CSV)
-    print(f"Audit: fused {len(fusion['attachments'])} attached signs, wrote data/build/fused_access.csv"
+    print(f"Audit: fused {len(fusion['attachments'])} attached signs, wrote {paths.FUSED_ACCESS_CSV}"
           f" ({time.monotonic() - t0:.0f} s)")
 
     paths.AUDIT_DOCS_DIR.mkdir(parents=True, exist_ok=True)

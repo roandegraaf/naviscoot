@@ -9,10 +9,11 @@ ADMIN_PBF="${ADMIN_PBF:-data/raw/netherlands-latest.osm.pbf}"
 GRAPH_LUA="${GRAPH_LUA:-routing/valhalla/graph.lua}"
 USE_ADMINS="${USE_ADMINS:-1}"
 LOCAL_EXPANSION_M="${LOCAL_EXPANSION_M:-1000000}"
+CONCURRENCY="${CONCURRENCY:-$(getconf _NPROCESSORS_ONLN)}"
 
 usage() {
   echo "usage: routing/build.sh config|admins|tiles|all" >&2
-  echo "env: OUT PBF ADMIN_PBF GRAPH_LUA (path or 'stock') USE_ADMINS (1|0) VALHALLA_IMAGE; paths relative to the repo root" >&2
+  echo "env: OUT PBF ADMIN_PBF GRAPH_LUA (path or 'stock') USE_ADMINS (1|0) CONCURRENCY VALHALLA_IMAGE; paths relative to the repo root" >&2
   exit 2
 }
 
@@ -27,7 +28,7 @@ config() {
     --mjolnir-tile-extract "/repo/$OUT/tiles.tar"
     --mjolnir-admin "/repo/$OUT/admins.sqlite"
     --mjolnir-timezone "/repo/$OUT/timezones.sqlite"
-    --mjolnir-concurrency "$(getconf _NPROCESSORS_ONLN)"
+    --mjolnir-concurrency "$CONCURRENCY"
     --service-limits-max-exclude-locations 2000
     --service-limits-trace-max-distance 400000
     --service-limits-trace-max-shape 50000

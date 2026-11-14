@@ -46,6 +46,81 @@ routing/serve.sh start            # valhalla_service on http://127.0.0.1:8002 (s
 `build.sh` reads `OUT`, `PBF`, `GRAPH_LUA` (`stock` for the unpatched script) and `USE_ADMINS`. `serve.sh` reads
 `OUT`, `NAME` and `PORT`. The fixture test uses these to build two graphs side by side.
 
+These are the single steps. A manual `build.sh all` into `routing/build/nl` does not copy `fused_access.csv` next to
+the tiles; use `refresh.sh` below to replace the served graph.
+
+## Refresh (one command)
+
+```sh
+routing/refresh.sh            # fetch (incremental), audit, rewrite, build, gate, promote
+routing/refresh.sh --force    # same, but re-download OSM and NDW
+routing/refresh.sh rollback   # swap the previous build back in and restart Valhalla
+```
+
+It lives in `routing/` next to `build.sh` and `serve.sh`, which it drives through the same `OUT`, `NAME` and `PORT`
+variables, and everything it produces and swaps lives in `routing/build/`.
+
+**The served unit.** `routing/build/nl/` holds `tiles.tar`, `valhalla.json`, `admins.sqlite` and the
+`fused_access.csv` the tiles were built from. The API (`FUSED_ACCESS_CSV`) and the regression suite read that CSV by
+default, so the graph and its classification always move together. `data/build/fused_access.csv` and
+`routable.osm.pbf` are working copies. After a promote or rollback they are synced, so a manual `uv run rewrite`
+starts from the served data.
+
+**Steps.** A failure at any step exits non-zero with `refresh FAILED at step '<name>'`, stops the staging container
+and leaves `routing/build/nl`, its CSV and port 8002 untouched.
+
+1. `fetch`: `uv run fetch [--force]`.
+2. `audit`: writes the fused CSV straight into `routing/build/nl-next/`.
+3. `rewrite`: writes `nl-next/routable.osm.pbf`.
+4. `build`: `build.sh all` with `OUT=routing/build/nl-next`, then drops the `tiles/` directory. Valhalla serves
+   `tiles.tar` only.
+5. `serve-staging`: serves `nl-next` as container `naviscoot-valhalla-next` on port 8003 (`STAGE_PORT`).
+6. `gate: regression suite`: `uv run pytest -m valhalla` against 8003 with the staged CSV and pbf.
+7. `gate: api integration`: `npm run test:integration` (`REQUIRE_VALHALLA=1`) against 8003 with the staged CSV.
+8. `promote`: `nl` → `nl-prev` (the older `nl-prev` is deleted), `nl-next` → `nl`. The `/repo/routing/build/nl-next/`
+   paths in `valhalla.json` are rewritten to `.../nl/`, and Valhalla on 8002 is restarted.
+9. `verify live graph`: both suites again against 8002, with default paths. A failure here rolls back
+   automatically.
+10. `finish`: moves the routable pbf to `data/build/` and copies the CSV to `data/build/`.
+
+The script then prints a one-line summary and appends it to `routing/build/refresh.log`. The summary has the OSM and
+NDW dates, the fused counts, the tile size, test counts and the time per step. Failures are logged there too. If an
+API answers on `API_PORT` (8080), the script tells you to restart it: it holds the old CSV in memory, and the script
+doesn't kill a process it didn't start.
+
+**Rollback.** `routing/refresh.sh rollback` swaps `nl` and `nl-prev` and restarts Valhalla. Both configs already
+point at `.../nl/`, so nothing is rewritten. Running it twice undoes it. The routable pbf is not rolled back, because
+only the override check in the regression suite reads it.
+
+**Things to know**
+- The audit rewrites the tracked `docs/audit/coverage.md` and `conflicts.md` on every run, including failed ones.
+  Commit them only after a successful refresh; after a failed one, `git diff docs/audit` shows what the new data
+  would change.
+- A regression case that fails because OSM or NDW changed is a finding to investigate, not a case to loosen.
+- `REGRESSION_CASES=<file>` swaps the cases file for the gate, and `GRAPH_LUA=stock` builds with stock Lua. Both
+  are for proving the gate.
+- Disk: each build dir is about 0.93 GB (tar, admins, CSV) and the staged pbf 1.4 GB. The script wants 6 GB free.
+
+**Measured 2026-11-14** (`routing/refresh.sh --force`, 909 s end to end, exit 0)
+
+| Step | Time | Notes |
+|---|---|---|
+| fetch | 403 s | 1,411 MB OSM download (the same 2026-11-13 Geofabrik extract), re-clip 281 s, all four NDW codes re-downloaded |
+| audit | 45 s | 18,988 allowed, 35,758 forbidden, 17,806 unknown; identical to the slice 2 fusion, because the data hadn't changed |
+| rewrite | 340 s | |
+| build | 108 s | 6 threads; `tiles.tar` 949 MB (10^6 bytes) |
+| serve-staging, gate | 7 s | regression 12 passed, API integration 7 passed |
+| promote, verify, finish | 6 s | Valhalla on 8002 is down for about a second while it restarts |
+
+- Without `--force`, fetch is a few seconds when Geofabrik has no new file and NDW is younger than 20 h, so a run takes about 8.5 min.
+- The build runs with half the cores (`CONCURRENCY`, default 6 here). With all 12 threads next to the live Valhalla (1.7 GB resident),
+  the Docker VM (7.7 GB) killed `valhalla_build_tiles` with exit 137. Six threads take the same time.
+- Gate proof: a copy of the cases file with an extra case requiring Domplein → Amersfoort under 15 km, passed as `REGRESSION_CASES`.
+  - The run failed at `gate: regression suite` (exit 1, `assert 22.194 < 15`).
+  - Afterwards the live container's start time, `nl/tiles.tar`, `nl/valhalla.json` and both fused CSVs were byte-identical, and no
+    staging container was left.
+- Rollback was run twice: it went back to the slice 3 build and then forward again, with 12/12 regression cases passing on each.
+
 ## Rewrite step (`data/naviscoot_data/rewrite.py`)
 
 - Cycle paths in `fused_access.csv` are rewritten as follows:

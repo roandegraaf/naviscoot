@@ -1,6 +1,6 @@
 # Conflicts between OSM, NDW and the override list
 
-Generated 2026-11-14 17:03 CET by `cd data && uv run audit`. Do not edit by hand.
+Generated 2026-11-14 18:42 CET by `cd data && uv run audit`. Do not edit by hand.
 
 One row per cycle path where the explicit OSM tag and the NDW verdict (direct sign, or propagated from another path) disagree, plus every path where an override contradicts OSM or NDW. Precedence: override list > NDW sign newer than the OSM edit and attached unambiguously > explicit OSM tag > NDW > unknown (see the method in `coverage.md`). *NDW newer* means the newest NDW sign date is more recent than the OSM way's last edit; rows where OSM still wins are override candidates, and the reason says why NDW did not win. *Confirmed* means a supplementary sign repeats the moped ban (G11/G13 only). Hops is the number of paths between the sign's path and this one (0 = the sign stands on this path). The NDW date is the newest of `validatedOn`, `placedOn` and `registeredOn` (not `lastModifiedOn`); the OSM date is the way's own timestamp.
 

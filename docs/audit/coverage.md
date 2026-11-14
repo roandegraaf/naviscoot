@@ -1,13 +1,13 @@
 # Coverage audit: bromfiets access on cycle paths
 
-Generated 2026-11-14 17:03 CET by `cd data && uv run audit`. Do not edit by hand; hand-check notes live in `docs/audit/handcheck.md` and are embedded below.
+Generated 2026-11-14 18:42 CET by `cd data && uv run audit`. Do not edit by hand; hand-check notes live in `docs/audit/handcheck.md` and are embedded below.
 
 ## Scope and sources
 
 - Region: 50 km around 52.156, 5.387 (Amersfoort).
 - Cycle path: every OSM way with `highway=cycleway` that has at least one node inside the region; lengths are whole-way lengths.
 - OSM: Geofabrik Netherlands extract `https://download.geofabrik.de/europe/netherlands-261113.osm.pbf`, Last-Modified Sat, 14 Nov 2026 00:33:19 GMT.
-- NDW: verkeersborden API v5 `current-state`, one request per sign code, downloaded G11 2026-11-14T15:17:10Z, G12a 2026-11-14T15:17:15Z, G12b 2026-11-14T15:17:16Z, G13 2026-11-14T15:17:18Z. Signs with `removedOn` set are dropped.
+- NDW: verkeersborden API v5 `current-state`, one request per sign code, downloaded G11 2026-11-14T17:41:46Z, G12a 2026-11-14T17:41:51Z, G12b 2026-11-14T17:41:52Z, G13 2026-11-14T17:41:53Z. Signs with `removedOn` set are dropped.
 
 ## Method
 

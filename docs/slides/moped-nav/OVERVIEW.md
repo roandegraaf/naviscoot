@@ -124,7 +124,7 @@ own fused access dataset first and a navigation app on top of it.
   GIVEN a destination 100 km from Amersfoort, WHEN a route is requested, THEN a route is returned
 - [ ] The API is live and protected
   GIVEN the deployed service, WHEN called without the API key, THEN it is refused, and with the key it returns a route
-- [ ] Data refresh is one command
+- [x] Data refresh is one command
   GIVEN newer OSM and NDW data, WHEN the refresh command runs, THEN it rebuilds the fused extract and graph and fails loudly if a regression case breaks
 - [ ] Search finds addresses and places
   GIVEN the app, WHEN typing a street address or a place such as a station, THEN both appear and selecting one opens the route preview
