@@ -448,6 +448,12 @@ struct PreviewView: View {
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
                 .accessibilityLabel(Text(verbatim: "\(Strings.stop(index + 1)), \(stop.title)"))
+                .accessibilityAction(named: Strings.moveStopUp) {
+                    if index > 0 { model.moveStop(from: index, to: index - 1) }
+                }
+                .accessibilityAction(named: Strings.moveStopDown) {
+                    if index < count - 1 { model.moveStop(from: index, to: index + 1) }
+                }
                 .accessibilityIdentifier("preview.stop.\(index)")
             Spacer(minLength: 0)
             iconButton("xmark", label: Strings.removeStop, id: "preview.stop.\(index).remove") {
@@ -462,12 +468,6 @@ struct PreviewView: View {
             }
         }
         .frame(minHeight: 52)
-        .accessibilityAction(named: Strings.moveStopUp) {
-            if index > 0 { model.moveStop(from: index, to: index - 1) }
-        }
-        .accessibilityAction(named: Strings.moveStopDown) {
-            if index < count - 1 { model.moveStop(from: index, to: index + 1) }
-        }
     }
 
     private var toRow: some View {
