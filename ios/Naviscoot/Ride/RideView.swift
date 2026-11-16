@@ -9,9 +9,10 @@ struct RideView: View {
     @ObservedObject var location: LocationService
     let onEnd: () -> Void
     @State private var camera: MapViewCamera
-    @State private var confirmingEnd = false
-    @State private var searching: RouteEditKind?
-    @State private var choosingEdit = false
+    @State private var panelExpanded = false
+    @State private var panelReady = false
+    @State private var ending = false
+    @State private var ended = false
     @StateObject private var tracker = RideCameraTracker()
     @State private var topFrame: CGRect = .zero
     @State private var sideFrame: CGRect = .zero
@@ -21,6 +22,7 @@ struct RideView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(AppSettings.self) private var settings
+    @Environment(PlacesStore.self) private var places: PlacesStore?
 
     init(model: RideModel, location: LocationService, onEnd: @escaping () -> Void) {
         self.model = model
@@ -75,123 +77,142 @@ struct RideView: View {
             tracker.setFollowInset(isLandscape ? followInset(for: area) : nil)
             if tracker.camera.mode == .overview { showOverview() }
         }
+        .onChange(of: settings.followOptions) { _, _ in
+            guard tracker.camera.follows, let coordinate = model.userCoordinate else { return }
+            camera = followCamera(on: coordinate)
+        }
         .onAppear {
             tracker.recordsDebug = model.options.simulate
             tracker.remainingRoute = { [weak model] in model?.remainingRoute ?? [] }
             tracker.userCoordinate = { [weak model] in model?.userCoordinate }
         }
-        .sheet(item: $searching) { kind in
-            PlaceSearchSheet(title: kind.title, near: model.userCoordinate) { place in
-                model.edit(kind.edit(place))
-            }
+        .task {
+            // Presenting while the previous screen's sheet is still animating away drops the presentation.
+            try? await Task.sleep(for: .milliseconds(400))
+            panelReady = true
         }
-        .confirmationDialog(Strings.editRoute, isPresented: $choosingEdit, titleVisibility: .hidden) {
-            Button(Strings.addStopMidRide) { searching = .addStop }
-                .accessibilityIdentifier("ride.edit.addStop")
-            Button(Strings.changeDestination) { searching = .changeDestination }
-                .accessibilityIdentifier("ride.edit.changeDestination")
-            Button(Strings.cancel, role: .cancel) {}
-        }
-        .alert(Strings.endRideTitle, isPresented: $confirmingEnd) {
-            Button(Strings.endRideConfirm, role: .destructive, action: endRide)
-            Button(Strings.keepRiding, role: .cancel) {}
+        .sheet(isPresented: panelPresented, onDismiss: finishEnding) {
+            panel(inSheet: true)
+                .environment(settings)
+                .environment(places)
+                .presentationDetents([.ridePanelCollapsed, .medium], selection: panelDetent)
+                .presentationBackgroundInteraction(.enabled)
+                .presentationContentInteraction(.resizes)
+                .presentationDragIndicator(.visible)
+                .interactiveDismissDisabled()
+                .drawerBackground()
         }
     }
 
     private var isLandscape: Bool { verticalSizeClass == .compact }
 
-    @ViewBuilder
-    private var portraitOverlay: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            bannerView
-            chips
-            troubleRows
-            if model.options.simulate {
-                simulationPanel
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { topFrame = $0 }
+    private var panelPresented: Binding<Bool> {
+        Binding(get: { panelReady && !isLandscape && !ending }, set: { _ in })
+    }
 
-        HStack {
-            Spacer()
-            VStack(spacing: 12) {
-                reportButton
-                muteButton
-                editMenu
-                overviewButton
+    private var panelDetent: Binding<PresentationDetent> {
+        Binding(
+            get: { panelExpanded ? .medium : .ridePanelCollapsed },
+            set: { panelExpanded = $0 != .ridePanelCollapsed }
+        )
+    }
+
+    private func panel(inSheet: Bool) -> some View {
+        RidePanel(model: model, expanded: $panelExpanded, inSheet: inSheet, onOverview: showOverview, onEnd: endRide)
+    }
+
+    private var portraitOverlay: some View {
+        VStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                bannerView
+                    .fixedSize(horizontal: false, vertical: true)
+                statusRows
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { topFrame = $0 }
+            .layoutPriority(1)
+
+            HStack {
+                Spacer()
+                VStack(spacing: 12) {
+                    reportButton
+                    muteButton
+                }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sideFrame = $0 }
             }
             .padding(.trailing, 12)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sideFrame = $0 }
-        }
-        .frame(maxHeight: .infinity)
+            .fixedSize(horizontal: false, vertical: true)
 
-        VStack(alignment: .leading, spacing: 10) {
-            Spacer()
+            Spacer(minLength: 0)
+
             VStack(alignment: .leading, spacing: 10) {
                 if let status = model.reportStatus {
                     reportToast(status)
-                }
-                if tracker.camera.offersRecenter {
-                    recenterButton
-                        .padding(.horizontal, 12)
                 }
                 HStack(alignment: .bottom, spacing: 10) {
                     speedView
                     if let limit = model.limitKmh {
                         limitSign(limit)
                     }
+                    Spacer(minLength: 0)
+                    recenterButton
                 }
-                .padding(.horizontal, 12)
                 if let alert = model.alert {
                     warning(alert)
-                        .padding(.horizontal, 12)
                 }
                 if let scooterWarning = model.scooterWarning {
                     scooterAlert(scooterWarning)
-                        .padding(.horizontal, 12)
                 }
-                rideBar(card: false)
             }
+            .padding(.horizontal, 12)
+            .fixedSize(horizontal: false, vertical: true)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { bottomFrame = $0 }
+            .padding(.bottom, RidePanel.collapsedHeight + 12)
         }
-        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private var statusRows: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                chips
+                troubleRows
+                if model.options.simulate {
+                    simulationPanel
+                }
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { statusHeight = $0 }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxHeight: statusHeight)
     }
 
     private var landscapeOverlay: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                bannerView
-                    .fixedSize(horizontal: false, vertical: true)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        chips
-                        troubleRows
-                        if model.options.simulate {
-                            simulationPanel
-                        }
+                if !panelExpanded {
+                    bannerView
+                        .fixedSize(horizontal: false, vertical: true)
+                    statusRows
+                        .layoutPriority(1)
+                    Spacer(minLength: 0)
+                    if let status = model.reportStatus {
+                        reportToast(status)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { statusHeight = $0 }
+                    if let alert = model.alert {
+                        warning(alert)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let scooterWarning = model.scooterWarning {
+                        scooterAlert(scooterWarning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                .scrollBounceBehavior(.basedOnSize)
-                .frame(maxHeight: statusHeight)
-                .layoutPriority(1)
-                Spacer(minLength: 0)
-                if let status = model.reportStatus {
-                    reportToast(status)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let alert = model.alert {
-                    warning(alert)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let scooterWarning = model.scooterWarning {
-                    scooterAlert(scooterWarning)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                rideBar(card: true)
-                    .fixedSize(horizontal: false, vertical: true)
+                panel(inSheet: false)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 24))
+                    .shadow(color: .black.opacity(0.12), radius: 12, y: 2)
+                    .layoutPriority(2)
             }
             .frame(width: Self.landscapeColumnWidth)
             .frame(maxHeight: .infinity)
@@ -200,20 +221,12 @@ struct RideView: View {
             Spacer(minLength: 0)
 
             VStack(alignment: .trailing, spacing: 12) {
-                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                    GridRow {
-                        reportButton
-                        muteButton
-                    }
-                    GridRow {
-                        editMenu
-                        overviewButton
-                    }
+                HStack(spacing: 12) {
+                    reportButton
+                    muteButton
                 }
                 Spacer(minLength: 0)
-                if tracker.camera.offersRecenter {
-                    recenterButton
-                }
+                recenterButton
                 HStack(alignment: .bottom, spacing: 10) {
                     if let limit = model.limitKmh {
                         limitSign(limit)
@@ -250,17 +263,23 @@ struct RideView: View {
     }
 
     private var muteButton: some View {
-        roundButton(
-            symbol: model.isMuted ? "speaker.slash" : "speaker.wave.2",
-            tint: Theme.ink,
-            label: model.isMuted ? Strings.unmute : Strings.mute,
+        let mode = settings.guidanceMode
+        return roundButton(
+            symbol: Self.voiceSymbol(mode),
+            tint: mode == .off ? Theme.dangerText : Theme.ink,
+            label: mode == .off ? Strings.unmute : Strings.mute,
             id: "ride.mute",
             action: model.toggleMute
         )
+        .accessibilityValue(Strings.voiceModeShort(mode))
     }
 
-    private var overviewButton: some View {
-        roundButton(symbol: "map", tint: Theme.ink, label: Strings.routeOverview, id: "ride.overview", action: showOverview)
+    static func voiceSymbol(_ mode: GuidanceMode) -> String {
+        switch mode {
+        case .all: "speaker.wave.2.fill"
+        case .alertsOnly: "speaker.wave.1.fill"
+        case .off: "speaker.slash.fill"
+        }
     }
 
     private func followCamera(on coordinate: Coordinate) -> MapViewCamera {
@@ -336,28 +355,32 @@ struct RideView: View {
         )
     }
 
-    private var editMenu: some View {
-        roundButton(symbol: "arrow.triangle.branch", tint: Theme.ink, label: Strings.editRoute, id: "ride.edit") {
-            choosingEdit = true
-        }
-        .disabled(!model.canEdit || model.editState == .planning)
-    }
-
     private var recenterButton: some View {
-        Button(action: recenter) {
-            Label(Strings.recenter, systemImage: "location.fill")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 20)
-                .frame(minHeight: 52)
-                .background(Theme.surface, in: Capsule())
-                .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
-        }
-        .accessibilityIdentifier("ride.recenter")
+        roundButton(
+            symbol: tracker.camera.follows ? "location.fill" : "location",
+            tint: Theme.verifiedText,
+            label: Strings.recenter,
+            id: "ride.recenter",
+            action: recenter
+        )
+        .accessibilityValue(tracker.camera.mode.rawValue)
     }
 
     private func endRide() {
+        guard !ending else { return }
+        let waitsForPanel = panelPresented.wrappedValue
+        ending = true
         model.end()
+        guard waitsForPanel else { return finishEnding() }
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            finishEnding()
+        }
+    }
+
+    private func finishEnding() {
+        guard ending, !ended else { return }
+        ended = true
         onEnd()
     }
 
@@ -704,66 +727,6 @@ struct RideView: View {
             .background(Theme.bannerFill.opacity(0.92), in: Capsule())
             .frame(maxWidth: .infinity)
             .accessibilityIdentifier("ride.reportStatus")
-    }
-
-    private func rideBar(card: Bool) -> some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(model.remainingS.map { Format.duration(seconds: $0) } ?? "–")
-                        .font(.system(size: 30, weight: .heavy))
-                        .foregroundStyle(Theme.ink)
-                    Text(remainingSubtitle)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.muted)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("ride.remaining")
-                if let stop = model.nextStop, !model.arrived {
-                    Label(Strings.nextStop(stop.title), systemImage: "mappin.circle.fill")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("ride.nextStop")
-                }
-            }
-            Spacer()
-            Button {
-                if model.arrived {
-                    endRide()
-                } else {
-                    confirmingEnd = true
-                }
-            } label: {
-                Text(Strings.end)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 26)
-                    .frame(minHeight: 56)
-                    .background(Theme.danger, in: Capsule())
-            }
-            .accessibilityIdentifier("ride.end")
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, card ? 12 : 16)
-        .padding(.bottom, card ? 12 : 34)
-        .background(
-            Theme.surface,
-            in: UnevenRoundedRectangle(
-                topLeadingRadius: 24,
-                bottomLeadingRadius: card ? 24 : 0,
-                bottomTrailingRadius: card ? 24 : 0,
-                topTrailingRadius: 24
-            )
-        )
-        .shadow(color: .black.opacity(0.12), radius: 12, y: card ? 2 : -2)
-    }
-
-    private var remainingSubtitle: String {
-        guard let meters = model.remainingM, let seconds = model.remainingS else { return " " }
-        let arrival = Format.clockTime(Date().addingTimeInterval(seconds))
-        return "\(Format.distance(meters: Int(meters.rounded()))), \(Strings.arrive(arrival))"
     }
 
     private func roundButton(symbol: String, tint: Color, label: String, id: String, action: @escaping () -> Void) -> some View {

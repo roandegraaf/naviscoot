@@ -1956,23 +1956,6 @@
         }
       }
     },
-    "ride.edit": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change route"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Route aanpassen"
-          }
-        }
-      }
-    },
     "ride.edit.addStop": {
       "extractionState": "manual",
       "localizations": {
@@ -2224,6 +2207,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Overzicht van de route"
+          }
+        }
+      }
+    },
+    "ride.panel.hide": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide ride options"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ritopties verbergen"
+          }
+        }
+      }
+    },
+    "ride.panel.show": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show ride options"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ritopties tonen"
           }
         }
       }
@@ -2513,6 +2530,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Op onbevestigd pad, nog %@"
+          }
+        }
+      }
+    },
+    "ride.voice.alerts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alerts"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meldingen"
+          }
+        }
+      }
+    },
+    "ride.voice.all": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles"
+          }
+        }
+      }
+    },
+    "ride.voice.off": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uit"
           }
         }
       }

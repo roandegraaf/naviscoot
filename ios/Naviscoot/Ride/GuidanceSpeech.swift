@@ -16,6 +16,11 @@ enum GuidanceMode: String, CaseIterable, Identifiable {
         case .off: false
         }
     }
+
+    func toggledMute(lastAudible: GuidanceMode) -> GuidanceMode {
+        guard self == .off else { return .off }
+        return lastAudible == .off ? .all : lastAudible
+    }
 }
 
 enum SpeechKind: String, CaseIterable {

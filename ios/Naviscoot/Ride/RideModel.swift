@@ -67,7 +67,6 @@ final class RideModel: ObservableObject {
     @Published private(set) var isRerouting = false
     @Published private(set) var rerouteCount = 0
     @Published private(set) var arrived = false
-    @Published private(set) var isMuted = false
     @Published private(set) var reportStatus: ReportStatus?
     @Published private(set) var spoken: [SpokenLine] = []
     @Published private(set) var speechDecisions: [SpeechDecision] = []
@@ -214,10 +213,6 @@ final class RideModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in self?.handle(state) }
             .store(in: &cancellables)
-        core.spokenInstructionObserver.$isMuted
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] muted in self?.isMuted = muted }
-            .store(in: &cancellables)
     }
 
     var routeId: String { plan.meta.routeId }
@@ -325,7 +320,12 @@ final class RideModel: ObservableObject {
     }
 
     func toggleMute() {
-        core.spokenInstructionObserver.toggleMute()
+        setVoiceMode(settings.guidanceMode.toggledMute(lastAudible: settings.lastAudibleGuidanceMode))
+    }
+
+    func setVoiceMode(_ mode: GuidanceMode) {
+        settings.guidanceMode = mode
+        if mode == .off { speech.stopSpeaking(at: .immediate) }
     }
 
     func simulateDetour() {
@@ -533,7 +533,6 @@ final class RideModel: ObservableObject {
     }
 
     private func announce(_ text: String, kind: SpeechKind) {
-        guard !core.spokenInstructionObserver.isMuted else { return }
         speech.announce(text, kind: kind)
     }
 }

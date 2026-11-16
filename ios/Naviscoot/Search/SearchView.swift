@@ -161,7 +161,7 @@ struct SearchView: View {
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func drawerBackground() -> some View {
         if #available(iOS 26, *) {

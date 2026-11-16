@@ -81,6 +81,30 @@ final class VoiceTests: XCTestCase {
         XCTAssertEqual(SpeechKind.allCases.filter(GuidanceMode.off.allows), [])
     }
 
+    func testMuteSwitchesToOffAndBackToTheLastAudibleMode() {
+        XCTAssertEqual(GuidanceMode.all.toggledMute(lastAudible: .all), .off)
+        XCTAssertEqual(GuidanceMode.alertsOnly.toggledMute(lastAudible: .alertsOnly), .off)
+        XCTAssertEqual(GuidanceMode.off.toggledMute(lastAudible: .alertsOnly), .alertsOnly)
+        XCTAssertEqual(GuidanceMode.off.toggledMute(lastAudible: .all), .all)
+        XCTAssertEqual(GuidanceMode.off.toggledMute(lastAudible: .off), .all)
+    }
+
+    func testSettingsRememberTheLastAudibleModeSoUnmuteRestoresIt() {
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertEqual(settings.lastAudibleGuidanceMode, .all)
+        settings.guidanceMode = .alertsOnly
+        settings.guidanceMode = .off
+        XCTAssertEqual(settings.lastAudibleGuidanceMode, .alertsOnly)
+        XCTAssertEqual(settings.guidanceMode.toggledMute(lastAudible: settings.lastAudibleGuidanceMode), .alertsOnly)
+
+        let reopened = AppSettings(defaults: defaults)
+        XCTAssertEqual(reopened.guidanceMode, .off)
+        XCTAssertEqual(reopened.lastAudibleGuidanceMode, .all)
+
+        settings.guidanceMode = .alertsOnly
+        XCTAssertEqual(AppSettings(defaults: defaults).lastAudibleGuidanceMode, .alertsOnly)
+    }
+
     func testAlertsOnlySpeaksWarningsAndSpeedingButNotTurnInstructions() {
         let recorder = Recorder()
         var settings = SpeechSettings(mode: .alertsOnly)

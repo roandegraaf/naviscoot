@@ -133,8 +133,13 @@ final class AppSettings {
     }
 
     var guidanceMode: GuidanceMode {
-        didSet { defaults.set(guidanceMode.rawValue, forKey: Key.guidanceMode) }
+        didSet {
+            defaults.set(guidanceMode.rawValue, forKey: Key.guidanceMode)
+            if guidanceMode != .off { lastAudibleGuidanceMode = guidanceMode }
+        }
     }
+
+    @ObservationIgnored private(set) var lastAudibleGuidanceMode: GuidanceMode = .all
 
     var voiceDutch: String {
         didSet { defaults.set(voiceDutch, forKey: Key.voiceDutch) }
@@ -257,6 +262,7 @@ final class AppSettings {
         chargeNotify = defaults.bool(forKey: Key.chargeNotify)
         let target = defaults.integer(forKey: Key.chargeNotifyTarget)
         chargeNotifyTarget = Self.chargeTargets.contains(target) ? target : 100
+        if guidanceMode != .off { lastAudibleGuidanceMode = guidanceMode }
     }
 
     private static func integer(_ defaults: UserDefaults, _ key: String, default value: Int, in range: ClosedRange<Int>) -> Int {

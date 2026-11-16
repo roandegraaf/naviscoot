@@ -86,11 +86,19 @@ final class TripsUITests: XCTestCase {
         let start = app.buttons["preview.start"]
         XCTAssertTrue(start.waitForExistence(timeout: 60), "Start is not offered")
         start.tap()
-        XCTAssertTrue(app.buttons["ride.end"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["ride.panel.toggle"].waitForExistence(timeout: 10))
     }
 
     private func endThroughTheAlert() {
-        app.buttons["ride.end"].tap()
+        XCTAssertTrue(app.staticTexts["ride.banner.distance"].waitForExistence(timeout: 20))
+        let end = app.buttons["ride.end"]
+        for _ in 0 ..< 3 where !(end.exists && end.isHittable) {
+            app.buttons["ride.panel.toggle"].tap()
+            let opened = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: end)
+            _ = XCTWaiter.wait(for: [opened], timeout: 3)
+        }
+        XCTAssertTrue(end.isHittable, "the ride panel did not open")
+        end.tap()
         let confirm = app.alerts.buttons.matching(identifier: "End ride").firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "End did not ask first")
         confirm.tap()

@@ -136,12 +136,13 @@ enum Strings {
     static var endRideConfirm: String { tr("ride.endConfirm.end") }
     static var keepRiding: String { tr("ride.endConfirm.keep") }
     static var rerouteFailed: String { tr("ride.rerouteFailed") }
-    static var editRoute: String { tr("ride.edit") }
     static var addStopMidRide: String { tr("ride.edit.addStop") }
     static var changeDestination: String { tr("ride.edit.changeDestination") }
     static var planningNewRoute: String { tr("ride.edit.planning") }
     static var routeOverview: String { tr("ride.overview") }
     static var recenter: String { tr("ride.recenter") }
+    static var showRideOptions: String { tr("ride.panel.show") }
+    static var hideRideOptions: String { tr("ride.panel.hide") }
     static var locationAccessOff: String { tr("ride.location.denied") }
     static var preciseLocationOff: String { tr("ride.location.reduced") }
     static var locationSettings: String { tr("ride.location.settings") }
@@ -398,6 +399,14 @@ enum Strings {
         case .all: tr("settings.guidance.all")
         case .alertsOnly: tr("settings.guidance.alertsOnly")
         case .off: tr("settings.guidance.off")
+        }
+    }
+
+    static func voiceModeShort(_ mode: GuidanceMode) -> String {
+        switch mode {
+        case .all: tr("ride.voice.all")
+        case .alertsOnly: tr("ride.voice.alerts")
+        case .off: tr("ride.voice.off")
         }
     }
 
