@@ -86,6 +86,8 @@ final class HomeDrawerUITests: XCTestCase {
                 app.buttons["settings.mapStyle.positron"].tap()
                 XCTAssertTrue(app.buttons["settings.mapStyle.positron"].isSelected, "tapping a map style card did not select it")
                 screenshot("drawer-17-settings-map")
+                app.buttons["settings.mapStyle.liberty"].tap()
+                XCTAssertTrue(app.buttons["settings.mapStyle.liberty"].isSelected)
             }
             if order.count < 6 { app.swipeUp() }
         }
