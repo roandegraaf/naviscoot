@@ -11,9 +11,17 @@ final class SearchModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var resolvingId: String?
 
+    struct DroppedPin: Equatable {
+        let coordinate: Coordinate
+        var destination: Destination?
+    }
+
+    @Published private(set) var pin: DroppedPin?
+
     var origin: () -> Coordinate? = { nil }
     private let pdok: PDOKClient
     private var searchTask: Task<Void, Never>?
+    private var pinTask: Task<Void, Never>?
 
     init(pdok: PDOKClient = PDOKClient()) {
         self.pdok = pdok
@@ -49,6 +57,32 @@ final class SearchModel: ObservableObject {
 
     private static func attempt(_ work: () async throws -> [SearchResult]) async -> [SearchResult]? {
         try? await work()
+    }
+
+    func dropPin(at coordinate: Coordinate) {
+        pinTask?.cancel()
+        pin = DroppedPin(coordinate: coordinate)
+        pinTask = Task { [weak self, pdok] in
+            let address = try? await pdok.reverse(coordinate)
+            guard !Task.isCancelled, let self, self.pin?.coordinate == coordinate else { return }
+            self.pin?.destination = Self.pinDestination(at: coordinate, address: address)
+        }
+    }
+
+    func clearPin() {
+        pinTask?.cancel()
+        pin = nil
+    }
+
+    static func pinDestination(at coordinate: Coordinate, address: PDOKClient.NearbyAddress?) -> Destination {
+        guard let address else {
+            return Destination(title: coordinateTitle(coordinate), subtitle: Strings.droppedPin, coordinate: coordinate)
+        }
+        return Destination(title: address.title, subtitle: address.subtitle, coordinate: coordinate)
+    }
+
+    static func coordinateTitle(_ coordinate: Coordinate) -> String {
+        String(format: "%.5f, %.5f", locale: Locale(identifier: "en_US_POSIX"), coordinate.lat, coordinate.lon)
     }
 
     func resolve(_ result: SearchResult) async -> Destination? {

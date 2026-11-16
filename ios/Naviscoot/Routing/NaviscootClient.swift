@@ -20,7 +20,29 @@ enum RouteRequestError: Error, Equatable {
     case noRoute
     case serviceUnavailable
     case classificationFailed
+    case tooManyStops
+    case conflictingTimes
+    case alternativesNeedTwoPoints
+    case stopsUnsupported
     case http(status: Int, code: String?)
+}
+
+struct RouteAvoid: Equatable, Codable {
+    var ferries = false
+    var unpaved = false
+    var mainRoads = false
+}
+
+enum RouteTime: Equatable {
+    case departAt(Date)
+    case arriveBy(Date)
+}
+
+struct RouteOptions: Equatable {
+    var stops: [Coordinate] = []
+    var alternatives = 0
+    var time: RouteTime?
+    var avoid = RouteAvoid()
 }
 
 final class NaviscootClient {
@@ -32,31 +54,69 @@ final class NaviscootClient {
         self.session = session
     }
 
-    func makeRouteRequest(from origin: Coordinate, to destination: Coordinate, verifiedOnly: Bool) throws -> URLRequest {
+    func makeRouteRequest(
+        from origin: Coordinate,
+        to destination: Coordinate,
+        options: RouteOptions = RouteOptions(),
+        verifiedOnly: Bool,
+        language: Language
+    ) throws -> URLRequest {
         var request = URLRequest(url: config.baseURL.appending(path: "route"))
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue(config.apiKey, forHTTPHeaderField: "x-api-key")
         request.setValue("application/json", forHTTPHeaderField: "content-type")
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "origin": ["lat": origin.lat, "lon": origin.lon],
             "destination": ["lat": destination.lat, "lon": destination.lon],
             "verified_only": verifiedOnly,
             "format": "osrm",
-            "language": "nl-NL",
+            "language": language.speechCode,
         ]
+        if !options.stops.isEmpty {
+            body["waypoints"] = options.stops.map { ["lat": $0.lat, "lon": $0.lon] }
+        }
+        if options.alternatives > 0 {
+            body["alternatives"] = options.alternatives
+        }
+        switch options.time {
+        case let .departAt(date): body["depart_at"] = ISO8601DateFormatter().string(from: date)
+        case let .arriveBy(date): body["arrive_by"] = ISO8601DateFormatter().string(from: date)
+        case nil: break
+        }
+        if options.avoid != RouteAvoid() {
+            body["avoid"] = ["ferries": options.avoid.ferries, "unpaved": options.avoid.unpaved, "main_roads": options.avoid.mainRoads]
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
     }
 
-    func route(from origin: Coordinate, to destination: Coordinate, verifiedOnly: Bool) async throws -> RoutePlan {
-        let request = try makeRouteRequest(from: origin, to: destination, verifiedOnly: verifiedOnly)
+    func route(from origin: Coordinate, to destination: Coordinate, stops: [Coordinate], avoid: RouteAvoid, verifiedOnly: Bool, language: Language) async throws -> RoutePlan {
+        let options = RouteOptions(stops: stops, avoid: avoid)
+        guard let plan = try await routes(from: origin, to: destination, options: options, verifiedOnly: verifiedOnly, language: language).first else {
+            throw RouteParseError.noRoute
+        }
+        return plan
+    }
+
+    func routes(
+        from origin: Coordinate,
+        to destination: Coordinate,
+        options: RouteOptions = RouteOptions(),
+        verifiedOnly: Bool,
+        language: Language
+    ) async throws -> [RoutePlan] {
+        let request = try makeRouteRequest(from: origin, to: destination, options: options, verifiedOnly: verifiedOnly, language: language)
         let (data, response) = try await session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard status == 200 else {
             throw Self.error(status: status, body: data)
         }
-        return try RouteParser.parse(data)
+        let plans = try RouteParser.parseAll(data)
+        if !options.stops.isEmpty, let primary = plans.first, primary.route.waypoints.count != options.stops.count + 2 {
+            throw RouteRequestError.stopsUnsupported
+        }
+        return plans
     }
 
     static func error(status: Int, body: Data) -> RouteRequestError {
@@ -67,6 +127,9 @@ final class NaviscootClient {
         case (422, "no_route"): return .noRoute
         case (502, "valhalla_unavailable"): return .serviceUnavailable
         case (502, "classification_failed"): return .classificationFailed
+        case (400, "too_many_waypoints"): return .tooManyStops
+        case (400, "conflicting_times"): return .conflictingTimes
+        case (400, "alternatives_need_two_points"): return .alternativesNeedTwoPoints
         default: return .http(status: status, code: code)
         }
     }

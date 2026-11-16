@@ -38,6 +38,7 @@ struct RouteGeometry {
     let points: [Coordinate]
     let cumulativeM: [Double]
     let stepStartIndices: [Int]
+    private let stepPointCounts: [Int]
 
     init(points: [Coordinate], stepPointCounts: [Int] = []) {
         self.points = points
@@ -54,10 +55,17 @@ struct RouteGeometry {
             next += max(0, count - 1)
         }
         stepStartIndices = starts
+        self.stepPointCounts = stepPointCounts
     }
 
     init(route: Route) {
-        self.init(points: route.geometry.map(Coordinate.init), stepPointCounts: route.steps.map(\.geometry.count))
+        self.init(points: route.geometry.map(Coordinate.init), stepPointCounts: route.steps.map(Self.spannedPointCount))
+    }
+
+    // An intermediate arrive step is [p, p] while the route geometry holds p once, so it must not advance later steps.
+    private static func spannedPointCount(_ step: RouteStep) -> Int {
+        guard let first = step.geometry.first else { return 0 }
+        return step.geometry.allSatisfy { $0 == first } ? 1 : step.geometry.count
     }
 
     var lengthM: Double { cumulativeM.last ?? 0 }
@@ -69,8 +77,9 @@ struct RouteGeometry {
 
     func globalIndex(completedSteps: Int, stepGeometryIndex: Int) -> Int {
         guard !points.isEmpty, !stepStartIndices.isEmpty else { return 0 }
-        let start = stepStartIndices[min(max(0, completedSteps), stepStartIndices.count - 1)]
-        return min(start + max(0, stepGeometryIndex), points.count - 1)
+        let step = min(max(0, completedSteps), stepStartIndices.count - 1)
+        let offset = min(max(0, stepGeometryIndex), max(0, stepPointCounts[step] - 1))
+        return min(stepStartIndices[step] + offset, points.count - 1)
     }
 
     func progressM(near index: Int, snapped: Coordinate) -> Double {

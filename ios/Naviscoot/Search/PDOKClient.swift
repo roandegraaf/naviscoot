@@ -36,6 +36,48 @@ final class PDOKClient {
         let response: Body
     }
 
+    struct NearbyAddress: Equatable {
+        let title: String
+        let subtitle: String
+        let coordinate: Coordinate
+        let distanceM: Double
+    }
+
+    private struct ReverseResponse: Decodable {
+        struct Body: Decodable { let docs: [Doc] }
+        struct Doc: Decodable {
+            let weergavenaam: String
+            let centroide_ll: String
+            let afstand: Double?
+        }
+
+        let response: Body
+    }
+
+    static let reverseRadiusM = 200
+
+    func reverseRequest(_ coordinate: Coordinate, within meters: Int = reverseRadiusM) -> URLRequest {
+        let items = [
+            URLQueryItem(name: "lat", value: String(coordinate.lat)),
+            URLQueryItem(name: "lon", value: String(coordinate.lon)),
+            URLQueryItem(name: "type", value: "adres"),
+            URLQueryItem(name: "rows", value: "1"),
+            URLQueryItem(name: "distance", value: String(meters)),
+            URLQueryItem(name: "fl", value: "id,weergavenaam,centroide_ll,afstand"),
+        ]
+        return URLRequest(url: Self.baseURL.appending(path: "reverse").appending(queryItems: items))
+    }
+
+    func reverse(_ coordinate: Coordinate) async throws -> NearbyAddress? {
+        try Self.parseReverse(await fetch(reverseRequest(coordinate)))
+    }
+
+    static func parseReverse(_ data: Data) throws -> NearbyAddress? {
+        guard let doc = try JSONDecoder().decode(ReverseResponse.self, from: data).response.docs.first else { return nil }
+        let (title, subtitle) = splitDisplayName(doc.weergavenaam)
+        return NearbyAddress(title: title, subtitle: subtitle, coordinate: try parsePoint(doc.centroide_ll), distanceM: doc.afstand ?? 0)
+    }
+
     func suggestRequest(_ query: String, near: Coordinate?, rows: Int = 8) -> URLRequest {
         var items = [
             URLQueryItem(name: "q", value: query),

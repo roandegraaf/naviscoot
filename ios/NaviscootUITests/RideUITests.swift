@@ -12,7 +12,7 @@ final class RideUITests: XCTestCase {
         _ = try apiKey()
     }
 
-    func testGuidanceSpeaksDutchStoresAReportAndReroutesAfterADetour() throws {
+    func testGuidanceSpeaksEnglishStoresAReportAndReroutesAfterADetour() throws {
         launch(origin: caseOrigin, speedKmh: 120)
         startRide()
 
@@ -23,9 +23,9 @@ final class RideUITests: XCTestCase {
         XCTAssertFalse(street.label.isEmpty)
 
         let spoken = app.staticTexts["sim.spoken"]
-        wait(for: spoken, valueContains: "nl-NL|Over ", timeout: 40)
-        wait(for: spoken, valueContains: "Rechts afslaan.", timeout: 10)
-        XCTAssertFalse(spokenLines().contains { !$0.hasPrefix("nl-NL|") }, spokenLines().joined(separator: "\n"))
+        wait(for: spoken, valueContains: "en-GB|In ", timeout: 40)
+        wait(for: spoken, valueContains: "Turn right.", timeout: 10)
+        XCTAssertFalse(spokenLines().contains { !$0.hasPrefix("en-GB|") }, spokenLines().joined(separator: "\n"))
         wait(for: street, labelEquals: "Holkerpad", timeout: 40)
         XCTAssertTrue(distance.label.range(of: #"^\d+(\.\d)? (m|km)$"#, options: .regularExpression) != nil, distance.label)
         screenshot("07-ride-banner-voice")
@@ -64,11 +64,10 @@ final class RideUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [spokeAgain], timeout: 30), .completed, "no instruction spoken after the reroute")
         XCTAssertFalse(app.staticTexts["ride.rerouting"].exists)
 
-        app.buttons["ride.end"].tap()
-        XCTAssertTrue(app.textFields["search.field"].waitForExistence(timeout: 10))
+        endRide(confirm: "End ride")
     }
 
-    func testWarnsBeforeTheUnverifiedStretchOnScreenAndInDutch() throws {
+    func testWarnsBeforeTheUnverifiedStretchOnScreenAndInEnglish() throws {
         let start = try pointBeforeUnverifiedStretch(meters: 1400)
         let fromStart = try fetchRoute(from: start)
         let unverified = fromStart.stretches.filter { $0["class"] as? String == "unverified" }
@@ -84,30 +83,130 @@ final class RideUITests: XCTestCase {
         XCTAssertTrue(warning.label.hasPrefix("Unverified path in "), warning.label)
         XCTAssertTrue(warning.label.hasSuffix(", for \(length) m"), warning.label)
         let spoken = app.staticTexts["sim.spoken"]
-        wait(for: spoken, valueContains: "nl-NL|Let op: over ", timeout: 10)
-        wait(for: spoken, valueContains: "een onbevestigd fietspad van 500 meter.", timeout: 5)
+        wait(for: spoken, valueContains: "en-GB|Caution: in ", timeout: 10)
+        wait(for: spoken, valueContains: "an unverified cycle path of 500 metres.", timeout: 5)
         screenshot("10-ride-warning-ahead")
 
         wait(for: warning, labelBeginsWith: "On unverified path, ", timeout: 90)
         let chip = app.descendants(matching: .any)["ride.stretch"]
         wait(for: chip, labelEquals: "Unverified path, limit 30", timeout: 10)
         XCTAssertEqual(app.descendants(matching: .any)["ride.limit"].label, "Speed limit 30")
-        XCTAssertEqual(spokenLines().filter { $0.contains("onbevestigd fietspad") }.count, 1, spokenLines().joined(separator: "\n"))
+        XCTAssertEqual(spokenLines().filter { $0.contains("unverified cycle path") }.count, 1, spokenLines().joined(separator: "\n"))
+        XCTAssertFalse(spokenLines().contains { !$0.hasPrefix("en-GB|") }, spokenLines().joined(separator: "\n"))
         screenshot("11-ride-warning-inside")
 
         let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: warning)
         XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 60), .completed, "the warning stayed after the stretch")
-        XCTAssertEqual(spokenLines().filter { $0.contains("onbevestigd fietspad") }.count, 1)
+        XCTAssertEqual(spokenLines().filter { $0.contains("unverified cycle path") }.count, 1)
     }
 
-    private func launch(origin: (lat: Double, lon: Double), speedKmh: Int) {
+    func testInDutchTheRideReadsAndSpeaksDutchIncludingTheWarning() throws {
+        let start = try pointBeforeUnverifiedStretch(meters: 1400)
+        let fromStart = try fetchRoute(from: start, language: "nl-NL")
+        let length = try XCTUnwrap(fromStart.stretches.first { $0["class"] as? String == "unverified" }?["length_m"] as? Int)
+        let firstInstruction = try XCTUnwrap(fromStart.firstAnnouncement)
+
+        launch(origin: start, speedKmh: 90, language: "nl")
+        startRide()
+        XCTAssertEqual(app.buttons["ride.end"].label, "Stoppen")
+        XCTAssertEqual(app.buttons["ride.report"].label, "Meld hier foute gegevens")
+        XCTAssertEqual(app.buttons["ride.mute"].label, "Stem uit")
+
+        let spoken = app.staticTexts["sim.spoken"]
+        wait(for: spoken, valueContains: "nl-NL|\(firstInstruction)", timeout: 20)
+        let distance = app.staticTexts["ride.banner.distance"]
+        XCTAssertTrue(distance.waitForExistence(timeout: 20))
+        XCTAssertTrue(distance.label.range(of: #"^\d+(,\d)? (m|km)$"#, options: .regularExpression) != nil, distance.label)
+        let remaining = app.descendants(matching: .any)["ride.remaining"]
+        XCTAssertTrue(remaining.label.contains("aankomst"), remaining.label)
+
+        let warning = app.descendants(matching: .any)["ride.warning"]
+        XCTAssertTrue(warning.waitForExistence(timeout: 60), "no warning before the unverified stretch")
+        XCTAssertTrue(warning.label.hasPrefix("Onbevestigd pad over "), warning.label)
+        XCTAssertTrue(warning.label.hasSuffix(", \(length) m lang"), warning.label)
+        wait(for: spoken, valueContains: "nl-NL|Let op: over ", timeout: 10)
+        wait(for: spoken, valueContains: "een onbevestigd fietspad van 500 meter.", timeout: 5)
+        screenshot("nl-05-ride-warning-ahead")
+
+        wait(for: warning, labelBeginsWith: "Op onbevestigd pad, nog ", timeout: 90)
+        wait(for: app.descendants(matching: .any)["ride.stretch"], labelEquals: "Onbevestigd pad, limiet 30", timeout: 10)
+        XCTAssertEqual(app.descendants(matching: .any)["ride.limit"].label, "Maximumsnelheid 30")
+        XCTAssertEqual(spokenLines().filter { $0.contains("onbevestigd fietspad") }.count, 1, spokenLines().joined(separator: "\n"))
+        XCTAssertFalse(spokenLines().contains { !$0.hasPrefix("nl-NL|") }, spokenLines().joined(separator: "\n"))
+        screenshot("nl-06-ride-warning-inside")
+
+        endRide(confirm: "Rit stoppen")
+    }
+
+    func testAFailedRerouteIsShownAndRetriedOnItsOwn() throws {
+        launch(origin: caseOrigin, speedKmh: 90, rerouteFailures: 2)
+        startRide()
+        let distance = app.staticTexts["ride.banner.distance"]
+        XCTAssertTrue(distance.waitForExistence(timeout: 20))
+        let routeId = app.staticTexts["sim.routeId"].label
+        XCTAssertFalse(app.descendants(matching: .any)["ride.rerouteFailed"].exists)
+
+        app.buttons["sim.detour"].tap()
+        let failed = app.descendants(matching: .any)["ride.rerouteFailed"]
+        XCTAssertTrue(failed.waitForExistence(timeout: 30), "a failed reroute was not shown")
+        XCTAssertEqual(failed.label, "Can't reach the route service to reroute. Trying again…")
+        XCTAssertTrue(app.staticTexts["sim.status"].label.hasSuffix("reroutes 0"), app.staticTexts["sim.status"].label)
+        screenshot("ride-reroute-failed")
+
+        let routeIdLabel = app.staticTexts["sim.routeId"]
+        let changed = expectation(for: NSPredicate(format: "label != %@", routeId), evaluatedWith: routeIdLabel)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 60), .completed, "the reroute was not retried")
+        XCTAssertTrue(app.staticTexts["sim.status"].label.hasSuffix("reroutes 1"), app.staticTexts["sim.status"].label)
+        XCTAssertTrue(failed.waitForNonExistence(timeout: 10), "the failure stayed after the retry worked")
+        screenshot("ride-reroute-retried")
+        endRide(confirm: "End ride")
+    }
+
+    func testRevokedLocationIsShownOnTheRideScreen() throws {
+        guard ProcessInfo.processInfo.environment["NAVISCOOT_REVOKE_PROOF"] != nil else {
+            throw XCTSkip("set TEST_RUNNER_NAVISCOOT_REVOKE_PROOF and revoke location with simctl once location-01-riding.png appears")
+        }
+        launch(origin: caseOrigin, speedKmh: 45)
+        startRide()
+        XCTAssertTrue(app.staticTexts["ride.banner.distance"].waitForExistence(timeout: 20))
+        let trouble = app.descendants(matching: .any)["ride.locationTrouble"]
+        XCTAssertFalse(trouble.exists)
+        screenshot("location-01-riding")
+
+        XCTAssertTrue(trouble.waitForExistence(timeout: 120), "revoked location was not shown")
+        XCTAssertEqual(trouble.label, "Location access is off, so guidance can't follow you.")
+        XCTAssertTrue(app.buttons["ride.locationSettings"].exists)
+        XCTAssertTrue(app.buttons["ride.end"].exists)
+        screenshot("location-02-revoked")
+
+        XCTAssertTrue(trouble.waitForNonExistence(timeout: 120), "the warning stayed after location came back")
+        screenshot("location-03-granted-again")
+        endRide(confirm: "End ride")
+    }
+
+    private func launch(origin: (lat: Double, lon: Double), speedKmh: Int, language: String = "en", rerouteFailures: Int = 0) {
         app = XCUIApplication()
         app.launchArguments = [
             "-NaviscootSimulateRide", "YES",
             "-NaviscootSimSpeedKmh", "\(speedKmh)",
             "-NaviscootSimOrigin", "\(origin.lat),\(origin.lon)",
+            "-NaviscootSimRerouteFailures", "\(rerouteFailures)",
+            "-NaviscootDiscardActiveRide", "YES",
+            "-settings.language", language,
+            "-settings.verifiedOnlyByDefault", "NO",
+            "-settings.avoidFerries", "NO",
+            "-settings.avoidUnpaved", "NO",
+            "-settings.avoidMainRoads", "NO",
         ]
         app.launch()
+    }
+
+    private func endRide(confirm: String) {
+        app.buttons["ride.end"].tap()
+        let button = app.alerts.buttons[confirm]
+        XCTAssertTrue(button.waitForExistence(timeout: 5), "no end confirmation")
+        button.tap()
+        XCTAssertTrue(app.textFields["search.field"].waitForExistence(timeout: 10))
     }
 
     private func startRide() {
@@ -147,6 +246,7 @@ final class RideUITests: XCTestCase {
     private struct APIRoute {
         let geometry: [(lat: Double, lon: Double)]
         let stretches: [[String: Any]]
+        let firstAnnouncement: String?
     }
 
     private func pointBeforeUnverifiedStretch(meters: Double) throws -> (lat: Double, lon: Double) {
@@ -172,7 +272,7 @@ final class RideUITests: XCTestCase {
         ProcessInfo.processInfo.environment["NAVISCOOT_API_BASE_URL"] ?? "http://127.0.0.1:8080"
     }
 
-    private func fetchRoute(from origin: (lat: Double, lon: Double)) throws -> APIRoute {
+    private func fetchRoute(from origin: (lat: Double, lon: Double), language: String = "en-GB") throws -> APIRoute {
         var request = URLRequest(url: URL(string: "\(baseURL)/route")!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "content-type")
@@ -181,15 +281,19 @@ final class RideUITests: XCTestCase {
             "destination": ["lat": destination.lat, "lon": destination.lon],
             "verified_only": false,
             "format": "osrm",
-            "language": "nl-NL",
+            "language": language,
         ])
         let json = try load(request)
         let naviscoot = try XCTUnwrap(json["naviscoot"] as? [String: Any])
         let routes = try XCTUnwrap(json["routes"] as? [[String: Any]])
         let geometry = try XCTUnwrap(routes.first?["geometry"] as? String)
+        let legs = routes.first?["legs"] as? [[String: Any]]
+        let steps = legs?.first?["steps"] as? [[String: Any]]
+        let voice = steps?.first?["voiceInstructions"] as? [[String: Any]]
         return try APIRoute(
             geometry: Self.decodePolyline6(geometry),
-            stretches: XCTUnwrap(naviscoot["stretches"] as? [[String: Any]])
+            stretches: XCTUnwrap(naviscoot["stretches"] as? [[String: Any]]),
+            firstAnnouncement: voice?.first?["announcement"] as? String
         )
     }
 

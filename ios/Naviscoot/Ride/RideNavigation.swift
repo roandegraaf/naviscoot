@@ -9,12 +9,25 @@ enum RideError: Error, Equatable {
 
 final class PlanBook: @unchecked Sendable {
     private let lock = NSLock()
-    private var plans: [RoutePlan] = []
+    private var plans: [(generation: Int, plan: RoutePlan)] = []
+    private var current = 0
 
-    func store(_ plan: RoutePlan) {
+    var generation: Int {
         lock.lock()
         defer { lock.unlock() }
-        plans.append(plan)
+        return current
+    }
+
+    func startNewGeneration() {
+        lock.lock()
+        defer { lock.unlock() }
+        current += 1
+    }
+
+    func store(_ plan: RoutePlan, generation: Int? = nil) {
+        lock.lock()
+        defer { lock.unlock() }
+        plans.append((generation ?? current, plan))
         if plans.count > 8 {
             plans.removeFirst(plans.count - 8)
         }
@@ -23,12 +36,12 @@ final class PlanBook: @unchecked Sendable {
     func plan(for route: Route) -> RoutePlan? {
         lock.lock()
         defer { lock.unlock() }
-        return plans.last { $0.route == route }
+        return plans.last { $0.generation == current && $0.plan.route == route }?.plan
     }
 }
 
 protocol RoutePlanning {
-    func route(from origin: Coordinate, to destination: Coordinate, verifiedOnly: Bool) async throws -> RoutePlan
+    func route(from origin: Coordinate, to destination: Coordinate, stops: [Coordinate], avoid: RouteAvoid, verifiedOnly: Bool, language: Language) async throws -> RoutePlan
 }
 
 extension NaviscootClient: RoutePlanning {}
@@ -36,23 +49,50 @@ extension NaviscootClient: RoutePlanning {}
 final class NaviscootRouteProvider: CustomRouteProvider {
     let planner: RoutePlanning
     let verifiedOnly: Bool
+    let avoid: RouteAvoid
+    let language: Language
     let book: PlanBook
+    var onOutcome: (Result<Void, Error>) -> Void = { _ in }
+    private let lock = NSLock()
+    private var failuresToSimulate: Int
 
-    init(planner: RoutePlanning, verifiedOnly: Bool, book: PlanBook) {
+    init(planner: RoutePlanning, verifiedOnly: Bool, avoid: RouteAvoid, language: Language, book: PlanBook, simulatedFailures: Int = 0) {
         self.planner = planner
         self.verifiedOnly = verifiedOnly
+        self.avoid = avoid
+        self.language = language
         self.book = book
+        failuresToSimulate = simulatedFailures
     }
 
     func getRoutes(userLocation: UserLocation, waypoints: [Waypoint]) async throws -> [Route] {
         guard let destination = waypoints.last else { throw RideError.noDestination }
-        let plan = try await planner.route(
-            from: Coordinate(userLocation.coordinates),
-            to: Coordinate(destination.coordinate),
-            verifiedOnly: verifiedOnly
-        )
-        book.store(plan)
-        return [plan.route]
+        let generation = book.generation
+        do {
+            if consumeSimulatedFailure() { throw URLError(.cannotConnectToHost) }
+            let plan = try await planner.route(
+                from: Coordinate(userLocation.coordinates),
+                to: Coordinate(destination.coordinate),
+                stops: waypoints.dropLast().map { Coordinate($0.coordinate) },
+                avoid: avoid,
+                verifiedOnly: verifiedOnly,
+                language: language
+            )
+            book.store(plan, generation: generation)
+            onOutcome(.success(()))
+            return [plan.route]
+        } catch {
+            onOutcome(.failure(error))
+            throw error
+        }
+    }
+
+    private func consumeSimulatedFailure() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard failuresToSimulate > 0 else { return false }
+        failuresToSimulate -= 1
+        return true
     }
 }
 
@@ -77,14 +117,28 @@ struct RideOptions {
     let simulatedSpeedKmh: Double
     let simulatedOrigin: Coordinate?
     let tickInterval: TimeInterval
+    let simulatedRerouteFailures: Int
+    let simulatedEditFailures: Int
+    let discardActiveRide: Bool
 
     static let current = RideOptions(defaults: .standard)
 
-    init(simulate: Bool, simulatedSpeedKmh: Double = 45, simulatedOrigin: Coordinate? = nil, tickInterval: TimeInterval = 0.5) {
+    init(
+        simulate: Bool,
+        simulatedSpeedKmh: Double = 45,
+        simulatedOrigin: Coordinate? = nil,
+        tickInterval: TimeInterval = 0.5,
+        simulatedRerouteFailures: Int = 0,
+        simulatedEditFailures: Int = 0,
+        discardActiveRide: Bool = false
+    ) {
         self.simulate = simulate
         self.simulatedSpeedKmh = simulatedSpeedKmh
         self.simulatedOrigin = simulatedOrigin
         self.tickInterval = tickInterval
+        self.simulatedRerouteFailures = simulatedRerouteFailures
+        self.simulatedEditFailures = simulatedEditFailures
+        self.discardActiveRide = discardActiveRide
     }
 
     init(defaults: UserDefaults) {
@@ -98,7 +152,14 @@ struct RideOptions {
             : defaults.bool(forKey: "NaviscootSimulateRide")
         let speed = defaults.double(forKey: "NaviscootSimSpeedKmh")
         let origin = defaults.string(forKey: "NaviscootSimOrigin").flatMap(Self.parseCoordinate)
-        self.init(simulate: simulate, simulatedSpeedKmh: speed > 0 ? speed : 45, simulatedOrigin: simulate ? origin : nil)
+        self.init(
+            simulate: simulate,
+            simulatedSpeedKmh: speed > 0 ? speed : 45,
+            simulatedOrigin: simulate ? origin : nil,
+            simulatedRerouteFailures: simulate ? max(0, defaults.integer(forKey: "NaviscootSimRerouteFailures")) : 0,
+            simulatedEditFailures: simulate ? max(0, defaults.integer(forKey: "NaviscootSimEditFailures")) : 0,
+            discardActiveRide: defaults.bool(forKey: "NaviscootDiscardActiveRide")
+        )
     }
 
     static func parseCoordinate(_ text: String) -> Coordinate? {

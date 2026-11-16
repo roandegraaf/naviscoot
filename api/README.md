@@ -62,16 +62,42 @@ Every endpoint except `GET /health` needs the header `x-api-key: <API_KEY>`. A m
   "destination": {"lat": 52.0464515, "lon": 5.4059619},
   "verified_only": false,
   "format": "valhalla",
-  "language": "nl-NL"
+  "language": "nl-NL",
+  "waypoints": [{"lat": 52.2, "lon": 5.42}],
+  "alternatives": 0,
+  "depart_at": "2026-11-16T08:00:00+01:00",
+  "avoid": {"ferries": false, "unpaved": false, "main_roads": false}
 }
 ```
 
-- `format`: `valhalla` (native JSON, `trip.legs[0].shape`) or `osrm` (Valhalla's extended OSRM format with banner and
-  voice instructions, `routes[0].geometry`). Ferrostar's Valhalla integration only parses the OSRM format, so the iOS app
-  will use `osrm`.
-- The server always sends `costing: motor_scooter` and `date_time: {"type": 0}` (see `routing/README.md`, "Search
-  configuration"). Only origin and destination are supported, so there is always one leg.
-- The response is Valhalla's own response, unchanged, plus one extra top-level key `naviscoot`:
+Only `origin` and `destination` are required. A request with just those two behaves exactly as before the optional
+fields existed: the same Valhalla request, and a response equal to the old one apart from the random `route_id`
+(compared on every two-point regression case, in both formats, with and without verified-only).
+
+| Field | Default | Meaning |
+|---|---|---|
+| `verified_only` | `false` | See "Verified only". Applies to every returned route. |
+| `format` | `valhalla` | `valhalla` (native JSON, `trip.legs[i].shape`) or `osrm` (Valhalla's extended OSRM format with banner and voice instructions, `routes[i].geometry`). Ferrostar's Valhalla integration only parses the OSRM format, so the iOS app uses `osrm`. |
+| `language` | `nl-NL` | Valhalla narrative language. |
+| `waypoints` | none | Ordered intermediate stops, at most 8, sent to Valhalla as `break` locations. See "Multi-stop routes". |
+| `alternatives` | `0` | Extra routes to return, 0 to 2. Two-point trips only. See "Alternatives". |
+| `depart_at` | now | ISO 8601 date-time with offset. Valhalla `date_time` type 1. |
+| `arrive_by` | none | ISO 8601 date-time with offset. Valhalla `date_time` type 2. Also works with waypoints (verified on 3.9.1). |
+| `avoid.ferries` | `false` | `motor_scooter.use_ferry: 0`: the maximum ferry penalty and 10× ferry cost. Soft: a ferry that is the only way stays in. |
+| `avoid.main_roads` | `false` | `motor_scooter.use_primary: 0`: the road-class penalty triples. That penalty is weighted by class (trunk 0.5, primary 0.2, secondary 0.1, tertiary 0.05, residential 0; service roads also 0.5). Soft, like Valhalla's own option. |
+| `avoid.unpaved` | `false` | Done by this service, not by Valhalla. See "Avoid unpaved". |
+
+- The server always sends `costing: motor_scooter`. Without a time it sends `date_time: {"type": 0}` (see
+  `routing/README.md`, "Search configuration"); `depart_at` and `arrive_by` replace that with type 1 or 2, so the
+  primary route always comes from the time-dependent search.
+- Valhalla wants a wall-clock time (`YYYY-MM-DDThh:mm`) local to the trip. The service converts the ISO instant to
+  `Europe/Amsterdam` explicitly, independent of the process time zone, so a UTC container sends the right local time
+  across daylight-saving changes.
+- The served graph carries no time-zone data: Valhalla's own "current time" (type 0) is UTC, an hour behind
+  Amsterdam in winter. That only matters for time-conditional access, and it's unchanged from before.
+- Unknown properties are dropped silently (Fastify's default `removeAdditional`), at the top level and in `avoid`.
+- The response is Valhalla's own response plus one extra top-level key `naviscoot`. It is unchanged for a plain
+  two-point request; alternatives add routes to it (see below):
 
 ```json
 {
@@ -99,7 +125,12 @@ The example is the default route of `verified-only-north-south`. With `verified_
 39.54 km with no unverified stretch and `"verified_only": {"requests": 2, "excluded_points": 2, "converged": true}`.
 
 Errors:
-- `400`: invalid body.
+- `400`: invalid body (Fastify's validation error, `"error": "Bad Request"`), for example `alternatives` above 2 or a
+  time that isn't ISO 8601.
+- `400 {"error":"too_many_waypoints"}`: more than 8 waypoints.
+- `400 {"error":"conflicting_times"}`: both `depart_at` and `arrive_by`.
+- `400 {"error":"alternatives_need_two_points"}`: `alternatives` above 0 together with waypoints. Valhalla only
+  computes alternates for a trip without via points (verified on 3.9.1: it silently returns none).
 - `422 {"error":"no_route"}`: Valhalla finds no route.
 - `502 {"error":"valhalla_unavailable"}`: Valhalla is unreachable or answers 5xx.
 - `502 {"error":"classification_failed"}`: a route exists but its edge walk failed, so it can't be classified.
@@ -113,7 +144,7 @@ Errors:
    - A way that `fused_access.csv` marks `forbidden` should never be routable. If one shows up it is classed `forbidden`
      and a warning is added: the graph and the CSV have drifted.
 3. Consecutive edges of one class merge into a stretch. Shape indices point into the returned geometry
-   (`trip.legs[0].shape` or `routes[0].geometry`, both polyline6).
+   (`routes[i].geometry`, or the joined `trip.legs[*].shape`, both polyline6; see "Multi-stop routes").
 4. **Lengths add up exactly.** Valhalla's edge lengths are rounded to whole metres and sum to slightly less than the
    route length (measured: 8 m short on 36 km, 27 m on 129 km, at most 0.03%). Stretch lengths are the edge lengths
    scaled to the route length and rounded with the largest-remainder method, so `totals_m` and the stretches sum to
@@ -140,6 +171,80 @@ The loop never turns an existing route into an error. When a re-request fails or
 route is returned and every remaining unverified stretch carries `"unavoidable": "no_alternative"`. An unverified stretch
 that lies only on the first or last edge carries `"unavoidable": "endpoint"`. `verified_only` reports the number of
 requests, exclude points, whether it converged and, if not, `stopped_because`.
+
+### Multi-stop routes
+
+With `waypoints` the route has one leg per stop plus one. **All shape indices (stretches, speed limits, legs) use one
+index space: the whole route's geometry.**
+- In the OSRM format that is `routes[0].geometry` itself. Valhalla joins the legs there and drops each leg's first
+  point, because it repeats the previous leg's last point. The iOS app, via Ferrostar, already uses that geometry.
+- In the native format it is the legs' `shape`s joined the same way (leg 2 without its first point, and so on). The
+  native response itself is unchanged.
+- `naviscoot.legs` lists each leg, in order, as `{start_shape_index, end_shape_index, first_edge, last_edge}`. One leg
+  ends where the next starts. It is only present when there are waypoints.
+- Each leg is edge-walked on its own and the indices are shifted into the joined space. One edge walk over the
+  whole geometry fails at a stop: measured on a trip that turns around at its stop, Valhalla answers "edge_walk
+  algorithm failed to find exact route match".
+- In the OSRM format, each leg's own shape is rebuilt from its steps: the step geometries joined, without the final
+  arrive step, which is a 2-point line on one spot. The route geometry can't simply be sliced, because Valhalla drops
+  the first point of every later leg even when it differs from the previous leg's last point. Measured with the same
+  stop given twice: Valhalla snaps the two copies about 470 m apart and puts a zero-length leg between them.
+- The legs' point counts must add up to the route geometry (`1 + Σ (points − 1)`), otherwise the request fails with
+  `classification_failed`, so it never guesses.
+- A leg with distance 0 (a repeated stop) isn't edge-walked and has no edges (`last_edge` = `first_edge − 1`).
+- A stretch or speed-limit run may span a stop.
+- Verified-only treats the first and last edge of every leg as an endpoint, because the rider has to reach the stop.
+
+Measured: Domplein → two stops → Amersfoort, legs at shape indices 0–338, 338–707, 707–955 of a 956-point geometry.
+
+### Alternatives
+
+Valhalla only returns alternates from its bidirectional search: a time-dependent request (`date_time` type 0, 1 or 2)
+silently returns none. The bidirectional search gives worse moped routes (`routing/README.md`, "Search
+configuration"), so:
+1. The primary route comes from the usual time-dependent request, so it's the same route as without `alternatives`.
+2. A second request uses `date_time` type 3 (a fixed time, so time-conditional access is still evaluated) at the
+   requested time or now, with `alternates: 2`. Valhalla's `max_alternates` is 2.
+3. Candidates that share 90% or more of their edge length (by OSM way) with the primary or an already kept route are
+   dropped. The rest are kept in Valhalla's order, up to `alternatives`.
+4. Each kept route is classified on its own and gets its own `route_id`. With `verified_only`, both requests run the
+   verified-only loop; the second loop excludes the unverified edges of all its routes together.
+
+The response keeps Valhalla's own layout for several routes:
+- OSRM: `routes` holds the primary first, then the alternatives. `waypoints` are the primary's.
+- Native: `trip` is the primary; `alternates: [{"trip": …}, …]` holds the alternatives.
+- `naviscoot` describes the primary as before, plus `naviscoot.alternates`: one entry per alternative in the same
+  order as `routes[1…]` or `alternates[…]`, each with the full classification, `route_id`, `verified_only` and so on.
+  It's present (possibly empty) whenever `alternatives` is above 0.
+- If the second request fails but Valhalla is up, the primary is returned with `alternates: []`.
+
+Measured: Domplein → Amersfoort with `alternatives: 2` returns 22.19 km (the N237 route, as without alternatives),
+25.35 km and 25.92 km.
+
+### Avoid unpaved
+
+Valhalla 3.9.1 parses `exclude_unpaved` for every costing, but only the `auto` costing checks it.
+`motor_scooter`'s `Allowed()` ignores it, and no local case changed with it on. So the service does it with the
+verified-only mechanism:
+1. The edge walk also reads `edge.unpaved`.
+2. Unpaved edges inside a leg get an `exclude_locations` point at their midpoint. The leading and trailing unpaved run
+   of each leg is left alone, as Valhalla's own option does, because the rider has to start or end there.
+3. Verified-only points always go first. Unpaved points are only added once a route has no avoidable unverified edge
+   left. If a later round brings an unverified path back, the last verified-clean route is returned. Avoiding unpaved
+   never costs a verified-only result.
+4. Rounds count toward `MAX_VERIFIED_REQUESTS`. A failed round or the cap ends the loop, and the last good route is
+   returned.
+
+`naviscoot.avoid_unpaved` is `{"converged": true|false, "remaining_m": n}` on every route when `avoid.unpaved` is
+on. `remaining_m` is the unpaved length still inside the route, excluding the leading and trailing runs.
+
+Local cases used by the integration tests:
+
+| Option | Trip | Default | With the option |
+|---|---|---|---|
+| `ferries` | Amsterdam Centraal → Buiksloterweg | 1.26 km over the IJ ferry | 12.82 km, no ferry |
+| `unpaved` | 52.10483, 5.60555 → 52.07886, 5.66514 | 6.89 km, 0.52 km unpaved mid-route | 7.38 km, none |
+| `main_roads` | Arnhem 51.97709, 5.89902 → 51.95638, 5.90813 | 3.58 km, 1.47 km primary/trunk | 3.75 km, none |
 
 ### `POST /reports`, `GET /reports`
 

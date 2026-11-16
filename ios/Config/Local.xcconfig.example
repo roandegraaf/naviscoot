@@ -2,3 +2,10 @@
 // "//" starts a comment in xcconfig files, so the URL is written as http:/$()/host.
 NAVISCOOT_API_BASE_URL = http:/$()/127.0.0.1:8080
 NAVISCOOT_API_KEY = change-me
+// Optional: your signing team, for running on a device.
+// DEVELOPMENT_TEAM = ABCDE12345
+// Optional: prefill the scooter connection on first launch (device builds only).
+// Run scripts/scooter-keys.sh to fill these from the Mac Keychain instead of typing them.
+// NAVISCOOT_SCOOTER_SERIAL = S1XXX0000X0000
+// NAVISCOOT_SCOOTER_PASSWORD = 32 hex characters
+// NAVISCOOT_SCOOTER_IDENT = 32 hex characters

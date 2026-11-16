@@ -13,7 +13,7 @@ struct SearchResult: Identifiable, Equatable {
     let coordinate: Coordinate?
 }
 
-struct Destination: Equatable {
+struct Destination: Equatable, Codable {
     let title: String
     let subtitle: String
     let coordinate: Coordinate

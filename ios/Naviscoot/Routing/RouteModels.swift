@@ -100,6 +100,30 @@ struct SpeedLimitRun: Codable, Equatable {
     }
 }
 
+struct AvoidUnpavedInfo: Codable, Equatable {
+    let converged: Bool
+    let remainingM: Int
+
+    enum CodingKeys: String, CodingKey {
+        case converged
+        case remainingM = "remaining_m"
+    }
+}
+
+struct RouteLeg: Codable, Equatable {
+    let startShapeIndex: Int
+    let endShapeIndex: Int
+    let firstEdge: Int
+    let lastEdge: Int
+
+    enum CodingKeys: String, CodingKey {
+        case startShapeIndex = "start_shape_index"
+        case endShapeIndex = "end_shape_index"
+        case firstEdge = "first_edge"
+        case lastEdge = "last_edge"
+    }
+}
+
 struct NaviscootMeta: Codable, Equatable {
     let routeId: String
     let lengthM: Int
@@ -108,6 +132,9 @@ struct NaviscootMeta: Codable, Equatable {
     let speedLimits: [SpeedLimitRun]?
     let warnings: [String]
     let verifiedOnly: VerifiedOnlyInfo?
+    let avoidUnpaved: AvoidUnpavedInfo?
+    let legs: [RouteLeg]?
+    let alternates: [NaviscootMeta]?
 
     enum CodingKeys: String, CodingKey {
         case routeId = "route_id"
@@ -117,6 +144,9 @@ struct NaviscootMeta: Codable, Equatable {
         case speedLimits = "speed_limits"
         case warnings
         case verifiedOnly = "verified_only"
+        case avoidUnpaved = "avoid_unpaved"
+        case legs
+        case alternates
     }
 }
 

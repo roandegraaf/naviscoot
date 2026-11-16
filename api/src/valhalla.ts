@@ -5,6 +5,7 @@ export interface TraceEdge {
   begin_shape_index: number;
   end_shape_index: number;
   speed_limit?: number;
+  unpaved?: boolean;
 }
 
 export type ValhallaBody = Record<string, unknown>;
@@ -30,7 +31,7 @@ export class ValhallaError extends Error {
   }
 }
 
-const EDGE_ATTRIBUTES = ["edge.way_id", "edge.length", "edge.use", "edge.begin_shape_index", "edge.end_shape_index", "edge.speed_limit"];
+const EDGE_ATTRIBUTES = ["edge.way_id", "edge.length", "edge.use", "edge.begin_shape_index", "edge.end_shape_index", "edge.speed_limit", "edge.unpaved"];
 
 export function httpValhalla(baseUrl: string, timeoutMs = 60_000): ValhallaClient {
   const url = baseUrl.replace(/\/+$/, "");
@@ -72,6 +73,7 @@ export function httpValhalla(baseUrl: string, timeoutMs = 60_000): ValhallaClien
         begin_shape_index: e.begin_shape_index ?? 0,
         end_shape_index: e.end_shape_index ?? 0,
         ...(typeof e.speed_limit === "number" ? { speed_limit: e.speed_limit } : {}),
+        ...(e.unpaved ? { unpaved: true } : {}),
       }));
     },
     async status() {

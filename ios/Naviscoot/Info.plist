@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>Naviscoot</string>
 	<key>CFBundleExecutable</key>
@@ -12,6 +12,11 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>nl</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -25,24 +30,40 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Naviscoot reads your scooter's battery and range over Bluetooth.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Naviscoot uses your location as the start of the route and to guide you along it.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NaviscootAPIBaseURL</key>
 	<string>$(NAVISCOOT_API_BASE_URL)</string>
 	<key>NaviscootAPIKey</key>
 	<string>$(NAVISCOOT_API_KEY)</string>
+	<key>NaviscootScooterIdent</key>
+	<string>$(NAVISCOOT_SCOOTER_IDENT)</string>
+	<key>NaviscootScooterPassword</key>
+	<string>$(NAVISCOOT_SCOOTER_PASSWORD)</string>
+	<key>NaviscootScooterSerial</key>
+	<string>$(NAVISCOOT_SCOOTER_SERIAL)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>bluetooth-central</string>
 		<string>location</string>
 	</array>
 	<key>UILaunchScreen</key>
-	<dict/>
-	<key>UIRequiresFullScreen</key>
-	<true/>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+		<key>UIImageName</key>
+		<string>LaunchMark</string>
+	</dict>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
 </plist>

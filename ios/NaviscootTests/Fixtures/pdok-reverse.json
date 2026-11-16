@@ -1,0 +1,14 @@
+{
+  "response" : {
+    "numFound" : 1,
+    "start" : 0,
+    "maxScore" : 7.295432,
+    "numFoundExact" : true,
+    "docs" : [ {
+      "weergavenaam" : "Kapelweg 170A, 3818BW Amersfoort",
+      "id" : "adr-dd4c1410f136a9c3c567ce2d2595a2dd",
+      "centroide_ll" : "POINT(5.37269016 52.13739391)",
+      "afstand" : 14.0
+    } ]
+  }
+}

@@ -2,7 +2,15 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { FusedAccess } from "./fused.js";
 import type { ReportInput, ReportStore } from "./reports.js";
-import { ClassificationError, type Point, planRoute, type RouteFormat } from "./route.js";
+import {
+  type Avoid,
+  ClassificationError,
+  MAX_ALTERNATIVES,
+  MAX_WAYPOINTS,
+  type Point,
+  planRoute,
+  type RouteFormat,
+} from "./route.js";
 import { type ValhallaClient, ValhallaError } from "./valhalla.js";
 
 export interface AppDeps {
@@ -17,9 +25,14 @@ export interface AppDeps {
 interface RouteBody {
   origin: Point;
   destination: Point;
+  waypoints?: Point[];
   verified_only: boolean;
   format: RouteFormat;
   language: string;
+  alternatives: number;
+  depart_at?: string;
+  arrive_by?: string;
+  avoid?: Avoid;
 }
 
 const point = {
@@ -43,9 +56,44 @@ const routeSchema = {
       verified_only: { type: "boolean", default: false },
       format: { enum: ["valhalla", "osrm"], default: "valhalla" },
       language: { type: "string", pattern: "^[a-z]{2}(-[A-Z]{2})?$", default: "nl-NL" },
+      waypoints: { type: "array", items: point },
+      alternatives: { type: "integer", minimum: 0, maximum: MAX_ALTERNATIVES, default: 0 },
+      depart_at: { type: "string", format: "date-time" },
+      arrive_by: { type: "string", format: "date-time" },
+      avoid: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          ferries: { type: "boolean" },
+          unpaved: { type: "boolean" },
+          main_roads: { type: "boolean" },
+        },
+      },
     },
   },
 } as const;
+
+class RequestError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+function checkCombination(body: RouteBody): void {
+  const stops = body.waypoints?.length ?? 0;
+  if (stops > MAX_WAYPOINTS) {
+    throw new RequestError("too_many_waypoints", `at most ${MAX_WAYPOINTS} waypoints, got ${stops}`);
+  }
+  if (body.depart_at !== undefined && body.arrive_by !== undefined) {
+    throw new RequestError("conflicting_times", "send depart_at or arrive_by, not both");
+  }
+  if (body.alternatives > 0 && stops > 0) {
+    throw new RequestError("alternatives_need_two_points", "alternatives are only available without waypoints");
+  }
+}
 
 const reportSchema = {
   body: {
@@ -81,6 +129,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof RequestError) {
+      return reply.code(400).send({ error: error.code, message: error.message });
+    }
     if (error instanceof ClassificationError) {
       request.log.error({ err: error }, "classification failed");
       return reply.code(502).send({ error: "classification_failed", message: error.message });
@@ -97,6 +148,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   app.post<{ Body: RouteBody }>("/route", { schema: routeSchema }, async (request) => {
     const body = request.body;
+    checkCombination(body);
+    const time = body.depart_at ?? body.arrive_by;
     const result = await planRoute(
       { valhalla: deps.valhalla, fused: deps.fused, maxVerifiedRequests: deps.maxVerifiedRequests },
       {
@@ -105,6 +158,10 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         verifiedOnly: body.verified_only,
         format: body.format,
         language: body.language,
+        ...(body.waypoints?.length ? { waypoints: body.waypoints } : {}),
+        ...(body.alternatives ? { alternatives: body.alternatives } : {}),
+        ...(time ? { time: { kind: body.depart_at ? "depart_at" : "arrive_by", at: new Date(time) } as const } : {}),
+        ...(body.avoid ? { avoid: body.avoid } : {}),
       },
     );
     return { ...result.response, naviscoot: result.naviscoot };

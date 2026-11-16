@@ -1,63 +1,141 @@
 import FerrostarCoreFFI
+import MapLibre
 import MapLibreSwiftDSL
 import MapLibreSwiftUI
 import SwiftUI
 
 struct RideView: View {
     @ObservedObject var model: RideModel
+    @ObservedObject var location: LocationService
     let onEnd: () -> Void
     @State private var camera: MapViewCamera
+    @State private var confirmingEnd = false
+    @State private var searching: RouteEditKind?
+    @State private var choosingEdit = false
+    @StateObject private var tracker = RideCameraTracker()
+    @State private var topFrame: CGRect = .zero
+    @State private var sideFrame: CGRect = .zero
+    @State private var bottomFrame: CGRect = .zero
+    @State private var windowFrame: CGRect = .zero
+    @State private var statusHeight: CGFloat = 0
+    @Environment(\.openURL) private var openURL
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(AppSettings.self) private var settings
 
-    init(model: RideModel, onEnd: @escaping () -> Void) {
+    init(model: RideModel, location: LocationService, onEnd: @escaping () -> Void) {
         self.model = model
+        self.location = location
         self.onEnd = onEnd
         let start = model.plan.route.geometry.first.map(Coordinate.init) ?? model.destination.coordinate
-        _camera = State(initialValue: .center(start.clLocation, zoom: 16.5, pitch: 40))
+        let follow = RideCamera.follow(course: 0, options: AppSettings.shared.followOptions, distanceToManeuverM: nil, speedKmh: nil)
+        _camera = State(initialValue: .center(start.clLocation, zoom: follow.zoom, pitch: follow.pitch))
     }
 
     var body: some View {
         ZStack(alignment: .top) {
             RouteMapView(
                 camera: $camera,
-                segments: model.plan.segments,
+                segments: model.trim.ahead,
+                stops: model.remainingStops.map(\.coordinate),
                 destination: model.destination.coordinate,
-                user: model.userCoordinate
+                user: model.userCoordinate,
+                ridden: model.trim.ridden,
+                heading: model.courseDegrees
             )
             .mapControls {
                 LogoView()
                 AttributionButton()
             }
-
-            VStack(alignment: .leading, spacing: 8) {
-                bannerView
-                chips
-                if model.options.simulate {
-                    simulationPanel
-                }
+            .mapCameraDisabled(tracker.camera.holdsStill)
+            .unsafeMapViewControllerModifier { [tracker] controller in
+                tracker.attach(controller.mapView)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-
-            HStack {
-                Spacer()
-                VStack(spacing: 12) {
-                    roundButton(symbol: "flag", tint: Theme.unverifiedText, label: Strings.report, id: "ride.report", action: model.report)
-                    roundButton(
-                        symbol: model.isMuted ? "speaker.slash" : "speaker.wave.2",
-                        tint: Theme.ink,
-                        label: model.isMuted ? Strings.unmute : Strings.mute,
-                        id: "ride.mute",
-                        action: model.toggleMute
-                    )
-                }
-                .padding(.trailing, 12)
+            .onMapViewProxyUpdate(updateMode: .realtime) { [tracker] proxy in
+                tracker.mapChanged(proxy)
             }
-            .frame(maxHeight: .infinity)
 
+            if isLandscape {
+                landscapeOverlay
+            } else {
+                portraitOverlay
+            }
+        }
+        .background {
+            Color.clear
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { windowFrame = $0 }
+                .ignoresSafeArea()
+        }
+        .onChange(of: model.userCoordinate) { _, coordinate in
+            guard tracker.camera.follows, let coordinate else { return }
+            camera = followCamera(on: coordinate)
+        }
+        .onChange(of: [clearArea, windowFrame]) { _, _ in
+            let area = clearArea
+            tracker.clearArea = area
+            tracker.setFollowInset(isLandscape ? followInset(for: area) : nil)
+            if tracker.camera.mode == .overview { showOverview() }
+        }
+        .onAppear {
+            tracker.recordsDebug = model.options.simulate
+            tracker.remainingRoute = { [weak model] in model?.remainingRoute ?? [] }
+            tracker.userCoordinate = { [weak model] in model?.userCoordinate }
+        }
+        .sheet(item: $searching) { kind in
+            PlaceSearchSheet(title: kind.title, near: model.userCoordinate) { place in
+                model.edit(kind.edit(place))
+            }
+        }
+        .confirmationDialog(Strings.editRoute, isPresented: $choosingEdit, titleVisibility: .hidden) {
+            Button(Strings.addStopMidRide) { searching = .addStop }
+                .accessibilityIdentifier("ride.edit.addStop")
+            Button(Strings.changeDestination) { searching = .changeDestination }
+                .accessibilityIdentifier("ride.edit.changeDestination")
+            Button(Strings.cancel, role: .cancel) {}
+        }
+        .alert(Strings.endRideTitle, isPresented: $confirmingEnd) {
+            Button(Strings.endRideConfirm, role: .destructive, action: endRide)
+            Button(Strings.keepRiding, role: .cancel) {}
+        }
+    }
+
+    private var isLandscape: Bool { verticalSizeClass == .compact }
+
+    @ViewBuilder
+    private var portraitOverlay: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            bannerView
+            chips
+            troubleRows
+            if model.options.simulate {
+                simulationPanel
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { topFrame = $0 }
+
+        HStack {
+            Spacer()
+            VStack(spacing: 12) {
+                reportButton
+                muteButton
+                editMenu
+                overviewButton
+            }
+            .padding(.trailing, 12)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sideFrame = $0 }
+        }
+        .frame(maxHeight: .infinity)
+
+        VStack(alignment: .leading, spacing: 10) {
+            Spacer()
             VStack(alignment: .leading, spacing: 10) {
-                Spacer()
                 if let status = model.reportStatus {
                     reportToast(status)
+                }
+                if tracker.camera.offersRecenter {
+                    recenterButton
+                        .padding(.horizontal, 12)
                 }
                 HStack(alignment: .bottom, spacing: 10) {
                     speedView
@@ -70,18 +148,270 @@ struct RideView: View {
                     warning(alert)
                         .padding(.horizontal, 12)
                 }
-                rideBar
+                if let scooterWarning = model.scooterWarning {
+                    scooterAlert(scooterWarning)
+                        .padding(.horizontal, 12)
+                }
+                rideBar(card: false)
             }
-            .ignoresSafeArea(edges: .bottom)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { bottomFrame = $0 }
         }
-        .onChange(of: model.userCoordinate) { _, coordinate in
-            guard let coordinate else { return }
-            camera = .center(coordinate.clLocation, zoom: 16.5, pitch: 40, direction: model.courseDegrees)
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private var landscapeOverlay: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                bannerView
+                    .fixedSize(horizontal: false, vertical: true)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        chips
+                        troubleRows
+                        if model.options.simulate {
+                            simulationPanel
+                        }
+                    }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { statusHeight = $0 }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: statusHeight)
+                .layoutPriority(1)
+                Spacer(minLength: 0)
+                if let status = model.reportStatus {
+                    reportToast(status)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let alert = model.alert {
+                    warning(alert)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let scooterWarning = model.scooterWarning {
+                    scooterAlert(scooterWarning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                rideBar(card: true)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(width: Self.landscapeColumnWidth)
+            .frame(maxHeight: .infinity)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { topFrame = $0 }
+
+            Spacer(minLength: 0)
+
+            VStack(alignment: .trailing, spacing: 12) {
+                Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                    GridRow {
+                        reportButton
+                        muteButton
+                    }
+                    GridRow {
+                        editMenu
+                        overviewButton
+                    }
+                }
+                Spacer(minLength: 0)
+                if tracker.camera.offersRecenter {
+                    recenterButton
+                }
+                HStack(alignment: .bottom, spacing: 10) {
+                    if let limit = model.limitKmh {
+                        limitSign(limit)
+                    }
+                    speedView
+                }
+            }
+            .frame(width: Self.landscapeSideWidth, alignment: .trailing)
+            .frame(maxHeight: .infinity)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sideFrame = $0 }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private static let landscapeColumnWidth: CGFloat = 340
+    private static let landscapeSideWidth: CGFloat = 178
+
+    @ViewBuilder
+    private var troubleRows: some View {
+        if model.rerouteTrouble.isFailing {
+            trouble(Strings.rerouteFailed, id: "ride.rerouteFailed")
+        }
+        if case let .failed(message) = model.editState {
+            trouble(Strings.editFailed(message), id: "ride.editFailed")
+        }
+        if let trouble = location.trouble {
+            locationTrouble(trouble)
         }
     }
 
-    @ViewBuilder
+    private var reportButton: some View {
+        roundButton(symbol: "flag", tint: Theme.unverifiedText, label: Strings.report, id: "ride.report", action: model.report)
+    }
+
+    private var muteButton: some View {
+        roundButton(
+            symbol: model.isMuted ? "speaker.slash" : "speaker.wave.2",
+            tint: Theme.ink,
+            label: model.isMuted ? Strings.unmute : Strings.mute,
+            id: "ride.mute",
+            action: model.toggleMute
+        )
+    }
+
+    private var overviewButton: some View {
+        roundButton(symbol: "map", tint: Theme.ink, label: Strings.routeOverview, id: "ride.overview", action: showOverview)
+    }
+
+    private func followCamera(on coordinate: Coordinate) -> MapViewCamera {
+        let follow = RideCamera.follow(
+            course: model.courseDegrees,
+            options: settings.followOptions,
+            distanceToManeuverM: model.arrived ? nil : model.banner?.distanceM,
+            speedKmh: model.speedKmh.map(Double.init)
+        )
+        return .center(coordinate.clLocation, zoom: follow.zoom, pitch: follow.pitch, direction: follow.direction)
+    }
+
+    private func recenter() {
+        tracker.recenter()
+        if let coordinate = model.userCoordinate {
+            camera = followCamera(on: coordinate)
+        }
+    }
+
+    private func showOverview() {
+        guard let bounds = RideCamera.bounds(of: model.remainingRoute) else { return }
+        tracker.showOverview()
+        let area = clearArea
+        let map = windowFrame.isEmpty ? tracker.mapSize : windowFrame.size
+        var padding = area.isEmpty || map == .zero
+            ? UIEdgeInsets(top: 220, left: 40, bottom: 300, right: 100)
+            : UIEdgeInsets(
+                top: area.minY + 16,
+                left: area.minX + 16,
+                bottom: map.height - area.maxY + 16,
+                right: map.width - area.maxX + 16
+            )
+        // MapLibre adds the map's contentInset to edgePadding, so the landscape follow inset must not count twice.
+        if let inset = tracker.followInset {
+            padding = UIEdgeInsets(
+                top: max(0, padding.top - inset.top),
+                left: max(0, padding.left - inset.left),
+                bottom: max(0, padding.bottom - inset.bottom),
+                right: max(0, padding.right - inset.right)
+            )
+        }
+        camera = .boundingBox(
+            MLNCoordinateBounds(sw: bounds.southWest.clLocation, ne: bounds.northEast.clLocation),
+            edgePadding: padding
+        )
+    }
+
+    private var clearArea: CGRect {
+        if isLandscape {
+            guard !topFrame.isEmpty, !sideFrame.isEmpty else { return .zero }
+            let left = topFrame.maxX + 8
+            let right = sideFrame.minX - 8
+            let top = min(topFrame.minY, sideFrame.minY)
+            let bottom = max(topFrame.maxY, sideFrame.maxY)
+            guard right > left, bottom > top else { return .zero }
+            return CGRect(x: left, y: top, width: right - left, height: bottom - top)
+        }
+        guard !topFrame.isEmpty, !sideFrame.isEmpty, !bottomFrame.isEmpty else { return .zero }
+        let top = topFrame.maxY + 8
+        let bottom = bottomFrame.minY - 8
+        let right = sideFrame.minX - 8
+        guard bottom > top, right > 8 else { return .zero }
+        return CGRect(x: 8, y: top, width: right - 8, height: bottom - top)
+    }
+
+    private func followInset(for area: CGRect) -> UIEdgeInsets? {
+        guard !area.isEmpty, !windowFrame.isEmpty else { return nil }
+        return UIEdgeInsets(
+            top: area.minY,
+            left: area.minX,
+            bottom: windowFrame.height - area.maxY,
+            right: windowFrame.width - area.maxX
+        )
+    }
+
+    private var editMenu: some View {
+        roundButton(symbol: "arrow.triangle.branch", tint: Theme.ink, label: Strings.editRoute, id: "ride.edit") {
+            choosingEdit = true
+        }
+        .disabled(!model.canEdit || model.editState == .planning)
+    }
+
+    private var recenterButton: some View {
+        Button(action: recenter) {
+            Label(Strings.recenter, systemImage: "location.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 20)
+                .frame(minHeight: 52)
+                .background(Theme.surface, in: Capsule())
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
+        }
+        .accessibilityIdentifier("ride.recenter")
+    }
+
+    private func endRide() {
+        model.end()
+        onEnd()
+    }
+
+    private func trouble(_ text: String, id: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.octagon.fill")
+                .font(.system(size: 20, weight: .bold))
+                .accessibilityHidden(true)
+            Text(text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.system(size: 16, weight: .bold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Theme.danger, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(id)
+    }
+
+    private func locationTrouble(_ trouble: LocationTrouble) -> some View {
+        HStack(spacing: 10) {
+            self.trouble(trouble == .denied ? Strings.locationAccessOff : Strings.preciseLocationOff, id: "ride.locationTrouble")
+            Button(Strings.locationSettings) {
+                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+            }
+            .font(.system(size: 15, weight: .bold))
+            .buttonStyle(.borderedProminent)
+            .tint(Theme.bannerFill)
+            .accessibilityIdentifier("ride.locationSettings")
+        }
+    }
+
     private var bannerView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            bannerMain
+            if let banner = model.banner, !model.arrived {
+                if !banner.lanes.isEmpty {
+                    lanesRow(banner.lanes)
+                }
+                if let then = banner.then {
+                    thenRow(then)
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.bannerFill, in: RoundedRectangle(cornerRadius: 22))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("ride.banner")
+    }
+
+    private var bannerMain: some View {
         HStack(spacing: 16) {
             Image(systemName: Self.symbol(for: model.banner, arrived: model.arrived))
                 .font(.system(size: 44, weight: .bold))
@@ -95,11 +425,23 @@ struct RideView: View {
                         .foregroundStyle(.white)
                         .accessibilityIdentifier("ride.banner.street")
                 } else if let banner = model.banner {
-                    Text(Format.approximateDistance(meters: banner.distanceM))
-                        .font(.system(size: 46, weight: .heavy))
-                        .foregroundStyle(.white)
-                        .monospacedDigit()
-                        .accessibilityIdentifier("ride.banner.distance")
+                    HStack(alignment: .center, spacing: 10) {
+                        Text(Format.approximateDistance(meters: banner.distanceM))
+                            .font(.system(size: 46, weight: .heavy))
+                            .foregroundStyle(.white)
+                            .monospacedDigit()
+                            .accessibilityIdentifier("ride.banner.distance")
+                        if let exit = banner.exitNumber {
+                            Text(Strings.roundaboutExit(exit))
+                                .font(.system(size: 17, weight: .heavy))
+                                .foregroundStyle(Theme.signInk)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(.white, in: Capsule())
+                                .accessibilityLabel(Strings.roundaboutExitSpoken(exit))
+                                .accessibilityIdentifier("ride.banner.exit")
+                        }
+                    }
                     Text(banner.text)
                         .font(.system(size: 21, weight: .semibold))
                         .foregroundStyle(Color(hex: 0xE5E7EB))
@@ -113,16 +455,58 @@ struct RideView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity)
-        .background(Theme.ink, in: RoundedRectangle(cornerRadius: 22))
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("ride.banner")
+    }
+
+    private func lanesRow(_ lanes: [LaneHint]) -> some View {
+        HStack(spacing: 6) {
+            ForEach(Array(lanes.enumerated()), id: \.offset) { _, lane in
+                Image(systemName: Self.symbol(for: lane.direction))
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(lane.valid ? Theme.signInk : .white.opacity(0.45))
+                    .frame(width: 40, height: 40)
+                    .background(lane.valid ? Color.white : .white.opacity(0.1), in: RoundedRectangle(cornerRadius: 9))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Strings.lanes(valid: lanes.filter(\.valid).count, total: lanes.count))
+        .accessibilityIdentifier("ride.banner.lanes")
+    }
+
+    private func thenRow(_ then: ManeuverSummary) -> some View {
+        HStack(spacing: 10) {
+            Text(Strings.then)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Color(hex: 0x9CA3AF))
+            Image(systemName: Self.symbol(type: then.maneuverType, modifier: then.maneuverModifier))
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.white)
+            Text(then.text)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color(hex: 0xE5E7EB))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Strings.thenManeuver(then.text))
+        .accessibilityIdentifier("ride.banner.then")
     }
 
     private var chips: some View {
         HStack(spacing: 8) {
+            if let scooter = model.scooter {
+                Label(scooter.badge(), systemImage: "battery.75percent")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(model.scooterWarning == nil ? Theme.ink : Theme.danger)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("ride.scooterBattery")
+            }
             if let stretchClass = model.currentClass {
                 HStack(spacing: 8) {
                     Circle()
@@ -134,9 +518,18 @@ struct RideView: View {
                 .foregroundStyle(Theme.labelColor(for: stretchClass))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(.white, in: RoundedRectangle(cornerRadius: 14))
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("ride.stretch")
+            }
+            if model.editState == .planning {
+                Text(Strings.planningNewRoute)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Theme.bannerFill, in: RoundedRectangle(cornerRadius: 14))
+                    .accessibilityIdentifier("ride.editPlanning")
             }
             if model.isRerouting {
                 Text(Strings.rerouting)
@@ -153,7 +546,7 @@ struct RideView: View {
     private var simulationPanel: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                Text("\(Strings.simulatedRide), \(Strings.reroutes(model.rerouteCount))")
+                Text(verbatim: "\(Strings.simulatedRide), \(Strings.reroutes(model.rerouteCount))")
                     .accessibilityIdentifier("sim.status")
                 Button(Strings.simulateDetour, action: model.simulateDetour)
                     .font(.system(size: 13, weight: .bold))
@@ -163,15 +556,72 @@ struct RideView: View {
             Text(model.routeId)
                 .font(.system(size: 10, design: .monospaced))
                 .accessibilityIdentifier("sim.routeId")
+            Text(verbatim: model.optionsSummary)
+                .font(.system(size: 10, design: .monospaced))
+                .accessibilityIdentifier("sim.options")
+            Text(verbatim: tracker.debug)
+                .font(.system(size: 10, design: .monospaced))
+                .lineLimit(2)
+                .accessibilityIdentifier("sim.camera")
+            Text(verbatim: puckDebug)
+                .font(.system(size: 10, design: .monospaced))
+                .accessibilityIdentifier("sim.puck")
+            Text(verbatim: tracker.styleDebug)
+                .font(.system(size: 10, design: .monospaced))
+                .accessibilityIdentifier("sim.style")
             Text(model.spoken.last.map { "\($0.language ?? "?"): \($0.text)" } ?? "")
                 .lineLimit(2)
                 .accessibilityIdentifier("sim.spoken")
                 .accessibilityValue(model.spoken.map { "\($0.language ?? "?")|\($0.text)" }.joined(separator: "\n"))
+            Text(verbatim: speechDebug)
+                .font(.system(size: 10, design: .monospaced))
+                .lineLimit(1)
+                .accessibilityIdentifier("sim.speech")
+                .accessibilityValue(model.speechDecisions.map {
+                    "\($0.line.kind.rawValue)|\($0.spoken ? "spoken" : "suppressed")|\($0.line.text)"
+                }.joined(separator: "\n"))
+            Text(verbatim: activityDebug)
+                .font(.system(size: 10, design: .monospaced))
+                .lineLimit(1)
+                .accessibilityIdentifier("sim.activity")
+                .accessibilityValue(activityStateDebug)
         }
         .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(Theme.muted)
         .padding(8)
-        .background(.white.opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface.opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var activityDebug: String {
+        let stats = model.activityStats
+        return "\(model.activityStatus) pushes=\(stats.pushes) bg=\(stats.backgroundPushes) spokenBg=\(stats.backgroundSpoken) remainingM=\(Int(model.remainingM ?? -1))"
+    }
+
+    private var activityStateDebug: String {
+        guard let state = model.activityStats.lastState else { return "" }
+        return [state.symbol, state.distance, state.street, state.arrivalLabel, state.arrival, state.remaining, state.warning ?? "-", state.arrived ? "arrived" : "riding"]
+            .joined(separator: "|")
+    }
+
+    private var puckDebug: String {
+        let screen = RideCamera.screenAngle(course: model.courseDegrees, bearing: tracker.bearing)
+        return String(
+            format: "course=%.0f bearing=%.0f screen=%.0f ridden=%d/%d",
+            model.courseDegrees, tracker.bearing, screen, model.shapeIndex, model.plan.route.geometry.count
+        )
+    }
+
+    private var speechDebug: String {
+        let suppressed = model.speechDecisions.filter { !$0.spoken }.count
+        let mode = model.speechDecisions.last?.mode ?? AppSettings.shared.guidanceMode
+        let speeding = "speeding=\(model.isSpeeding ? "yes" : "no") episodes=\(model.speedingEpisodes)"
+        guard let line = model.spoken.last else {
+            return "mode=\(mode.rawValue) suppressed=\(suppressed) \(speeding) last=none"
+        }
+        return String(
+            format: "mode=%@ suppressed=%d %@ last=%@ rate=%.2f volume=%.2f voice=%@",
+            mode.rawValue, suppressed, speeding, line.kind.rawValue, line.rate, line.volume, line.voiceIdentifier ?? "none"
+        )
     }
 
     private var speedView: some View {
@@ -179,22 +629,23 @@ struct RideView: View {
             Text(model.speedKmh.map(String.init) ?? "–")
                 .font(.system(size: 44, weight: .heavy))
                 .monospacedDigit()
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(model.isSpeeding ? .white : Theme.ink)
             Text(Strings.kmh)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.muted)
+                .foregroundStyle(model.isSpeeding ? .white : Theme.muted)
         }
         .frame(width: 104, height: 104)
-        .background(.white, in: Circle())
+        .background(model.isSpeeding ? Theme.danger : Theme.surface, in: Circle())
         .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
         .accessibilityElement(children: .combine)
+        .accessibilityValue(model.isSpeeding ? Strings.overSpeedLimit : "")
         .accessibilityIdentifier("ride.speed")
     }
 
     private func limitSign(_ limit: Int) -> some View {
-        Text("\(limit)")
+        Text(verbatim: "\(limit)")
             .font(.system(size: 28, weight: .heavy))
-            .foregroundStyle(Theme.ink)
+            .foregroundStyle(Theme.signInk)
             .frame(width: 64, height: 64)
             .background(.white, in: Circle())
             .overlay(Circle().stroke(Color(hex: 0xDC2626), lineWidth: 7))
@@ -203,12 +654,7 @@ struct RideView: View {
     }
 
     private func warning(_ alert: UnverifiedAlert) -> some View {
-        let text = switch alert {
-        case let .ahead(_, distanceM, lengthM):
-            Strings.unverifiedAhead(Format.approximateDistance(meters: distanceM), length: Format.distance(meters: lengthM))
-        case let .inside(_, remainingM):
-            Strings.unverifiedInside(Format.approximateDistance(meters: remainingM))
-        }
+        let text = RideActivityContent.warningText(alert, language: .current)
         return HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 22, weight: .bold))
@@ -220,10 +666,27 @@ struct RideView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: 0xFFF1E7), in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.warningBackground, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.unverified, lineWidth: 2))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("ride.warning")
+    }
+
+    private func scooterAlert(_ warning: ScooterRideWarning) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: warning == .turnBack ? "arrow.uturn.backward.circle.fill" : "battery.25percent")
+                .font(.system(size: 22, weight: .bold))
+                .accessibilityHidden(true)
+            Text(warning.text())
+        }
+        .font(.system(size: 16, weight: .bold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.danger, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("ride.scooterWarning")
     }
 
     private func reportToast(_ status: RideModel.ReportStatus) -> some View {
@@ -238,27 +701,40 @@ struct RideView: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Theme.ink.opacity(0.92), in: Capsule())
+            .background(Theme.bannerFill.opacity(0.92), in: Capsule())
             .frame(maxWidth: .infinity)
             .accessibilityIdentifier("ride.reportStatus")
     }
 
-    private var rideBar: some View {
+    private func rideBar(card: Bool) -> some View {
         HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.remainingS.map { Format.duration(seconds: $0) } ?? "–")
-                    .font(.system(size: 30, weight: .heavy))
-                    .foregroundStyle(Theme.ink)
-                Text(remainingSubtitle)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.muted)
+            VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.remainingS.map { Format.duration(seconds: $0) } ?? "–")
+                        .font(.system(size: 30, weight: .heavy))
+                        .foregroundStyle(Theme.ink)
+                    Text(remainingSubtitle)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.muted)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("ride.remaining")
+                if let stop = model.nextStop, !model.arrived {
+                    Label(Strings.nextStop(stop.title), systemImage: "mappin.circle.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("ride.nextStop")
+                }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("ride.remaining")
             Spacer()
             Button {
-                model.end()
-                onEnd()
+                if model.arrived {
+                    endRide()
+                } else {
+                    confirmingEnd = true
+                }
             } label: {
                 Text(Strings.end)
                     .font(.system(size: 18, weight: .bold))
@@ -270,10 +746,18 @@ struct RideView: View {
             .accessibilityIdentifier("ride.end")
         }
         .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 34)
-        .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: -2)
+        .padding(.top, card ? 12 : 16)
+        .padding(.bottom, card ? 12 : 34)
+        .background(
+            Theme.surface,
+            in: UnevenRoundedRectangle(
+                topLeadingRadius: 24,
+                bottomLeadingRadius: card ? 24 : 0,
+                bottomTrailingRadius: card ? 24 : 0,
+                topTrailingRadius: 24
+            )
+        )
+        .shadow(color: .black.opacity(0.12), radius: 12, y: card ? 2 : -2)
     }
 
     private var remainingSubtitle: String {
@@ -288,7 +772,7 @@ struct RideView: View {
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(tint)
                 .frame(width: 64, height: 64)
-                .background(.white, in: Circle())
+                .background(Theme.surface, in: Circle())
                 .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
         }
         .accessibilityLabel(label)
@@ -298,19 +782,182 @@ struct RideView: View {
     static func symbol(for banner: RideModel.Banner?, arrived: Bool) -> String {
         if arrived { return "flag.checkered" }
         guard let banner else { return "location.north.line" }
-        switch banner.maneuverType {
+        return symbol(type: banner.maneuverType, modifier: banner.maneuverModifier)
+    }
+
+    static func symbol(for lane: LaneDirection) -> String {
+        switch lane {
+        case .straight: "arrow.up"
+        case .slightLeft: "arrow.up.left"
+        case .left, .sharpLeft: "arrow.turn.up.left"
+        case .slightRight: "arrow.up.right"
+        case .right, .sharpRight: "arrow.turn.up.right"
+        case .uTurn: "arrow.uturn.down"
+        }
+    }
+
+    static func symbol(type: ManeuverType?, modifier: ManeuverModifier?) -> String {
+        switch type {
         case .arrive: return "flag.checkered"
         case .roundabout, .rotary, .roundaboutTurn, .exitRoundabout, .exitRotary:
             return "arrow.triangle.turn.up.right.circle"
         default: break
         }
-        switch banner.maneuverModifier {
+        switch modifier {
         case .uTurn: return "arrow.uturn.down"
         case .sharpRight, .right: return "arrow.turn.up.right"
         case .slightRight: return "arrow.up.right"
         case .sharpLeft, .left: return "arrow.turn.up.left"
         case .slightLeft: return "arrow.up.left"
         case .straight, .none: return "arrow.up"
+        }
+    }
+}
+
+enum RouteEditKind: String, Identifiable {
+    case addStop
+    case changeDestination
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .addStop: Strings.addStopMidRide
+        case .changeDestination: Strings.changeDestination
+        }
+    }
+
+    func edit(_ place: Destination) -> RouteEdit {
+        switch self {
+        case .addStop: .addStop(place)
+        case .changeDestination: .changeDestination(place)
+        }
+    }
+}
+
+@MainActor
+final class RideCameraTracker: ObservableObject {
+    @Published private(set) var camera = RideCamera()
+    @Published private(set) var debug = ""
+    @Published private(set) var bearing: Double = 0
+    @Published private(set) var styleDebug = ""
+    var recordsDebug = false
+    private weak var mapView: MLNMapView?
+    var clearArea: CGRect = .zero
+    var remainingRoute: () -> [Coordinate] = { [] }
+    var userCoordinate: () -> Coordinate? = { nil }
+    private(set) var followInset: UIEdgeInsets?
+    private var baseInset: (automatic: Bool, inset: UIEdgeInsets)?
+    private var latest: MapViewProxy?
+    private var debugTask: Task<Void, Never>?
+
+    var mapSize: CGSize { latest?.mapViewSize ?? .zero }
+
+    func mapChanged(_ proxy: MapViewProxy) {
+        latest = proxy
+        if proxy.lastReasonForChange?.isUserGesture == true, !camera.holdsStill {
+            camera.userMovedMap()
+            publishDebug()
+        }
+        guard recordsDebug else { return }
+        guard debugTask == nil else { return }
+        debugTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            self?.debugTask = nil
+            self?.publishDebug()
+        }
+    }
+
+    func attach(_ mapView: MLNMapView) {
+        guard self.mapView !== mapView else { return }
+        self.mapView = mapView
+        baseInset = nil
+        applyInset()
+    }
+
+    func setFollowInset(_ inset: UIEdgeInsets?) {
+        guard inset != followInset else { return }
+        followInset = inset
+        applyInset()
+    }
+
+    private func applyInset() {
+        guard let mapView else { return }
+        if baseInset == nil, followInset != nil {
+            baseInset = (mapView.automaticallyAdjustsContentInset, mapView.contentInset)
+        }
+        if let followInset {
+            mapView.automaticallyAdjustsContentInset = false
+            mapView.setContentInset(followInset, animated: false, completionHandler: nil)
+        } else if let base = baseInset {
+            mapView.automaticallyAdjustsContentInset = base.automatic
+            mapView.setContentInset(base.inset, animated: false, completionHandler: nil)
+            mapView.setNeedsLayout()
+            baseInset = nil
+        }
+    }
+
+    func recenter() {
+        camera.recenter()
+        publishDebug()
+    }
+
+    func showOverview() {
+        camera.showOverview()
+        publishDebug()
+    }
+
+    private func publishDebug() {
+        guard recordsDebug else { return }
+        var text = "camera=\(camera.mode.rawValue)"
+        if let direction = latest?.direction, direction != bearing { bearing = direction }
+        if let latest {
+            let center = latest.centerCoordinate
+            text += String(format: " center=%.5f,%.5f", center.latitude, center.longitude)
+        }
+        if let mapView {
+            text += String(format: " zoom=%.2f pitch=%.0f direction=%.0f", mapView.zoomLevel, mapView.camera.pitch, mapView.direction)
+            publishStyleDebug(mapView)
+        }
+        if let latest {
+            if let user = userCoordinate() {
+                let point = latest.convert(user.clLocation, toPointTo: nil)
+                text += String(format: " puck=%.0f,%.0f inClear=%@", point.x, point.y, clearArea.contains(point) ? "yes" : "no")
+            }
+            if camera.mode == .overview {
+                let route = remainingRoute()
+                let points = route.map { latest.convert($0.clLocation, toPointTo: nil) }
+                let outside = points.filter { !clearArea.contains($0) }.count
+                let fits = !route.isEmpty && !clearArea.isEmpty && outside == 0
+                text += fits ? " fits=true" : " fits=false(\(outside)/\(route.count))"
+                if !fits {
+                    let xs = points.map(\.x), ys = points.map(\.y)
+                    text += String(format: " x%.0f-%.0f y%.0f-%.0f clear%.0f,%.0f,%.0f,%.0f", xs.min() ?? 0, xs.max() ?? 0, ys.min() ?? 0, ys.max() ?? 0, clearArea.minX, clearArea.minY, clearArea.maxX, clearArea.maxY)
+                }
+            }
+        }
+        if text != debug { debug = text }
+    }
+
+    private static let routeLayers: Set<String> = [
+        "route-verified-line", "route-unverified-line", "route-forbidden-line", "route-ridden-line", "route-user-puck",
+    ]
+
+    private func publishStyleDebug(_ mapView: MLNMapView) {
+        let style = MapStyle.allCases.first { $0.url == mapView.styleURL }?.rawValue ?? mapView.styleURL?.lastPathComponent ?? "?"
+        let rect = CGRect(origin: .zero, size: mapView.bounds.size)
+        let features = mapView.visibleFeatures(in: rect, styleLayerIdentifiers: Self.routeLayers)
+        let layers = Self.routeLayers.filter { mapView.style?.layer(withIdentifier: $0) != nil }.count
+        let text = "style=\(style) layers=\(layers)/\(Self.routeLayers.count) features=\(features.count)"
+        if text != styleDebug { styleDebug = text }
+    }
+}
+
+extension CameraChangeReason {
+    var isUserGesture: Bool {
+        switch self {
+        case .gesturePan, .gesturePinch, .gestureRotate, .gestureZoomIn, .gestureZoomOut, .gestureOneFingerZoom, .gestureTilt: true
+        case .programmatic, .resetNorth, .transitionCancelled: false
         }
     }
 }

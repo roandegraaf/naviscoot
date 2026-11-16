@@ -7,7 +7,7 @@ import { buildApp } from "../src/app.js";
 import type { FusedStatus } from "../src/fused.js";
 import { ReportStore } from "../src/reports.js";
 import { ValhallaError } from "../src/valhalla.js";
-import { fakeRoute, fakeValhalla, type Pick } from "./fake-valhalla.js";
+import { fakeLegs, fakeRoute, fakeValhalla, type Pick } from "./fake-valhalla.js";
 
 const KEY = "test-key-0123456789";
 const fused = new Map<number, FusedStatus>([[20, "unknown"]]);
@@ -138,6 +138,63 @@ describe("POST /route", () => {
     const res = await app.inject({ method: "POST", url: "/route", payload: routeBody, headers: { "x-api-key": KEY } });
     expect(res.statusCode).toBe(502);
     expect(res.json().error).toBe("classification_failed");
+  });
+});
+
+describe("POST /route options", () => {
+  const headers = { "x-api-key": KEY };
+  const stop = { lat: 52.2, lon: 5.42 };
+  const post = async (payload: object) => (await makeApp()).inject({ method: "POST", url: "/route", payload, headers });
+
+  it("accepts up to 8 waypoints and rejects 9 with too_many_waypoints", async () => {
+    const legs = (n: number) => fakeLegs(Array.from({ length: n }, (_, i) => [{ way_id: 100 + i, km: 1 }]));
+    const eight = await (await makeApp(() => legs(9))).inject({
+      method: "POST",
+      url: "/route",
+      payload: { ...routeBody, waypoints: Array(8).fill(stop) },
+      headers,
+    });
+    expect(eight.statusCode, eight.body).toBe(200);
+    expect(eight.json().naviscoot.legs).toHaveLength(9);
+
+    const nine = await post({ ...routeBody, waypoints: Array(9).fill(stop) });
+    expect(nine.statusCode).toBe(400);
+    expect(nine.json()).toMatchObject({ error: "too_many_waypoints" });
+  });
+
+  it("rejects depart_at together with arrive_by", async () => {
+    const res = await post({ ...routeBody, depart_at: "2026-11-16T08:00:00+01:00", arrive_by: "2026-11-16T09:00:00+01:00" });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: "conflicting_times" });
+  });
+
+  it("rejects alternatives on a trip with waypoints", async () => {
+    const res = await post({ ...routeBody, waypoints: [stop], alternatives: 1 });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: "alternatives_need_two_points" });
+  });
+
+  it.each([
+    ["more than 2 alternatives", { alternatives: 3 }],
+    ["a negative alternatives count", { alternatives: -1 }],
+    ["a time that is not ISO 8601", { depart_at: "tomorrow 8:00" }],
+    ["an avoid option that is not a boolean", { avoid: { ferries: "yes" } }],
+    ["a waypoint without lon", { waypoints: [{ lat: 52 }] }],
+  ])("rejects %s as an invalid body", async (_, extra) => {
+    expect((await post({ ...routeBody, ...extra })).statusCode).toBe(400);
+  });
+
+  it("accepts every new field together on a two-point trip", async () => {
+    const res = await post({
+      ...routeBody,
+      alternatives: 2,
+      arrive_by: "2026-11-16T09:00:00+01:00",
+      avoid: { ferries: true, unpaved: true, main_roads: true },
+      format: "osrm",
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().naviscoot.alternates).toEqual([]);
+    expect(res.json().naviscoot.avoid_unpaved).toEqual({ converged: true, remaining_m: 0 });
   });
 });
 
