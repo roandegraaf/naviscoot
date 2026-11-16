@@ -47,6 +47,61 @@ final class HomeDrawerUITests: XCTestCase {
         XCTAssertTrue(app.buttons["trips.done"].waitForExistence(timeout: 5))
         app.buttons["trips.done"].tap()
         XCTAssertTrue(app.buttons["home.trip.1"].waitForExistence(timeout: 5), "the drawer did not come back after trip history")
+
+        app.buttons["search.settings"].tap()
+        XCTAssertTrue(app.buttons["settings.scooter"].waitForExistence(timeout: 5), "Settings did not open")
+        let voiceMode = element("settings.voiceMode")
+        XCTAssertTrue(voiceMode.isHittable, "the voice mode is not at the top of Settings")
+        XCTAssertLessThan(element("settings.section.navigation").frame.maxY, voiceMode.frame.minY + 1)
+        XCTAssertLessThan(voiceMode.frame.maxY, app.buttons["settings.voiceDetails"].frame.minY + 1, "the voice mode is not first in Navigation")
+        XCTAssertEqual(voiceMode.buttons.allElementsBoundByIndex.map(\.label), ["All", "Alerts", "Off"])
+        voiceMode.buttons["Alerts"].tap()
+        XCTAssertTrue(voiceMode.buttons["Alerts"].isSelected)
+        screenshot("drawer-15-settings-top")
+
+        app.buttons["settings.voiceDetails"].tap()
+        XCTAssertTrue(element("settings.voice.default").waitForExistence(timeout: 5), "the Voice page has no voice list")
+        let rate = element("settings.speechRate")
+        XCTAssertTrue(rate.exists, "the Voice page has no speaking rate")
+        XCTAssertTrue(element("settings.speechVolume").exists, "the Voice page has no volume")
+        screenshot("drawer-16-settings-voice")
+        let rateBefore = rate.label
+        rate.buttons.element(boundBy: 1).tap()
+        wait(for: rate, labelChangesFrom: rateBefore)
+        let rateRaised = rate.label
+        rate.buttons.element(boundBy: 0).tap()
+        wait(for: rate, labelChangesFrom: rateRaised)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(voiceMode.waitForExistence(timeout: 5))
+
+        var order = ["scooter"]
+        var pickedStyle = false
+        for _ in 0 ..< 8 where order.count < 6 {
+            let visible = ["navigation", "routeDefaults", "map", "general", "about"]
+                .filter { !order.contains($0) && element("settings.section.\($0)").exists }
+                .sorted { element("settings.section.\($0)").frame.minY < element("settings.section.\($1)").frame.minY }
+            order += visible
+            if !pickedStyle, element("settings.mapStyle.positron").isHittable {
+                pickedStyle = true
+                app.buttons["settings.mapStyle.positron"].tap()
+                XCTAssertTrue(app.buttons["settings.mapStyle.positron"].isSelected, "tapping a map style card did not select it")
+                screenshot("drawer-17-settings-map")
+            }
+            if order.count < 6 { app.swipeUp() }
+        }
+        XCTAssertEqual(order, ["scooter", "navigation", "routeDefaults", "map", "general", "about"])
+        XCTAssertTrue(pickedStyle, "the map style cards never came into view")
+        XCTAssertTrue(element("settings.language").exists)
+        XCTAssertTrue(element("settings.appearance").exists)
+
+        app.buttons["settings.done"].tap()
+        XCTAssertTrue(app.buttons["settings.done"].waitForNonExistence(timeout: 5))
+        app.buttons["search.settings"].tap()
+        XCTAssertTrue(voiceMode.waitForExistence(timeout: 5))
+        XCTAssertTrue(voiceMode.buttons["Alerts"].isSelected, "the voice mode did not stick")
+        voiceMode.buttons["All"].tap()
+        app.buttons["settings.done"].tap()
+        XCTAssertTrue(app.buttons["settings.done"].waitForNonExistence(timeout: 5))
     }
 
     func testSearchingExpandsTheDrawerAndAResultOpensThePreviewThenTheDrawerComesBack() throws {
@@ -263,6 +318,11 @@ final class HomeDrawerUITests: XCTestCase {
     private func wait(for element: XCUIElement, labelContains text: String) {
         let match = expectation(for: NSPredicate(format: "label CONTAINS %@", text), evaluatedWith: element)
         XCTAssertEqual(XCTWaiter.wait(for: [match], timeout: 10), .completed, "'\(text)' not in '\(element.label)'")
+    }
+
+    private func wait(for element: XCUIElement, labelChangesFrom text: String) {
+        let match = expectation(for: NSPredicate(format: "label != %@", text), evaluatedWith: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [match], timeout: 5), .completed, "'\(element.label)' did not change")
     }
 
     private func wait(for element: XCUIElement, valueContains text: String) {

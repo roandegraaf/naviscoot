@@ -5084,36 +5084,19 @@
         }
       }
     },
-    "settings.avoid": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Avoid"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vermijden"
-          }
-        }
-      }
-    },
     "settings.avoid.ferries": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ferries"
+            "value": "Avoid ferries"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Veerponten"
+            "value": "Veerponten vermijden"
           }
         }
       }
@@ -5141,13 +5124,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Main roads"
+            "value": "Avoid main roads"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hoofdwegen"
+            "value": "Hoofdwegen vermijden"
           }
         }
       }
@@ -5158,13 +5141,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unpaved roads"
+            "value": "Avoid unpaved roads"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Onverharde wegen"
+            "value": "Onverharde wegen vermijden"
           }
         }
       }
@@ -5203,53 +5186,19 @@
         }
       }
     },
-    "settings.guidance.alertsOnly": {
+    "settings.general": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alerts only"
+            "value": "General"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alleen waarschuwingen"
-          }
-        }
-      }
-    },
-    "settings.guidance.all": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All guidance"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alle begeleiding"
-          }
-        }
-      }
-    },
-    "settings.guidance.off": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Off"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uit"
+            "value": "Algemeen"
           }
         }
       }
@@ -5339,23 +5288,6 @@
         }
       }
     },
-    "settings.map": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ride map"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kaart tijdens de rit"
-          }
-        }
-      }
-    },
     "settings.map.footer": {
       "extractionState": "manual",
       "localizations": {
@@ -5369,6 +5301,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "De donkere kaart volgt zonsondergang en zonsopkomst waar je bent. Automatisch zoomen zoomt in voor een afslag en uit op lange rechte wegen."
+          }
+        }
+      }
+    },
+    "settings.mapGroup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaart"
           }
         }
       }
@@ -5492,6 +5441,23 @@
         }
       }
     },
+    "settings.navigation": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigation"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigatie"
+          }
+        }
+      }
+    },
     "settings.northUp": {
       "extractionState": "manual",
       "localizations": {
@@ -5509,19 +5475,19 @@
         }
       }
     },
-    "settings.route": {
+    "settings.routeDefaults": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Route"
+            "value": "Route defaults"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Route"
+            "value": "Routevoorkeuren"
           }
         }
       }
@@ -5815,36 +5781,19 @@
         }
       }
     },
-    "settings.speeding": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Speeding alert"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snelheidswaarschuwing"
-          }
-        }
-      }
-    },
     "settings.speeding.alert": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Speak an alert"
+            "value": "Speak a speeding alert"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Waarschuwing uitspreken"
+            "value": "Snelheidswaarschuwing uitspreken"
           }
         }
       }
@@ -6019,6 +5968,40 @@
         }
       }
     },
+    "settings.voice.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These are the voices installed for the app language. Add more in iOS Settings › Accessibility › Spoken Content."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit zijn de stemmen die voor de app-taal zijn geïnstalleerd. Meer stemmen voeg je toe in Instellingen › Toegankelijkheid › Gesproken materiaal."
+          }
+        }
+      }
+    },
+    "settings.voiceMode.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alerts skips the turn instructions but still speaks the unverified-path and speeding warnings."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meldingen slaat de afslaginstructies over, maar spreekt de waarschuwingen voor onbevestigde paden en te hard rijden nog wel uit."
+          }
+        }
+      }
+    },
     "settings.voiceSection": {
       "extractionState": "manual",
       "localizations": {
@@ -6032,23 +6015,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gesproken begeleiding"
-          }
-        }
-      }
-    },
-    "settings.voiceSection.footer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alerts only skips turn instructions but still speaks the unverified-path and speeding warnings. The voices are the ones installed for the app language; add more in iOS Settings › Accessibility › Spoken Content."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alleen waarschuwingen slaat de afslaginstructies over, maar spreekt de waarschuwingen voor onbevestigde paden en te hard rijden nog wel uit. De stemmen zijn die voor de app-taal zijn geïnstalleerd; meer stemmen voeg je toe in Instellingen › Toegankelijkheid › Gesproken materiaal."
           }
         }
       }

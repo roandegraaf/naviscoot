@@ -5,6 +5,7 @@ struct MapStyleSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        @Bindable var settings = settings
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(Strings.mapStyleSection)
@@ -17,14 +18,7 @@ struct MapStyleSheet: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .accessibilityIdentifier("layers.done")
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(MapStyle.allCases) { style in
-                        card(style)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
+            MapStyleCards(selection: $settings.mapStyle, idPrefix: "layers.style")
             Text(Strings.mapStyleFooter)
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.muted)
@@ -34,11 +28,29 @@ struct MapStyleSheet: View {
         .presentationDetents([.height(300)])
         .presentationDragIndicator(.visible)
     }
+}
+
+struct MapStyleCards: View {
+    @Binding var selection: MapStyle
+    let idPrefix: String
+    var horizontalPadding: CGFloat = 0
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(MapStyle.allCases) { style in
+                    card(style)
+                }
+            }
+            .padding(.vertical, 2)
+            .padding(.horizontal, horizontalPadding)
+        }
+    }
 
     private func card(_ style: MapStyle) -> some View {
-        let selected = settings.mapStyle == style
+        let selected = selection == style
         return Button {
-            settings.mapStyle = style
+            selection = style
         } label: {
             VStack(spacing: 8) {
                 MapStyleSwatch(style: style)
@@ -59,7 +71,7 @@ struct MapStyleSheet: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Strings.mapStyleName(style))
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("layers.style.\(style.rawValue)")
+        .accessibilityIdentifier("\(idPrefix).\(style.rawValue)")
     }
 }
 

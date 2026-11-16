@@ -167,14 +167,18 @@ enum Strings {
 
     static var settingsTitle: String { tr("settings.title") }
     static var done: String { tr("settings.done") }
+    static var navigationSection: String { tr("settings.navigation") }
+    static var routeDefaultsSection: String { tr("settings.routeDefaults") }
+    static var mapGroupSection: String { tr("settings.mapGroup") }
+    static var generalSection: String { tr("settings.general") }
+    static var voiceModeFooter: String { tr("settings.voiceMode.footer") }
+    static var voiceListFooter: String { tr("settings.voice.footer") }
     static var languageSection: String { tr("settings.language") }
     static var languageFooter: String { tr("settings.language.footer") }
-    static var routeSection: String { tr("settings.route") }
     static var verifiedOnlyDefault: String { tr("settings.verifiedOnlyDefault") }
     static var verifiedOnlyDefaultFooter: String { tr("settings.verifiedOnlyDefault.footer") }
     static var aboutSection: String { tr("settings.about") }
     static var version: String { tr("settings.version") }
-    static var avoidSection: String { tr("settings.avoid") }
     static var avoidFerries: String { tr("settings.avoid.ferries") }
     static var avoidUnpaved: String { tr("settings.avoid.unpaved") }
     static var avoidMainRoads: String { tr("settings.avoid.mainRoads") }
@@ -182,16 +186,13 @@ enum Strings {
     static var appearanceSection: String { tr("settings.appearance") }
     static var mapStyleSection: String { tr("settings.mapStyle") }
     static var mapStyleFooter: String { tr("settings.mapStyle.footer") }
-    static var mapSection: String { tr("settings.map") }
     static var mapFooter: String { tr("settings.map.footer") }
     static var darkMapAtNight: String { tr("settings.darkMapAtNight") }
     static var northUp: String { tr("settings.northUp") }
     static var threeD: String { tr("settings.threeD") }
     static var autoZoom: String { tr("settings.autoZoom") }
     static var voiceSection: String { tr("settings.voiceSection") }
-    static var voiceFooter: String { tr("settings.voiceSection.footer") }
     static var voice: String { tr("settings.voice") }
-    static var speedingSection: String { tr("settings.speeding") }
     static var speedingFooter: String { tr("settings.speeding.footer") }
     static var speedingAlert: String { tr("settings.speeding.alert") }
     static var overSpeedLimit: String { tr("ride.speeding") }
@@ -402,14 +403,6 @@ enum Strings {
 
     static func defaultVoice(_ name: String?) -> String {
         name.map { format("settings.voice.defaultNamed", $0) } ?? tr("settings.voice.default")
-    }
-
-    static func guidanceModeName(_ mode: GuidanceMode) -> String {
-        switch mode {
-        case .all: tr("settings.guidance.all")
-        case .alertsOnly: tr("settings.guidance.alertsOnly")
-        case .off: tr("settings.guidance.off")
-        }
     }
 
     static func voiceModeShort(_ mode: GuidanceMode) -> String {

@@ -308,7 +308,7 @@ final class VoiceTests: XCTestCase {
         XCTAssertEqual(SpokenPhrases.speeding(limitKmh: 30, language: .english), "Slow down: the speed limit is 30.")
         XCTAssertEqual(SpokenPhrases.speeding(limitKmh: 30, language: .dutch), "Let op: je rijdt te hard, de limiet is 30.")
         XCTAssertEqual(Strings.format("settings.speechRate", 120, language: .english), "Speaking rate 120%")
-        XCTAssertEqual(Strings.tr("settings.guidance.alertsOnly", language: .dutch), "Alleen waarschuwingen")
+        XCTAssertEqual(Strings.tr("ride.voice.alerts", language: .dutch), "Meldingen")
         XCTAssertEqual(Strings.format("settings.speeding.tolerance", 5, language: .dutch), "Marge 5 km/u")
     }
 
