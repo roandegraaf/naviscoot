@@ -32,13 +32,23 @@ struct RidePanel: View {
     @State private var confirmingEnd = false
     @State private var controlsHeight: CGFloat = 0
     @State private var height: CGFloat = 0
+    @State private var parkedSaved = false
     @Environment(AppSettings.self) private var settings
     @Environment(PlacesStore.self) private var places: PlacesStore?
+    @Environment(ParkedScooterStore.self) private var parkedStore: ParkedScooterStore?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            summary
-            if showsControls {
+            if let arrival = arrival {
+                arrivalSummary
+                if showsControls {
+                    arrivalControls(arrival)
+                        .padding(.top, 16)
+                }
+            } else {
+                summary
+            }
+            if showsControls, arrival == nil {
                 ScrollView {
                     controls
                         .padding(.top, 16)
@@ -54,6 +64,8 @@ struct RidePanel: View {
         .padding(.bottom, inSheet ? 0 : 12)
         .frame(maxWidth: .infinity, maxHeight: inSheet ? .infinity : nil, alignment: .top)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(arrival == nil ? "ride.panel" : "ride.arrival")
         .sheet(item: $searching) { kind in
             PlaceSearchSheet(title: kind.title, near: model.userCoordinate) { place in
                 model.edit(kind.edit(place))
@@ -89,21 +101,156 @@ struct RidePanel: View {
                         .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("ride.nextStop")
                 }
+                batteryLine
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture(perform: toggle)
-            Button(action: toggle) {
-                Image(systemName: expanded ? "chevron.down" : "chevron.up")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 48, height: 48)
-                    .background(Theme.iconBackground, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(expanded ? Strings.hideRideOptions : Strings.showRideOptions)
-            .accessibilityIdentifier("ride.panel.toggle")
+            toggleButton
         }
+    }
+
+    private var toggleButton: some View {
+        Button(action: toggle) {
+            Image(systemName: expanded ? "chevron.down" : "chevron.up")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 48, height: 48)
+                .background(Theme.iconBackground, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(expanded ? Strings.hideRideOptions : Strings.showRideOptions)
+        .accessibilityIdentifier("ride.panel.toggle")
+    }
+
+    @ViewBuilder
+    private var batteryLine: some View {
+        if let scooter = model.scooter, !model.arrived {
+            let arrival = scooter.onArrival(remainingM: model.remainingM, marginPercent: settings.rangeMarginPercent)
+            HStack(spacing: 6) {
+                Image(systemName: Self.batterySymbol(scooter.batteryPercent))
+                Text(scooter.badge())
+                if let arrival {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.muted)
+                    Text(Strings.batteryOnArrival(arrival.status.badge()))
+                        .foregroundStyle(arrival.isLow ? Theme.dangerText : Theme.ink)
+                }
+            }
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(Theme.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(arrival.map { Strings.batteryLine(now: scooter.badge(), arrival: $0.status.badge()) } ?? Strings.batteryNow(scooter.badge()))
+            .accessibilityIdentifier("ride.battery")
+        }
+    }
+
+    static func batterySymbol(_ percent: Int) -> String {
+        switch percent {
+        case 88...: "battery.100percent"
+        case 63...: "battery.75percent"
+        case 38...: "battery.50percent"
+        case 13...: "battery.25percent"
+        default: "battery.0percent"
+        }
+    }
+
+    private var arrivalSummary: some View {
+        HStack(alignment: .top, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "flag.checkered")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(Theme.connected, in: Circle())
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Strings.arrivalTitle)
+                        .font(.system(size: 30, weight: .heavy))
+                        .foregroundStyle(Theme.ink)
+                    Text(model.destination.title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("ride.arrival.title")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: toggle)
+            toggleButton
+        }
+    }
+
+    private func arrivalControls(_ arrival: RideArrivalSummary) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 10) {
+                stat(Strings.arrivalRidden, Format.distance(meters: Int(arrival.distanceM.rounded())), id: "ride.arrival.ridden")
+                if let duration = arrival.durationS {
+                    stat(Strings.arrivalTime, Format.duration(seconds: duration), id: "ride.arrival.time")
+                }
+                if let used = arrival.batteryUsedPercent {
+                    stat(Strings.arrivalBatteryUsed, "\(used)%", id: "ride.arrival.battery")
+                }
+            }
+            HStack(spacing: 10) {
+                if parkedSaved {
+                    Label(Strings.parkedSaved, systemImage: "checkmark.circle.fill")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(Theme.connected)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(Theme.iconBackground, in: Capsule())
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("ride.arrival.parkedHere")
+                } else {
+                    Button(action: parkHere) {
+                        Label(Strings.parkedHere, systemImage: "parkingsign.circle")
+                            .font(.system(size: 17, weight: .bold))
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Theme.ink)
+                    .disabled(parkedStore == nil)
+                    .accessibilityIdentifier("ride.arrival.parkedHere")
+                }
+                Button(action: onEnd) {
+                    Text(Strings.arrivalDone)
+                        .font(.system(size: 17, weight: .bold))
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.verified)
+                .accessibilityIdentifier("ride.arrival.done")
+            }
+        }
+    }
+
+    private func stat(_ title: String, _ value: String, id: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.system(size: 22, weight: .heavy))
+                .foregroundStyle(Theme.ink)
+                .monospacedDigit()
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.muted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(id)
+    }
+
+    private var arrival: RideArrivalSummary? {
+        model.arrived ? model.arrival : nil
+    }
+
+    private func parkHere() {
+        parkedStore?.record(model.userCoordinate ?? model.destination.coordinate, at: Date())
+        parkedSaved = true
     }
 
     private var controls: some View {

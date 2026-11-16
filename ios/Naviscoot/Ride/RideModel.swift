@@ -80,6 +80,7 @@ final class RideModel: ObservableObject {
     @Published private(set) var activityStats = RideActivityStats()
     @Published private(set) var scooter: ScooterRideStatus?
     @Published private(set) var scooterWarning: ScooterRideWarning?
+    @Published private(set) var arrival: RideArrivalSummary?
 
     private(set) var ride: ActiveRide
     let verifiedOnly: Bool
@@ -440,6 +441,9 @@ final class RideModel: ObservableObject {
             trip?.observe(TrackFix(userLocation))
             trip?.finish()
             if !arrived { store?.clear() }
+            if arrival == nil {
+                arrival = RideArrivalSummary(draft: trip?.draft, fallbackDistanceM: geometry.lengthM)
+            }
             arrived = true
             alert = nil
             scooterWarning = nil
@@ -534,6 +538,24 @@ final class RideModel: ObservableObject {
 
     private func announce(_ text: String, kind: SpeechKind) {
         speech.announce(text, kind: kind)
+    }
+}
+
+struct RideArrivalSummary: Equatable {
+    let distanceM: Double
+    let durationS: Double?
+    let batteryUsedPercent: Int?
+}
+
+extension RideArrivalSummary {
+    init(draft: TripDraft?, fallbackDistanceM: Double) {
+        let ridden = draft?.distanceM ?? 0
+        distanceM = ridden > 0 ? ridden : fallbackDistanceM
+        durationS = draft.map(\.durationS).flatMap { $0 > 0 ? $0 : nil }
+        batteryUsedPercent = draft.flatMap { draft in
+            guard let start = draft.scooterStart, let end = draft.scooterEnd else { return nil }
+            return max(0, start.batteryPercent - end.batteryPercent)
+        }
     }
 }
 

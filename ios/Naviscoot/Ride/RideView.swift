@@ -23,6 +23,7 @@ struct RideView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(AppSettings.self) private var settings
     @Environment(PlacesStore.self) private var places: PlacesStore?
+    @Environment(ParkedScooterStore.self) private var parked: ParkedScooterStore?
 
     init(model: RideModel, location: LocationService, onEnd: @escaping () -> Void) {
         self.model = model
@@ -77,6 +78,9 @@ struct RideView: View {
             tracker.setFollowInset(isLandscape ? followInset(for: area) : nil)
             if tracker.camera.mode == .overview { showOverview() }
         }
+        .onChange(of: model.arrived) { _, arrived in
+            if arrived { withAnimation { panelExpanded = true } }
+        }
         .onChange(of: settings.followOptions) { _, _ in
             guard tracker.camera.follows, let coordinate = model.userCoordinate else { return }
             camera = followCamera(on: coordinate)
@@ -95,6 +99,7 @@ struct RideView: View {
             panel(inSheet: true)
                 .environment(settings)
                 .environment(places)
+                .environment(parked)
                 .presentationDetents([.ridePanelCollapsed, .medium], selection: panelDetent)
                 .presentationBackgroundInteraction(.enabled)
                 .presentationContentInteraction(.resizes)
@@ -312,8 +317,9 @@ struct RideView: View {
                 bottom: map.height - area.maxY + 16,
                 right: map.width - area.maxX + 16
             )
-        // MapLibre adds the map's contentInset to edgePadding, so the landscape follow inset must not count twice.
-        if let inset = tracker.followInset {
+        // MapLibre adds the map's contentInset (the safe area in portrait, the follow inset in landscape) to edgePadding,
+        // and the padding above is already measured from the screen edge, so the inset must not count twice.
+        if let inset = tracker.contentInset {
             padding = UIEdgeInsets(
                 top: max(0, padding.top - inset.top),
                 left: max(0, padding.left - inset.left),
@@ -520,16 +526,6 @@ struct RideView: View {
 
     private var chips: some View {
         HStack(spacing: 8) {
-            if let scooter = model.scooter {
-                Label(scooter.badge(), systemImage: "battery.75percent")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(model.scooterWarning == nil ? Theme.ink : Theme.danger)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("ride.scooterBattery")
-            }
             if let stretchClass = model.currentClass {
                 HStack(spacing: 8) {
                     Circle()
@@ -815,6 +811,7 @@ final class RideCameraTracker: ObservableObject {
     private var debugTask: Task<Void, Never>?
 
     var mapSize: CGSize { latest?.mapViewSize ?? .zero }
+    var contentInset: UIEdgeInsets? { mapView?.contentInset }
 
     func mapChanged(_ proxy: MapViewProxy) {
         latest = proxy
@@ -893,6 +890,7 @@ final class RideCameraTracker: ObservableObject {
                 let outside = points.filter { !clearArea.contains($0) }.count
                 let fits = !route.isEmpty && !clearArea.isEmpty && outside == 0
                 text += fits ? " fits=true" : " fits=false(\(outside)/\(route.count))"
+                if let fill = Self.fill(points, in: clearArea) { text += String(format: " fill=%.2f", fill) }
                 if !fits {
                     let xs = points.map(\.x), ys = points.map(\.y)
                     text += String(format: " x%.0f-%.0f y%.0f-%.0f clear%.0f,%.0f,%.0f,%.0f", xs.min() ?? 0, xs.max() ?? 0, ys.min() ?? 0, ys.max() ?? 0, clearArea.minX, clearArea.minY, clearArea.maxX, clearArea.maxY)
@@ -900,6 +898,13 @@ final class RideCameraTracker: ObservableObject {
             }
         }
         if text != debug { debug = text }
+    }
+
+    private static func fill(_ points: [CGPoint], in area: CGRect) -> Double? {
+        guard let minX = points.map(\.x).min(), let maxX = points.map(\.x).max(),
+              let minY = points.map(\.y).min(), let maxY = points.map(\.y).max(),
+              area.width > 0, area.height > 0 else { return nil }
+        return max((maxX - minX) / area.width, (maxY - minY) / area.height)
     }
 
     private static let routeLayers: Set<String> = [

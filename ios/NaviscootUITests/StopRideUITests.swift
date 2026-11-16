@@ -3,6 +3,7 @@ import XCTest
 final class StopRideUITests: XCTestCase {
     private let domplein = (lat: 52.0907, lon: 5.1214)
     private let amersfoort = (query: "Lieve Vrouwestraat 33 Amersfoort", label: "Lieve Vrouwestraat 33,")
+    private let biltstraat = (query: "Biltstraat 100 Utrecht", label: "Biltstraat 100,")
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {
@@ -31,9 +32,15 @@ final class StopRideUITests: XCTestCase {
     }
 
     func testTheRideMapKeepsThreeButtonsAndThePanelHoldsTheRest() throws {
-        launch(extra: ["-NaviscootSeedHome", "YES", "-NaviscootSimEditFailures", "1", "-settings.guidanceMode", "all"])
+        launch(extra: ["-NaviscootSeedHome", "YES", "-NaviscootSimEditFailures", "1", "-settings.guidanceMode", "all", "-NaviscootSimScooter", "riding"])
         planAndStart()
         XCTAssertTrue(app.staticTexts["ride.banner.distance"].waitForExistence(timeout: 20))
+
+        let battery = app.descendants(matching: .any)["ride.battery"]
+        XCTAssertTrue(battery.waitForExistence(timeout: 15), "the panel shows no scooter battery")
+        XCTAssertTrue(battery.label.hasPrefix("Battery 64% · "), battery.label)
+        XCTAssertTrue(battery.label.hasSuffix(" on arrival"), battery.label)
+        XCTAssertTrue(battery.isHittable, "the battery line is clipped by the collapsed panel")
 
         let report = app.buttons["ride.report"], mute = app.buttons["ride.mute"], recenter = app.buttons["ride.recenter"]
         for button in [report, mute, recenter] {
@@ -53,6 +60,18 @@ final class StopRideUITests: XCTestCase {
             XCTAssertTrue(app.descendants(matching: .any)[id].isHittable, "\(id) is missing from the panel")
         }
         screenshot("ride-01-panel")
+
+        app.buttons["ride.overview"].tap()
+        let camera = app.staticTexts["sim.camera"]
+        let overview = expectation(for: NSPredicate(format: "label CONTAINS 'camera=overview' AND label CONTAINS ' fits='"), evaluatedWith: camera)
+        wait(for: [overview], timeout: 10)
+        Thread.sleep(forTimeInterval: 2)
+        XCTAssertTrue(camera.label.contains("fits=true"), "the overview does not fit the remaining route: \(camera.label)")
+        let fill = camera.label.components(separatedBy: " ").first { $0.hasPrefix("fill=") }.flatMap { Double($0.dropFirst(5)) }
+        XCTAssertGreaterThan(fill ?? 0, 0.6, "the overview leaves the route small in the clear map area: \(camera.label)")
+        screenshot("ride-01b-overview")
+        app.buttons["ride.panel.toggle"].tap()
+        XCTAssertTrue(end.waitForHittable(timeout: 5), "the panel did not reopen after the overview")
 
         let voice = app.segmentedControls["ride.voiceMode"]
         voice.buttons["Off"].tap()
@@ -92,6 +111,35 @@ final class StopRideUITests: XCTestCase {
         XCTAssertTrue(app.buttons["home.home"].waitForExistence(timeout: 10), "the home drawer did not come back after the ride")
     }
 
+    func testArrivingShowsTheArrivalCardAndParkedHereRecordsTheSpot() throws {
+        launch(extra: ["-NaviscootSimScooter", "riding"])
+        XCTAssertTrue(app.buttons["home.home"].waitForExistence(timeout: 10))
+        let parkedRow = app.buttons["home.parkedScooter"]
+        XCTAssertTrue(parkedRow.waitForNonExistence(timeout: 10), "a parked spot from an earlier run was not cleared by the connected scooter")
+        planAndStart(biltstraat)
+
+        let title = app.descendants(matching: .any)["ride.arrival.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 240), "the ride did not arrive")
+        XCTAssertTrue(title.label.hasPrefix("Arrived"), title.label)
+        let ridden = app.descendants(matching: .any)["ride.arrival.ridden"]
+        XCTAssertTrue(ridden.exists)
+        XCTAssertTrue(ridden.label.contains("km") || ridden.label.contains(" m"), ridden.label)
+        XCTAssertTrue(app.descendants(matching: .any)["ride.arrival.battery"].exists, "the arrival card shows no battery used")
+        let parkedHere = app.buttons["ride.arrival.parkedHere"]
+        XCTAssertTrue(parkedHere.waitForHittable(timeout: 5), "Parked here is not reachable")
+        screenshot("ride-03-arrived")
+        parkedHere.tap()
+        let saved = app.descendants(matching: .any)["ride.arrival.parkedHere"]
+        XCTAssertTrue(saved.waitForExistence(timeout: 5))
+        XCTAssertEqual(saved.label, "Spot saved")
+        XCTAssertFalse(app.buttons["ride.arrival.parkedHere"].exists, "Parked here can be tapped twice")
+
+        app.buttons["ride.arrival.done"].tap()
+        XCTAssertFalse(app.alerts.firstMatch.waitForExistence(timeout: 2), "Done asked for confirmation after arriving")
+        XCTAssertTrue(app.textFields["search.field"].waitForExistence(timeout: 10))
+        XCTAssertTrue(parkedRow.waitForExistence(timeout: 10), "Parked here did not record the spot")
+    }
+
     private func launch(discardRide: Bool = true, extra: [String] = []) {
         app = XCUIApplication()
         var arguments = [
@@ -112,12 +160,13 @@ final class StopRideUITests: XCTestCase {
         XCTAssertTrue(app.textFields["search.field"].waitForExistence(timeout: 10))
     }
 
-    private func planAndStart() {
+    private func planAndStart(_ place: (query: String, label: String)? = nil) {
+        let place = place ?? amersfoort
         let field = app.textFields["search.field"]
         field.tap()
-        field.typeText(amersfoort.query)
-        let result = app.buttons.matching(NSPredicate(format: "identifier == 'search.result' AND label CONTAINS %@", amersfoort.label)).firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 15), "no result for \(amersfoort.query)")
+        field.typeText(place.query)
+        let result = app.buttons.matching(NSPredicate(format: "identifier == 'search.result' AND label CONTAINS %@", place.label)).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 15), "no result for \(place.query)")
         result.tap()
         let start = app.buttons["preview.start"]
         XCTAssertTrue(start.waitForExistence(timeout: 60), "Start is not offered")

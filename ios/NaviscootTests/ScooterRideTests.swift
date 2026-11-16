@@ -71,6 +71,48 @@ final class ScooterRideTests: XCTestCase {
         XCTAssertEqual(ScooterRideStatus(batteryPercent: 47, rangeKm: 23.6).badge(language: .dutch), "47% · 24 km")
     }
 
+    func testTheArrivalBatteryScalesThePercentByTheRangeLeft() {
+        let scooter = ScooterRideStatus(batteryPercent: 64, rangeKm: 32)
+        let arrival = scooter.onArrival(remainingM: 8000, marginPercent: 15)
+        XCTAssertEqual(arrival, ArrivalBattery(status: ScooterRideStatus(batteryPercent: 48, rangeKm: 24), isLow: false))
+        XCTAssertEqual(arrival?.status.badge(language: .english), "48% · 24 km")
+        XCTAssertNil(scooter.onArrival(remainingM: nil, marginPercent: 15))
+    }
+
+    func testTheArrivalBatteryNeverGoesBelowZeroAndWarnsLikeTheMonitor() {
+        let scooter = ScooterRideStatus(batteryPercent: 20, rangeKm: 10)
+        XCTAssertEqual(scooter.onArrival(remainingM: 25000, marginPercent: 15), ArrivalBattery(status: ScooterRideStatus(batteryPercent: 0, rangeKm: 0), isLow: true))
+        XCTAssertEqual(scooter.onArrival(remainingM: 8000, marginPercent: 15)?.isLow, false)
+        XCTAssertEqual(scooter.onArrival(remainingM: 9000, marginPercent: 15)?.isLow, true, "9 km plus a 15% margin needs 10.35 km")
+
+        var monitor = ScooterRideMonitor(start: start)
+        XCTAssertEqual(monitor.evaluate(status: scooter, position: start, remainingKm: 9, marginPercent: 15, turnBackEnabled: false).shown, .lowRange)
+        XCTAssertEqual(ScooterRideStatus(batteryPercent: 5, rangeKm: 0).onArrival(remainingM: 0, marginPercent: 15)?.status.batteryPercent, 0)
+    }
+
+    func testTheArrivalSummaryUsesTheRecordedTripAndTheBatteryDrop() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        var draft = TripDraft(startedAt: start, destination: "Biltstraat 100")
+        draft.recordScooter(ScooterTelemetry(batteryPercent: 64, rangeKm: 31, odometerKm: 100, speedKmh: 0))
+        for step in 0 ... 10 {
+            draft.add(TrackFix(coordinate: Coordinate(lat: 52.09 + Double(step) * 0.001, lon: 5.12), time: start.addingTimeInterval(Double(step) * 10)))
+        }
+        draft.recordScooter(ScooterTelemetry(batteryPercent: 61, rangeKm: 29, odometerKm: 101.1, speedKmh: 0))
+        draft.close()
+
+        let summary = RideArrivalSummary(draft: draft, fallbackDistanceM: 5000)
+        XCTAssertEqual(summary.distanceM, draft.distanceM)
+        XCTAssertEqual(summary.distanceM, 1112, accuracy: 10)
+        XCTAssertEqual(summary.durationS, 100)
+        XCTAssertEqual(summary.batteryUsedPercent, 3)
+    }
+
+    func testTheArrivalSummaryFallsBackWithoutARecording() {
+        XCTAssertEqual(RideArrivalSummary(draft: nil, fallbackDistanceM: 5000), RideArrivalSummary(distanceM: 5000, durationS: nil, batteryUsedPercent: nil))
+        let empty = TripDraft(startedAt: Date(timeIntervalSince1970: 0), destination: "X")
+        XCTAssertEqual(RideArrivalSummary(draft: empty, fallbackDistanceM: 800), RideArrivalSummary(distanceM: 800, durationS: nil, batteryUsedPercent: nil))
+    }
+
     func testBatteryRidesInTheActivityStateButNotInTheMilestone() {
         let banner = RideModel.Banner(distanceM: 234, text: "Biltstraat", maneuverType: .turn, maneuverModifier: .left)
         func update(_ battery: String?) -> RideActivityUpdate {

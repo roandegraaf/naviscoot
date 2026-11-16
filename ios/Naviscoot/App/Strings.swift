@@ -143,6 +143,16 @@ enum Strings {
     static var recenter: String { tr("ride.recenter") }
     static var showRideOptions: String { tr("ride.panel.show") }
     static var hideRideOptions: String { tr("ride.panel.hide") }
+    static func batteryOnArrival(_ battery: String) -> String { format("ride.battery.arrival", battery) }
+    static func batteryLine(now: String, arrival: String) -> String { format("ride.battery.accessibility", now, arrival) }
+    static func batteryNow(_ battery: String) -> String { format("ride.battery.now", battery) }
+    static var arrivalTitle: String { tr("ride.arrival.title") }
+    static var arrivalRidden: String { tr("ride.arrival.ridden") }
+    static var arrivalTime: String { tr("ride.arrival.time") }
+    static var arrivalBatteryUsed: String { tr("ride.arrival.battery") }
+    static var parkedHere: String { tr("ride.arrival.parkedHere") }
+    static var parkedSaved: String { tr("ride.arrival.parkedSaved") }
+    static var arrivalDone: String { tr("ride.arrival.done") }
     static var locationAccessOff: String { tr("ride.location.denied") }
     static var preciseLocationOff: String { tr("ride.location.reduced") }
     static var locationSettings: String { tr("ride.location.settings") }

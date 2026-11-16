@@ -14,6 +14,26 @@ struct ScooterRideStatus: Equatable {
     func badge(language: Language = .current) -> String {
         Strings.scooterRideBattery(batteryPercent, "\(Int(max(0, rangeKm).rounded())) km", language: language)
     }
+
+    func isShort(ofKm remainingKm: Double, marginPercent: Int) -> Bool {
+        rangeKm < remainingKm * (1 + Double(marginPercent) / 100)
+    }
+
+    func onArrival(remainingM: Double?, marginPercent: Int) -> ArrivalBattery? {
+        guard let remainingM else { return nil }
+        let remainingKm = max(0, remainingM) / 1000
+        let leftKm = max(0, rangeKm - remainingKm)
+        let percent = rangeKm > 0 ? Int((Double(batteryPercent) * leftKm / rangeKm).rounded()) : 0
+        return ArrivalBattery(
+            status: ScooterRideStatus(batteryPercent: min(max(0, percent), batteryPercent), rangeKm: leftKm),
+            isLow: isShort(ofKm: remainingKm, marginPercent: marginPercent)
+        )
+    }
+}
+
+struct ArrivalBattery: Equatable {
+    let status: ScooterRideStatus
+    let isLow: Bool
 }
 
 enum ScooterRideWarning: Equatable {
@@ -55,7 +75,7 @@ struct ScooterRideMonitor {
     mutating func evaluate(status: ScooterRideStatus?, position: Coordinate?, remainingKm: Double?, marginPercent: Int, turnBackEnabled: Bool) -> Evaluation {
         guard let status else { return Evaluation() }
         var active: [ScooterRideWarning] = []
-        if let remainingKm, status.rangeKm < remainingKm * (1 + Double(marginPercent) / 100) {
+        if let remainingKm, status.isShort(ofKm: remainingKm, marginPercent: marginPercent) {
             active.append(.lowRange)
         }
         if turnBackEnabled, let start, let position {
