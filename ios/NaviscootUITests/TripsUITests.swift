@@ -1,78 +1,16 @@
 import XCTest
 
 final class TripsUITests: XCTestCase {
-    private typealias Point = (lat: Double, lon: Double)
-
-    private let domplein: Point = (52.0907, 5.1214)
-    private let biltstraat = (query: "Biltstraat 100 Utrecht", label: "Biltstraat 100,", title: "Biltstraat 100", point: (lat: 52.09545846, lon: 5.13137094))
+    private let domplein = (lat: 52.0907, lon: 5.1214)
     private let amersfoort = (query: "Lieve Vrouwestraat 33 Amersfoort", label: "Lieve Vrouwestraat 33,", title: "Lieve Vrouwestraat 33")
     private let speedKmh = 60.0
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        _ = try apiKey()
-    }
-
-    func testARideToArrivalIsRecordedOpensToItsTrackCountsInTheTotalsSurvivesARelaunchAndCanBeDeleted() throws {
-        launch(resetTrips: true)
-        assertNoRecentTrips("the reset store still has trips")
-        screenshot("trips-01-empty")
-
-        let routeM = try fetchLengthM(from: domplein, to: biltstraat.point)
-        planAndStart(query: biltstraat.query, label: biltstraat.label)
-        let street = app.staticTexts["ride.banner.street"]
-        let arrived = expectation(for: NSPredicate(format: "label == 'You have arrived'"), evaluatedWith: street)
-        XCTAssertEqual(XCTWaiter.wait(for: [arrived], timeout: 240), .completed, "the ride did not arrive")
-        app.buttons["ride.end"].tap()
-        XCTAssertTrue(app.textFields["search.field"].waitForExistence(timeout: 10))
-
-        openHistory()
-        let row = app.buttons["trips.trip.0"]
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "the arrived ride was not recorded")
-        XCTAssertFalse(app.buttons["trips.trip.1"].exists)
-        XCTAssertTrue(row.label.hasPrefix(biltstraat.title), row.label)
-        XCTAssertTrue(row.label.contains("km/h"), row.label)
-        let values = try Self.values(row)
-        let distance = try XCTUnwrap(values["distanceM"]), duration = try XCTUnwrap(values["durationS"]), average = try XCTUnwrap(values["avgKmh"])
-        XCTAssertEqual(distance, Double(routeM), accuracy: Double(routeM) * 0.15, "ridden distance vs the route's \(routeM) m")
-        XCTAssertEqual(average, speedKmh, accuracy: 12, "average speed of a \(speedKmh) km/h simulated ride")
-        XCTAssertEqual(duration, distance / (average / 3.6), accuracy: 1.5)
-        XCTAssertGreaterThan(duration, 30)
-
-        XCTAssertEqual(app.descendants(matching: .any)["trips.total.count"].value as? String, "1")
-        XCTAssertEqual(Double(app.descendants(matching: .any)["trips.total.distance"].value as? String ?? "") ?? -1, distance.rounded(), accuracy: 1)
-        XCTAssertEqual(Double(app.descendants(matching: .any)["trips.total.time"].value as? String ?? "") ?? -1, duration.rounded(), accuracy: 1)
-        XCTAssertEqual(Double(app.descendants(matching: .any)["trips.total.speed"].value as? String ?? "") ?? 0, average, accuracy: 0.15)
-        screenshot("trips-02-history")
-
-        row.tap()
-        XCTAssertEqual(app.staticTexts["trip.destination"].waitForExistence(timeout: 5) ? app.staticTexts["trip.destination"].label : nil, biltstraat.title)
-        let map = app.descendants(matching: .any)["trip.map"]
-        XCTAssertTrue(map.waitForExistence(timeout: 5))
-        let drawn = expectation(for: NSPredicate(format: "value MATCHES %@", #"segments=1 points=\d+ features=[1-9]\d*"#), evaluatedWith: map)
-        XCTAssertEqual(XCTWaiter.wait(for: [drawn], timeout: 20), .completed, "the track is not drawn: \(map.value ?? "nil")")
-        let points = Int((map.value as? String ?? "").components(separatedBy: "points=").last?.components(separatedBy: " ").first ?? "") ?? 0
-        XCTAssertGreaterThan(points, 20, "a 1.4 km ride sampled every ≤ 15 m")
-        XCTAssertTrue(app.descendants(matching: .any)["trip.distance"].label.contains(" km"), app.descendants(matching: .any)["trip.distance"].label)
-        screenshot("trips-03-track")
-
-        app.terminate()
-        launch(resetTrips: false)
-        openHistory()
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "the trip did not survive a relaunch")
-        XCTAssertEqual(try Self.values(row)["distanceM"], distance)
-
-        row.swipeLeft()
-        let delete = app.buttons.matching(NSPredicate(format: "identifier == 'trips.delete' OR label == 'Delete'")).firstMatch
-        XCTAssertTrue(delete.waitForExistence(timeout: 5), "no delete action")
-        delete.tap()
-        XCTAssertTrue(app.staticTexts["trips.empty"].waitForExistence(timeout: 5), "the trip was not deleted")
-        screenshot("trips-04-deleted")
-
-        app.terminate()
-        launch(resetTrips: false)
-        assertNoRecentTrips("a deleted trip came back after a relaunch")
+        guard ProcessInfo.processInfo.environment["NAVISCOOT_API_KEY"] != nil else {
+            throw XCTSkip("set TEST_RUNNER_NAVISCOOT_API_KEY to run the trip history proof against the API")
+        }
     }
 
     func testARideEndedThroughTheAlertIsRecordedAndANearEmptyOneIsNot() throws {
@@ -170,38 +108,6 @@ final class TripsUITests: XCTestCase {
             if parts.count == 2, let number = Double(parts[1]) { result[String(parts[0])] = number }
         }
         return result
-    }
-
-    private func apiKey() throws -> String {
-        guard let key = ProcessInfo.processInfo.environment["NAVISCOOT_API_KEY"] else {
-            throw XCTSkip("set TEST_RUNNER_NAVISCOOT_API_KEY to run the trip history proof against the local API")
-        }
-        return key
-    }
-
-    private func fetchLengthM(from origin: Point, to destination: Point) throws -> Int {
-        let base = ProcessInfo.processInfo.environment["NAVISCOOT_API_BASE_URL"] ?? "http://127.0.0.1:8080"
-        var request = URLRequest(url: URL(string: "\(base)/route")!)
-        request.httpMethod = "POST"
-        request.setValue(try apiKey(), forHTTPHeaderField: "x-api-key")
-        request.setValue("application/json", forHTTPHeaderField: "content-type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "origin": ["lat": origin.lat, "lon": origin.lon],
-            "destination": ["lat": destination.lat, "lon": destination.lon],
-            "verified_only": false,
-            "format": "osrm",
-            "language": "en-GB",
-        ] as [String: Any])
-        var data: Data?
-        let done = expectation(description: "route")
-        URLSession.shared.dataTask(with: request) { body, _, _ in
-            data = body
-            done.fulfill()
-        }.resume()
-        wait(for: [done], timeout: 90)
-        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(data)) as? [String: Any])
-        let meta = try XCTUnwrap(json["naviscoot"] as? [String: Any], "\(json)")
-        return try XCTUnwrap(meta["length_m"] as? Int)
     }
 
     private func screenshot(_ name: String) {

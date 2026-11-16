@@ -2,12 +2,14 @@ import SwiftUI
 
 struct HomeSurface<Trips: View>: View {
     let places: PlacesStore
+    let near: Coordinate?
     let onSelect: (Destination) -> Void
     let onSetSlot: (PlaceKind) -> Void
     let onEdit: () -> Void
     @ViewBuilder let trips: Trips
 
     @Environment(ParkedScooterStore.self) private var parkedStore
+    @Environment(PlaceETAStore.self) private var etas
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -30,7 +32,7 @@ struct HomeSurface<Trips: View>: View {
             .padding(.vertical, 10)
             ForEach(Array(places.favourites.enumerated()), id: \.element.id) { index, place in
                 Divider()
-                PlaceRow(systemImage: place.systemImage, title: place.displayName, subtitle: place.rowSubtitle, id: "home.favourite.\(index)") {
+                PlaceRow(systemImage: place.systemImage, title: place.displayName, subtitle: reach(place, then: place.rowSubtitle), id: "home.favourite.\(index)") {
                     onSelect(place.destination)
                 }
             }
@@ -47,6 +49,13 @@ struct HomeSurface<Trips: View>: View {
                 }
             }
         }
+    }
+
+    private func reach(_ place: Place, then detail: String) -> String {
+        guard let near else { return detail }
+        let reach = etas.seconds(to: place.coordinate, from: near).map { Format.duration(seconds: $0) }
+            ?? Format.approximateDistance(meters: Geo.distanceM(near, place.coordinate))
+        return detail.isEmpty ? reach : "\(reach) · \(detail)"
     }
 
     private func slot(_ kind: PlaceKind, _ place: Place?) -> some View {
@@ -67,7 +76,7 @@ struct HomeSurface<Trips: View>: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(place == nil ? Theme.verifiedText : Theme.ink)
                     if let place {
-                        Text(place.displayName)
+                        Text(reach(place, then: place.displayName))
                             .font(.system(size: 14))
                             .foregroundStyle(Theme.muted)
                     }

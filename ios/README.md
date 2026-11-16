@@ -73,108 +73,40 @@ xcodebuild -project Naviscoot.xcodeproj -scheme Naviscoot -destination "platform
 
 ### UI proof (`NaviscootUITests` scheme)
 
-Four classes. Every launch pins the app language with `-settings.language en` (or `nl`),
-`-settings.verifiedOnlyByDefault NO` and the three avoid settings off, so the proof doesn't depend on the simulator's
-locale or on settings a previous run left behind. The exceptions are the settings test and the avoid tests, which need
-the persisted values. Every launch also passes `-NaviscootDiscardActiveRide YES`, so a ride an earlier test left running
-isn't offered for resuming; only the resume relaunches leave it out. `SearchAndPreviewUITests` is
-described below. `RideUITests` drives simulated rides (about 2.5 minutes each):
-- From the `verified-only-north-south` origin at 120 km/h it checks that the banner shows a distance and then "Holkerpad".
-  It also checks that every line handed to the synthesizer is `en-GB`, including a pre-turn line ("In 50 metres, Turn
-  right.").
-- It taps Report and finds that exact `route_id` in `GET /reports`, with the position and the tap time.
-- It taps Detour (150 m off the route) and expects a new `route_id` from the API, "reroutes 1", a moving banner distance
-  and a new spoken line.
-- From a point 1.4 km before the 483 m unverified way, computed from the API's own geometry, at 90 km/h it expects the
-  chip "Unverified path in …, for 483 m" and one Dutch warning. On the stretch it expects "On unverified path, … left",
-  the stretch chip "Unverified path, limit 30" and the limit sign 30. The warning must clear after the stretch.
-- The same ride pinned to Dutch expects Dutch labels ("Stoppen", "Onbevestigd pad, limiet 30", a `1,2 km` style
-  distance), the API's own first `nl-NL` instruction, and the Dutch warning ("Let op: over …"), spoken once.
-- With `-NaviscootSimRerouteFailures 2` a Detour shows "Can't reach the route service to reroute. Trying again…" with
-  "reroutes 0"; the third attempt reaches the API, the route id changes and the warning goes away.
-- `testRevokedLocationIsShownOnTheRideScreen` is opt-in (`TEST_RUNNER_NAVISCOOT_REVOKE_PROOF=1`), because the permission is
-  changed from outside: once `location-01-riding.png` appears in the screenshot dir, run
-  `xcrun simctl privacy $U revoke location nl.naviscoot.app`; once `location-02-revoked.png` appears, `grant` it again. The
-  app keeps running through both, and the ride screen shows and then clears "Location access is off, …".
+A small smoke set: about one test per core flow, six tests in four classes, about 4 minutes of test time (5 with the
+build). The detailed behaviour (parsing, totals, stops, resume, voice, appearance, trip stats) is covered by the unit
+tests, which run in seconds. Run the whole set when a change touches several screens; otherwise run only the classes for
+the screens you changed with `-only-testing:NaviscootUITests/<Class>`.
 
-This test needs an API with the same key as `Local.xcconfig`. By default that's the local stack: Valhalla on 8002
-(`routing/serve.sh start`) and the API on 8080. To run it against the deployed API, add
-`TEST_RUNNER_NAVISCOOT_API_BASE_URL=https://naviscoot.appj.nl`. The proof's reports then land on the server.
+| Class | Flow it proves |
+| --- | --- |
+| `HomeDrawerUITests` | Seeded places and recent trips show in the drawer on launch; "See all" and a recent trip open trip history and close back to the drawer. Searching expands the drawer, a result opens the preview, and backing out brings the drawer back with the query kept. With `-NaviscootSimETA`, Home 5 km away reads "12 min · …" and opens the preview; a failing fake shows "5.0 km · …" only. |
+| `TripsUITests` | Search → preview → Start → End through the alert at 60 km/h: a ride ended at once isn't recorded, one ended after 45 s is, with plausible distance, duration and speed. |
+| `StopRideUITests` | A ride killed mid-way is offered for resuming on the next launch; declining ("End ride") forgets it. |
+| `LandscapeUITests` | In landscape the side panel holds the drawer, search results and the preview's controls, all reachable and unclipped; rotating back keeps the query. |
+
+Every launch pins the language with `-settings.language en` and turns verified-only and the three avoid settings off,
+so the proof doesn't depend on the simulator's locale or on settings a previous run left behind. Every launch also
+passes `-NaviscootDiscardActiveRide YES`, except the resume relaunches. `HomeDrawerUITests` seeds Home, Work, a
+favourite, a recent and two trips with `-NaviscootSeedHome YES` (DEBUG only).
+
+The previews and rides talk to the API with the key from `Local.xcconfig`. `TripsUITests`, `StopRideUITests` and
+`LandscapeUITests` skip without `TEST_RUNNER_NAVISCOOT_API_KEY`. The default base URL is the local stack (API on 8080); add
+`TEST_RUNNER_NAVISCOOT_API_BASE_URL=https://naviscoot.appj.nl` to run against the deployed API.
 
 ```sh
-xcrun simctl location $U set 52.2977646,5.445363
-TEST_RUNNER_NAVISCOOT_API_KEY=<key> TEST_RUNNER_SCREENSHOT_DIR=/some/dir \
+TEST_RUNNER_NAVISCOOT_API_KEY=<key> TEST_RUNNER_NAVISCOOT_API_BASE_URL=https://naviscoot.appj.nl \
+TEST_RUNNER_SCREENSHOT_DIR=/some/dir \
   xcodebuild -project Naviscoot.xcodeproj -scheme NaviscootUITests -destination "platform=iOS Simulator,id=$U" $FLAGS test
 ```
 
-The test runs inside the simulator (XCUITest), so it never touches the Mac's cursor or focus.
-1. It types the address "Woudenbergseweg 42 Maarsbergen" and expects an address result, then types "Amersfoort
-   Centraal" and expects a place result.
-2. It opens the preview from the `verified-only-north-south` origin. The case's destination coordinate itself has no
-   address that keeps the 483 m unverified stretch; Woudenbergseweg 42 does.
-3. It asserts that the time, distance and per-class rows equal the API's own response for the same request.
-4. It zooms to the unverified stretch, then switches on "Verified roads only" and checks the API's verified-only
-   figures, with unverified at 0 m.
-5. It swipes the sheet's handle down: the itinerary and toggle go, the duration and Start stay. A swipe up brings them
-   back, and tapping the handle toggles the same way.
-6. Screenshots are written to `SCREENSHOT_DIR`.
+The tests run inside the simulator (XCUITest), so they never touch the Mac's cursor or focus. If unit tests show Dutch
+strings where English is expected, the simulator app kept a Dutch language setting from an earlier run:
+`xcrun simctl uninstall $U nl.naviscoot.app` resets it.
 
-`testSettingsSurviveARelaunchAndTheLanguageSwitchesWithoutARestart` opens settings, picks Nederlands and the
-verified-only default, and checks that the labels switch at once. It kills and relaunches the app, checks that both
-values stuck, and opens a preview that starts verified-only with Dutch labels and number formats. Then it switches to
-English, and finally back to System with the default off.
-
-`TripPlannerUITests` drives the planner against the API (about 6 minutes; all figures are compared with the API's own
-response for the same request, origins come from `-NaviscootSimOrigin`):
-- Alternatives from the `verified-only-north-south` origin to Woudenbergseweg 42: one card per route with time, distance
-  and unverified distance, before and after "Verified roads only". It selects route 2, taps Start and checks that the
-  ride's `sim.routeId` is that card's route id.
-- Domplein → Lieve Vrouwestraat 33 Amersfoort through Slotlaan 10 Zeist and Kampweg 1 Soesterberg, then reordered; the
-  arrive-by and depart-at labels; removing the stops brings the alternatives and Start back.
-- Verified-only through a stop, from the case origin to Woudenbergseweg 42.
-  - Via Valkenhoeve 2a Leusden, the 491 m unverified stretch disappears.
-  - Via Vieweg 4 Leusden, 505 m stays, all marked unavoidable ("No alternative for 505 m unverified").
-- Avoid ferries from the start point Stationsplein 19P-1 to Badhuiskade 15 Amsterdam (2.0 km over the IJ vs 13.7 km),
-  surviving a relaunch, and off again. Avoid main roads (Arnhem → Groningensingel 135) and unpaved (52.10483, 5.60555 →
-  Heidehoek 5 Ede), each on and off.
-
-`StopRideUITests` rides through stops at 120 km/h from Domplein to Lieve Vrouwestraat 33 Amersfoort (about 6 minutes):
-- Through Biltstraat 100 Utrecht (1.4 km in) and Utrechtseweg 368-TR De Bilt (3.1 km further):
-  - "Next stop: Biltstraat 100", and a Detour before the stop reroutes and keeps it.
-  - At each stop exactly one line is spoken, in order: "Arriving at your stop, Biltstraat 100. After that, on to
-    Utrechtseweg 368-TR.", then "… on to your destination, Lieve Vrouwestraat 33.".
-  - The next-stop line follows, and the banner keeps counting.
-  - End asks first: "Keep riding" keeps the ride, "End ride" ends it, and a relaunch offers nothing.
-- The same in Dutch ("Je komt aan bij je tussenstop, …", "Deze rit stoppen?").
-- Through Biltstraat 100 and Kampweg 1 Soesterberg with verified-only and avoid ferries on: after the first stop the app is
-  killed and relaunched at Biltstraat 100 with both settings off. It offers "Resume your ride?", and on Resume the ride
-  continues with "Next stop: Kampweg 1", a new route id, the ride's own options (`sim.options`) and a remaining distance
-  matching the API's route from there.
-- Declining the offer ("End ride") forgets the ride: the next launch offers nothing.
-
-`RideEditUITests` edits rides while they run (about 8 minutes):
-- Domplein → Lieve Vrouwestraat 33 Amersfoort at 45 km/h, verified-only, with `-NaviscootSimEditFailures 1`: the first
-  "Add a stop" fails ("Couldn't change the route. …") and the route id stays. Adding Biltstraat 100 then gives a new route
-  id and "Next stop: Biltstraat 100" with the same `sim.options`; changing the destination to Utrechtseweg 368-TR De Bilt
-  keeps the stop. At the stop, "… After that, on to your destination, Utrechtseweg 368-TR." is spoken, and after a kill
-  the resume offer names the new destination.
-- From 2.5 km before the 483 m unverified stretch, a ride to Amersfoort (whose route the test checks has no unverified
-  stretch) changes destination to Woudenbergseweg 42; the new route's warning shows and is spoken once.
-- Dragging the map stops following: `sim.camera` keeps its centre while the banner counts on. Recenter follows again;
-  Overview reports `fits=true`; Recenter again follows.
-
-`AppearanceUITests` checks appearance and the ride map options (about 6 minutes; sample pixels from screenshots decide
-"dark" or "light"):
-- Appearance Dark: the search field, settings, the add-stop and time sheets, the preview sheet, the ride bar and the End
-  alert are dark, and the ride map uses the `dark` style (`sim.style`).
-- Appearance System: the app matches the simulator's own appearance. With `TEST_RUNNER_NAVISCOOT_OS_APPEARANCE_FLIP=1`
-  it also waits for the app to follow an OS switch you make with `xcrun simctl ui $U appearance …` after
-  `system-01-*.png` appears. On the iOS 27.2 simulator `simctl ui appearance` reports the change but nothing redraws.
-- `-NaviscootSimClock 2026-11-15T21:00:00Z`: the preview and ride maps are dark in Light appearance; the ride passes the
-  unverified stretch near Maarsbergen with its orange dashes on the dark map. Starting the clock just before sunset
-  switches the ride map from `liberty` to `dark` mid-ride with all route layers still drawn.
-- North-up + 2D + Positron: `sim.camera` keeps `pitch=0 direction=0` through a turn and after overview → recenter.
-- Auto-zoom at 36 km/h: zoom 15.75 on the straight, ≥ 17.25 within 200 m of the turn.
+Debug launch options the tests use (DEBUG builds only): `-NaviscootSimOrigin lat,lon` fixes the location,
+`-NaviscootSimulateRide YES` with `-NaviscootSimSpeedKmh` drives rides, `-NaviscootSeedHome YES` seeds the drawer, and
+`-NaviscootSimETA <seconds|fail>` replaces the drawer's live ETA requests with a fixed answer or a failure.
 
 `idb` taps don't work with Xcode 27: idb_companion 1.1.8 looks for SimulatorKit in its old location. That is why the
 proof uses XCUITest.

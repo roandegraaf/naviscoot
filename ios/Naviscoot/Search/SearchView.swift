@@ -10,6 +10,7 @@ struct SearchView: View {
 
     @Environment(AppSettings.self) private var settings
     @Environment(PlacesStore.self) private var places
+    @Environment(PlaceETAStore.self) private var etas
     @Environment(TripStore.self) private var trips
     @Environment(ParkedScooterStore.self) private var parked
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -45,6 +46,7 @@ struct SearchView: View {
             drawer(inSheet: true)
                 .environment(settings)
                 .environment(places)
+                .environment(etas)
                 .environment(trips)
                 .environment(parked)
                 .presentationDetents([.drawerCollapsed, .medium, .large], selection: $detent)

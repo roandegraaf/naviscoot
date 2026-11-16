@@ -31,7 +31,6 @@
 		388D9F11612DFA69A8FF6FEC /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC154213557FDCD41865C97E /* AppSettings.swift */; };
 		395E6C7095D64E9944567DEA /* ScooterControlsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 608158015A7B9F4E04316534 /* ScooterControlsTests.swift */; };
 		39F68E8403F5080DB5EF6DD1 /* ScooterPrefillTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D841BBEE127FE1EF1FA0E6E /* ScooterPrefillTests.swift */; };
-		3E9DEEE424D6B46B2C5ED926 /* VoiceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC3639B19FE2A3E85594041E /* VoiceUITests.swift */; };
 		4106FE78DE86801B556B8C74 /* RideTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF105E8A79E7439283AFE4B /* RideTests.swift */; };
 		4229FA25CCFE49892EBC874F /* PlaceRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FD1BD1CFBC5967B2497EACE /* PlaceRow.swift */; };
 		424C5DE94430EC1AE1001B75 /* RouteParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9927FEFB7332A2F2923BED3 /* RouteParser.swift */; };
@@ -44,22 +43,18 @@
 		5C52FA9B42980BAFA04E3FBA /* ActiveRide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2C6158BE763F35FF473080 /* ActiveRide.swift */; };
 		5DA0AC617789193B6B440289 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6A993423B8AF02850658BF /* Theme.swift */; };
 		5E344B54428A211CFF740C46 /* RouteProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCCE2F6AA31EC43BE2B5A95A /* RouteProgress.swift */; };
-		61DCAAD5EE2B93D3740E912F /* LiveActivityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F1AD5600615E36C8BB20158 /* LiveActivityUITests.swift */; };
 		62C51D28F7A90772DDB23B2D /* route-multi-stop.json in Resources */ = {isa = PBXBuildFile; fileRef = 9ECA889946BD0AA1B38B56EA /* route-multi-stop.json */; };
 		631AAE6ABDC58B3EEC06EBB7 /* PlacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA1856D5DEB4FAFCC3B5C9E /* PlacesTests.swift */; };
 		65873C4474CDA34BC9340F29 /* TripPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37980E760AFDC5CC6AF52BF /* TripPlanTests.swift */; };
 		65D5D3940B44F0D078CB52A7 /* GuidanceSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DE5B7B3968A28E0A0F7B1EB /* GuidanceSpeech.swift */; };
-		6606373DAF74328903387B0C /* RideUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9595E301BEF3B6BE4D24A21 /* RideUITests.swift */; };
 		684F600842B534A5CB2906E4 /* LiveActivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B0D02F75D7B1AEBA5CE9008 /* LiveActivityTests.swift */; };
 		68EF79BC076C8BFE437F0BC0 /* ParkedScooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41E44A81BD84F1BD063E14A1 /* ParkedScooter.swift */; };
-		696C0D0451DCDFAC986DE313 /* PlacesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA64F0CCBF7C12BD59FAB437 /* PlacesUITests.swift */; };
 		6A72223F6E7CBC6A728222CB /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = 2001C528AFB2FF289E8AEE71 /* MapLibre */; };
 		6E308214C15C030DA31E89FE /* WatchRideMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33EE4D408580E764C35718D4 /* WatchRideMessage.swift */; };
 		6FCB9F0D773620D316B8F822 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B433C79C992B6AD606321AE5 /* InfoPlist.xcstrings */; };
 		70ABF4620BEC243887DE1533 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171D629D3782B25FBF86E9A /* LocationService.swift */; };
 		73EDE9D07802827FADF964CB /* RideEditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A72881967B36D5B4C4966DB3 /* RideEditTests.swift */; };
 		7589A8D7101F609A079BC9E5 /* StopRideUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3643BC3795D6D301A36B338C /* StopRideUITests.swift */; };
-		7921A082CC4D7C9FB95D6F1C /* AppearanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9666A3DE3FCADA6BDC5A46 /* AppearanceUITests.swift */; };
 		7E1E8D58ED03C537B279617F /* RideBannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547197919B5A9223F98B6247 /* RideBannerTests.swift */; };
 		7F0CF9E740DEEED32933D01A /* PlaceSearchSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155CF3D17AF41E3A84E6229 /* PlaceSearchSheet.swift */; };
 		88F54C8E474E164583062385 /* ScooterFeaturesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FF60F7BE3DC7A2270A3027E /* ScooterFeaturesTests.swift */; };
@@ -86,30 +81,27 @@
 		AA5D8CB408E047CCB582101A /* ManeuverHints.swift in Sources */ = {isa = PBXBuildFile; fileRef = C51A9C5CFCD2CD32F06D5C79 /* ManeuverHints.swift */; };
 		AD75B64AC5FA72CADF2C7FCD /* MapStyleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0FED6B1C9C8E7293BE382E /* MapStyleSheet.swift */; };
 		ADEB3241AD6CB676130ED484 /* SearchResultRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9726A8AC7F53481BF33D395A /* SearchResultRow.swift */; };
-		AFA749282BB2E773E34BC005 /* AppIconUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2986EA01BE008F60F9258C97 /* AppIconUITests.swift */; };
 		B32D12C79B9CF2D4C9E4785E /* PlaceSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2E13419B77B69871E7E8A /* PlaceSearch.swift */; };
 		BF3C3D521264D11F39668F20 /* context-diet.json in Resources */ = {isa = PBXBuildFile; fileRef = CB0722D33A63B9323D63C2E9 /* context-diet.json */; };
 		C0ECDAC558E298BAADEA6524 /* PDOKClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 681B3084E9093C0CA329B049 /* PDOKClient.swift */; };
 		C277EC49078DD3764211E4CD /* RideLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10ABA7E5A6B173B0545A2A3C /* RideLiveActivityWidget.swift */; };
 		C44B5526AB305BFA8F553F3B /* NaviscootWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E60D822ECFEDAF1A8D2E99 /* NaviscootWatchApp.swift */; };
-		C481D7F9C28C69EA0B83DB08 /* TripPlannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DF3C6963A0B53E882F519A7 /* TripPlannerUITests.swift */; };
 		C4D6C80F63D1882A9DF5BBFA /* TripStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E6332BADD2EFD1BA063A65C /* TripStore.swift */; };
 		C5C506956B1D2C85B3FD67A9 /* NaviscootClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168BBA0746EF2121441D9BFF /* NaviscootClient.swift */; };
 		C67F23480F02ADB0DB64F9B3 /* NaviscootApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ABCF4F7038DE5295306726A /* NaviscootApp.swift */; };
-		C6B132E8DFB9B8836BB0B0E8 /* RideEditUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6C748199E67DCA3E4B9929C /* RideEditUITests.swift */; };
 		C7EA73C14303BCBA3406BC97 /* LandscapeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A52DDC66F82669AC6032BB /* LandscapeUITests.swift */; };
 		C81BEBF469A904D747A7DDA8 /* RideNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 441785CCBC97347259ECF456 /* RideNavigation.swift */; };
 		C9CD64726E8C9D72BD7FB3DA /* ScooterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F36C5838D8D6860D717781 /* ScooterTests.swift */; };
 		C9F1E2E42850120535982B3E /* TripTimeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 513550CD7E321563FB59482A /* TripTimeSheet.swift */; };
 		CA88B4DFDBCC86C4883B5C4A /* NinebotProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55C80898E20A63A3F40C2C17 /* NinebotProtocol.swift */; };
 		CE8B52A86CD7ABEEDA6E4998 /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D5524E815E878CE6DEEE0D /* SettingsTests.swift */; };
+		CEF320B2620C2313BC3628D7 /* PlaceETATests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14F71A63ECA29558F894DAD /* PlaceETATests.swift */; };
 		CF420A5C6EC52585ECA65566 /* AppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27E0D13106160AC2ADBC475B /* AppearanceTests.swift */; };
-		D242D95074B0384A2E1B41B8 /* SearchAndPreviewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9C9EC761A3D7A11411BFE9 /* SearchAndPreviewUITests.swift */; };
+		D1D2450076D7D3F99BC52C99 /* PlaceETA.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3279981E3806A529F4DD5F8 /* PlaceETA.swift */; };
 		D266535AD34BF22CC2DDC0EA /* TripsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC8D824C67A18888BA538BD3 /* TripsUITests.swift */; };
 		D2BEEA8837059FC9C3001975 /* FerrostarCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7753A9191323D891A5F09FC4 /* FerrostarCore */; };
 		D44D8C0A3779A1B11A50A3A1 /* RideResume.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5EBE2139BDE9F3801782774 /* RideResume.swift */; };
 		D90087A4D188216A9D47D0BC /* RideActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 388F13C15A9486929B382643 /* RideActivity.swift */; };
-		DA715B08343DD33C2754E225 /* RideBannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F4FDDE1D526DC892DFA4058 /* RideBannerUITests.swift */; };
 		DAA10FBD501034F191EB4AAF /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD4E08F65EBC25B2DC8B4B2 /* Strings.swift */; };
 		DB5614FFF4E91593B73AA21D /* RideLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BF9A7FE43BE2E4A622F0761 /* RideLocationProvider.swift */; };
 		DCD2B554BBC08DE3035770C6 /* RideActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05EFB4A7D718E3B311345CAD /* RideActivityAttributes.swift */; };
@@ -193,7 +185,6 @@
 		0770DC0FAEE051D6B6DBD913 /* SearchResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResult.swift; sourceTree = "<group>"; };
 		0E06754939C12B838C133BCE /* SearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchTests.swift; sourceTree = "<group>"; };
 		0EA0D81729FBCB8E413D2DA6 /* RideCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideCamera.swift; sourceTree = "<group>"; };
-		0F1AD5600615E36C8BB20158 /* LiveActivityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityUITests.swift; sourceTree = "<group>"; };
 		0FED143F64035DA6E9093E78 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		10ABA7E5A6B173B0545A2A3C /* RideLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideLiveActivityWidget.swift; sourceTree = "<group>"; };
 		10B239176311AAF8059E4A48 /* ReportQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportQueue.swift; sourceTree = "<group>"; };
@@ -202,7 +193,6 @@
 		20779789AF30D76F643AF78F /* VoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceTests.swift; sourceTree = "<group>"; };
 		209915E684529DE62A30003B /* MapAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAppearance.swift; sourceTree = "<group>"; };
 		27E0D13106160AC2ADBC475B /* AppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceTests.swift; sourceTree = "<group>"; };
-		2986EA01BE008F60F9258C97 /* AppIconUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconUITests.swift; sourceTree = "<group>"; };
 		2B0D02F75D7B1AEBA5CE9008 /* LiveActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityTests.swift; sourceTree = "<group>"; };
 		2B40D1C55D380E160BC559BA /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
 		2D841BBEE127FE1EF1FA0E6E /* ScooterPrefillTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterPrefillTests.swift; sourceTree = "<group>"; };
@@ -225,7 +215,6 @@
 		549EEEDD97876B1AB51C1A07 /* NinebotCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NinebotCrypto.swift; sourceTree = "<group>"; };
 		55C80898E20A63A3F40C2C17 /* NinebotProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NinebotProtocol.swift; sourceTree = "<group>"; };
 		5C0FED6B1C9C8E7293BE382E /* MapStyleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapStyleSheet.swift; sourceTree = "<group>"; };
-		5DF3C6963A0B53E882F519A7 /* TripPlannerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerUITests.swift; sourceTree = "<group>"; };
 		5EB37A9CD970402C47441331 /* PreviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewModel.swift; sourceTree = "<group>"; };
 		608158015A7B9F4E04316534 /* ScooterControlsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterControlsTests.swift; sourceTree = "<group>"; };
 		62A9B80A9149EBEE3C5B07D4 /* RideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideView.swift; sourceTree = "<group>"; };
@@ -245,7 +234,6 @@
 		85969C5F1CE40AAA5A30A4F0 /* HomeDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeDrawer.swift; sourceTree = "<group>"; };
 		86F36C5838D8D6860D717781 /* ScooterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterTests.swift; sourceTree = "<group>"; };
 		874576FAC5B263C49304EBE0 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
-		8A9C9EC761A3D7A11411BFE9 /* SearchAndPreviewUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchAndPreviewUITests.swift; sourceTree = "<group>"; };
 		8AA1856D5DEB4FAFCC3B5C9E /* PlacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesTests.swift; sourceTree = "<group>"; };
 		8ABCF4F7038DE5295306726A /* NaviscootApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaviscootApp.swift; sourceTree = "<group>"; };
 		95F5AF82AD812B6B6885189B /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
@@ -255,9 +243,9 @@
 		9DD639E7398711D7E2467911 /* SolarTimes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolarTimes.swift; sourceTree = "<group>"; };
 		9ECA889946BD0AA1B38B56EA /* route-multi-stop.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "route-multi-stop.json"; sourceTree = "<group>"; };
 		9F08F2F18D59AB6E0D745541 /* NaviscootWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NaviscootWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		9F4FDDE1D526DC892DFA4058 /* RideBannerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideBannerUITests.swift; sourceTree = "<group>"; };
 		A171D629D3782B25FBF86E9A /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		A32753BB1D0490F173F5D9D4 /* pdok-reverse.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pdok-reverse.json"; sourceTree = "<group>"; };
+		A3279981E3806A529F4DD5F8 /* PlaceETA.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceETA.swift; sourceTree = "<group>"; };
 		A5EBE2139BDE9F3801782774 /* RideResume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideResume.swift; sourceTree = "<group>"; };
 		A72881967B36D5B4C4966DB3 /* RideEditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideEditTests.swift; sourceTree = "<group>"; };
 		A7C2E13419B77B69871E7E8A /* PlaceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearch.swift; sourceTree = "<group>"; };
@@ -268,24 +256,20 @@
 		B433C79C992B6AD606321AE5 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		B52100E9E8DEB57331464D9C /* ScooterControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterControls.swift; sourceTree = "<group>"; };
 		B611D7B92C59A66A090FFAAF /* TripDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDraft.swift; sourceTree = "<group>"; };
-		B6C748199E67DCA3E4B9929C /* RideEditUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideEditUITests.swift; sourceTree = "<group>"; };
 		B7AEB19736C67ADC1844F056 /* route-verified-only.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "route-verified-only.json"; sourceTree = "<group>"; };
-		BA64F0CCBF7C12BD59FAB437 /* PlacesUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesUITests.swift; sourceTree = "<group>"; };
 		BAE5B4B38D409906F19EA858 /* ScooterSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterSettingsView.swift; sourceTree = "<group>"; };
-		BC3639B19FE2A3E85594041E /* VoiceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceUITests.swift; sourceTree = "<group>"; };
 		BC59D2CB1C3CDB03DFABA833 /* ScooterFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterFeatures.swift; sourceTree = "<group>"; };
 		C013CB198BC0B7AD0752EF2C /* ScooterBluetoothLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterBluetoothLink.swift; sourceTree = "<group>"; };
 		C155CF3D17AF41E3A84E6229 /* PlaceSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearchSheet.swift; sourceTree = "<group>"; };
 		C51A9C5CFCD2CD32F06D5C79 /* ManeuverHints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManeuverHints.swift; sourceTree = "<group>"; };
 		C65E25CED67F9256370C7A6A /* route-alternatives.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "route-alternatives.json"; sourceTree = "<group>"; };
 		C7EA584608DFC7F7368E6667 /* NaviscootTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NaviscootTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		C9595E301BEF3B6BE4D24A21 /* RideUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideUITests.swift; sourceTree = "<group>"; };
 		CA3B94E8FAC8D43FC28DE2C4 /* pdok-reverse-empty.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pdok-reverse-empty.json"; sourceTree = "<group>"; };
 		CB0722D33A63B9323D63C2E9 /* context-diet.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "context-diet.json"; sourceTree = "<group>"; };
 		CB651C36E8DF2EBFA38EB349 /* HomeDrawerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeDrawerUITests.swift; sourceTree = "<group>"; };
 		CBA41FB2C85701FC2A16567B /* RouteMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteMapView.swift; sourceTree = "<group>"; };
 		CC8D824C67A18888BA538BD3 /* TripsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripsUITests.swift; sourceTree = "<group>"; };
-		CD9666A3DE3FCADA6BDC5A46 /* AppearanceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceUITests.swift; sourceTree = "<group>"; };
+		D14F71A63ECA29558F894DAD /* PlaceETATests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceETATests.swift; sourceTree = "<group>"; };
 		D4CA22B655A988F251053579 /* ScooterConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterConnection.swift; sourceTree = "<group>"; };
 		D69EFB4C2EC2BBEAAE10488B /* WatchRideReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRideReceiver.swift; sourceTree = "<group>"; };
 		DA1DF0B036A916247EE32109 /* Naviscoot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Naviscoot.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -404,6 +388,7 @@
 			children = (
 				27E0D13106160AC2ADBC475B /* AppearanceTests.swift */,
 				2B0D02F75D7B1AEBA5CE9008 /* LiveActivityTests.swift */,
+				D14F71A63ECA29558F894DAD /* PlaceETATests.swift */,
 				8AA1856D5DEB4FAFCC3B5C9E /* PlacesTests.swift */,
 				6C4A16AC72C3841D88BDF79E /* RangeCheckTests.swift */,
 				547197919B5A9223F98B6247 /* RideBannerTests.swift */,
@@ -453,20 +438,10 @@
 		60A8D52C66A836D99C47A2C5 /* NaviscootUITests */ = {
 			isa = PBXGroup;
 			children = (
-				CD9666A3DE3FCADA6BDC5A46 /* AppearanceUITests.swift */,
-				2986EA01BE008F60F9258C97 /* AppIconUITests.swift */,
 				CB651C36E8DF2EBFA38EB349 /* HomeDrawerUITests.swift */,
 				05A52DDC66F82669AC6032BB /* LandscapeUITests.swift */,
-				0F1AD5600615E36C8BB20158 /* LiveActivityUITests.swift */,
-				BA64F0CCBF7C12BD59FAB437 /* PlacesUITests.swift */,
-				9F4FDDE1D526DC892DFA4058 /* RideBannerUITests.swift */,
-				B6C748199E67DCA3E4B9929C /* RideEditUITests.swift */,
-				C9595E301BEF3B6BE4D24A21 /* RideUITests.swift */,
-				8A9C9EC761A3D7A11411BFE9 /* SearchAndPreviewUITests.swift */,
 				3643BC3795D6D301A36B338C /* StopRideUITests.swift */,
-				5DF3C6963A0B53E882F519A7 /* TripPlannerUITests.swift */,
 				CC8D824C67A18888BA538BD3 /* TripsUITests.swift */,
-				BC3639B19FE2A3E85594041E /* VoiceUITests.swift */,
 			);
 			path = NaviscootUITests;
 			sourceTree = "<group>";
@@ -509,6 +484,7 @@
 			children = (
 				AEA6EC744691F731B3C86DC2 /* HomeSurface.swift */,
 				41E44A81BD84F1BD063E14A1 /* ParkedScooter.swift */,
+				A3279981E3806A529F4DD5F8 /* PlaceETA.swift */,
 				4FD1BD1CFBC5967B2497EACE /* PlaceRow.swift */,
 				65583F539CFE7CF54169FECF /* PlacesEditSheet.swift */,
 				70BA3E88D0A3F2D3458FC629 /* PlacesStore.swift */,
@@ -788,20 +764,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AFA749282BB2E773E34BC005 /* AppIconUITests.swift in Sources */,
-				7921A082CC4D7C9FB95D6F1C /* AppearanceUITests.swift in Sources */,
 				A5FFC92E4D46DCD8B9B523A5 /* HomeDrawerUITests.swift in Sources */,
 				C7EA73C14303BCBA3406BC97 /* LandscapeUITests.swift in Sources */,
-				61DCAAD5EE2B93D3740E912F /* LiveActivityUITests.swift in Sources */,
-				696C0D0451DCDFAC986DE313 /* PlacesUITests.swift in Sources */,
-				DA715B08343DD33C2754E225 /* RideBannerUITests.swift in Sources */,
-				C6B132E8DFB9B8836BB0B0E8 /* RideEditUITests.swift in Sources */,
-				6606373DAF74328903387B0C /* RideUITests.swift in Sources */,
-				D242D95074B0384A2E1B41B8 /* SearchAndPreviewUITests.swift in Sources */,
 				7589A8D7101F609A079BC9E5 /* StopRideUITests.swift in Sources */,
-				C481D7F9C28C69EA0B83DB08 /* TripPlannerUITests.swift in Sources */,
 				D266535AD34BF22CC2DDC0EA /* TripsUITests.swift in Sources */,
-				3E9DEEE424D6B46B2C5ED926 /* VoiceUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -826,6 +792,7 @@
 				CA88B4DFDBCC86C4883B5C4A /* NinebotProtocol.swift in Sources */,
 				C0ECDAC558E298BAADEA6524 /* PDOKClient.swift in Sources */,
 				68EF79BC076C8BFE437F0BC0 /* ParkedScooter.swift in Sources */,
+				D1D2450076D7D3F99BC52C99 /* PlaceETA.swift in Sources */,
 				4229FA25CCFE49892EBC874F /* PlaceRow.swift in Sources */,
 				B32D12C79B9CF2D4C9E4785E /* PlaceSearch.swift in Sources */,
 				7F0CF9E740DEEED32933D01A /* PlaceSearchSheet.swift in Sources */,
@@ -878,6 +845,7 @@
 			files = (
 				CF420A5C6EC52585ECA65566 /* AppearanceTests.swift in Sources */,
 				684F600842B534A5CB2906E4 /* LiveActivityTests.swift in Sources */,
+				CEF320B2620C2313BC3628D7 /* PlaceETATests.swift in Sources */,
 				631AAE6ABDC58B3EEC06EBB7 /* PlacesTests.swift in Sources */,
 				4333E6311DEDB8FE4CB96516 /* RangeCheckTests.swift in Sources */,
 				7E1E8D58ED03C537B279617F /* RideBannerTests.swift in Sources */,

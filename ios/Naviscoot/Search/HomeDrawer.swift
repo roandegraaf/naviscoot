@@ -14,6 +14,7 @@ struct HomeDrawer: View {
 
     @Environment(AppSettings.self) private var settings
     @Environment(PlacesStore.self) private var places
+    @Environment(PlaceETAStore.self) private var etas
     @Environment(TripStore.self) private var trips
     @State private var showsSettings = false
     @State private var showsPlacesEditor = false
@@ -59,6 +60,10 @@ struct HomeDrawer: View {
         .sheet(isPresented: $showsLayers) {
             MapStyleSheet()
         }
+        .task(id: etaRefresh) {
+            guard let etaRefresh else { return }
+            await etas.keepFresh(from: etaRefresh.origin, to: etaRefresh.destinations)
+        }
         .onChange(of: fieldFocused) { _, focused in
             if focused, inSheet { detent = .large }
         }
@@ -72,6 +77,15 @@ struct HomeDrawer: View {
 
     private var searching: Bool { fieldFocused || !model.query.isEmpty }
 
+    static func wantsETA(detent: PresentationDetent, showsPlaces: Bool) -> Bool {
+        showsPlaces && detent != .drawerCollapsed
+    }
+
+    private var etaRefresh: ETARefresh? {
+        guard Self.wantsETA(detent: detent, showsPlaces: model.query.isEmpty), let near else { return nil }
+        return ETARefresh(origin: near, destinations: places.etaDestinations)
+    }
+
     @ViewBuilder
     private var content: some View {
         if let pin = model.pin {
@@ -80,6 +94,7 @@ struct HomeDrawer: View {
         if model.query.isEmpty {
             HomeSurface(
                 places: places,
+                near: near,
                 onSelect: choose,
                 onSetSlot: { kind in
                     fieldFocused = false
@@ -289,6 +304,20 @@ struct HomeDrawer: View {
             .accessibilityIdentifier("search.pin.route")
         }
         .padding(.vertical, 8)
+    }
+}
+
+private struct ETARefresh: Hashable {
+    let origin: Coordinate
+    let destinations: [Coordinate]
+
+    static func == (lhs: ETARefresh, rhs: ETARefresh) -> Bool {
+        PlaceETAStore.OriginCell(lhs.origin) == PlaceETAStore.OriginCell(rhs.origin) && lhs.destinations == rhs.destinations
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(PlaceETAStore.OriginCell(origin))
+        hasher.combine(destinations)
     }
 }
 

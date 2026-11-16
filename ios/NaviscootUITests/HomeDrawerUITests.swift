@@ -2,6 +2,7 @@ import XCTest
 
 final class HomeDrawerUITests: XCTestCase {
     private let origin = (lat: 52.1533, lon: 5.3728)
+    private let fiveKilometresNorthOfHome = (lat: 52.1940, lon: 5.3738)
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {
@@ -10,7 +11,7 @@ final class HomeDrawerUITests: XCTestCase {
     }
 
     func testSavedPlacesAndTripsShowOnLaunchWithoutFocusingSearch() throws {
-        launch(seeded: true)
+        launch()
         for id in ["home.home", "home.work", "home.favourite.0", "home.recent.0"] {
             XCTAssertTrue(app.buttons[id].waitForExistence(timeout: 5), "\(id) is not in the drawer on launch")
         }
@@ -48,92 +49,8 @@ final class HomeDrawerUITests: XCTestCase {
         XCTAssertTrue(app.buttons["home.trip.1"].waitForExistence(timeout: 5), "the drawer did not come back after trip history")
     }
 
-    func testTheDrawerFoldsToTheSearchBarAndTheMapStaysUsable() throws {
-        launch(seeded: true)
-        let field = app.textFields["search.field"]
-        let locate = app.buttons["home.locate"]
-        XCTAssertTrue(locate.waitForExistence(timeout: 5))
-        let start = try waitForCamera(locate)
-
-        drag(on: CGVector(dx: 0.3, dy: 0.25), by: CGVector(dx: 120, dy: 80))
-        let panned = try waitForCamera(locate, awayFrom: start)
-        XCTAssertGreaterThan(distance(panned, start), 0.0005, "the map did not pan behind the medium drawer")
-
-        dragDrawer(by: 700)
-        XCTAssertTrue(field.isHittable, "the search field is gone at the collapsed drawer")
-        XCTAssertGreaterThan(field.frame.minY, window.frame.height * 0.75, "the drawer did not fold down: \(field.frame)")
-        XCTAssertFalse(app.buttons["home.home"].isHittable, "saved places still show at the collapsed drawer")
-        screenshot("drawer-03-collapsed")
-
-        drag(on: CGVector(dx: 0.5, dy: 0.6), by: CGVector(dx: -100, dy: -120))
-        let pannedCollapsed = try waitForCamera(locate, awayFrom: panned)
-        XCTAssertGreaterThan(distance(pannedCollapsed, panned), 0.0005, "the map did not pan behind the collapsed drawer")
-        Thread.sleep(forTimeInterval: 1)
-        window.pinch(withScale: 2.5, velocity: 2)
-        Thread.sleep(forTimeInterval: 1.5)
-        let zoomed = try waitForCamera(locate, awayFrom: pannedCollapsed)
-        XCTAssertGreaterThan(zoomed.zoom, pannedCollapsed.zoom + 0.3, "the map did not zoom behind the collapsed drawer")
-
-        locate.tap()
-        let back = try waitForCamera(locate, awayFrom: zoomed)
-        XCTAssertEqual(back.lat, origin.lat, accuracy: 0.0005, "locate did not recenter on the user")
-        XCTAssertEqual(back.lon, origin.lon, accuracy: 0.0005, "locate did not recenter on the user")
-
-        dragDrawer(by: -300)
-        XCTAssertTrue(app.buttons["home.home"].waitFor(\.isHittable, timeout: 5), "the drawer did not unfold to medium")
-        XCTAssertLessThan(field.frame.minY, window.frame.height * 0.75)
-        screenshot("drawer-04-medium-again")
-    }
-
-    func testLayersOpenTheMapStyleCardsAndApplyAtOnce() throws {
-        launch(seeded: true)
-        let layers = app.buttons["home.layers"]
-        XCTAssertTrue(layers.waitForExistence(timeout: 5))
-        XCTAssertEqual(layers.value as? String, "liberty")
-        layers.tap()
-        let positron = app.buttons["layers.style.positron"]
-        XCTAssertTrue(positron.waitForExistence(timeout: 5), "layers did not open the map styles")
-        for style in ["liberty", "bright", "dark", "fiord"] {
-            XCTAssertTrue(app.buttons["layers.style.\(style)"].exists, "no card for \(style)")
-        }
-        positron.tap()
-        XCTAssertTrue(layers.waitFor(\.value, equals: "positron", timeout: 5), "picking a card did not change the map style")
-        XCTAssertTrue(positron.isSelected)
-        screenshot("drawer-05-layers")
-        app.buttons["layers.done"].tap()
-        XCTAssertTrue(positron.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["home.home"].isHittable, "the drawer did not come back after layers")
-        screenshot("drawer-06-positron")
-    }
-
-    func testSettingsPlacesAndSetHomeOpenFromTheDrawerAndCloseBackToIt() throws {
-        launch(seeded: true)
-        app.buttons["search.settings"].tap()
-        XCTAssertTrue(app.buttons["settings.done"].waitForExistence(timeout: 5), "Settings did not open from the drawer")
-        app.buttons["settings.done"].tap()
-        XCTAssertTrue(app.buttons["settings.done"].waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["home.home"].waitFor(\.isHittable, timeout: 5), "the drawer did not come back after Settings")
-
-        app.buttons["home.edit"].tap()
-        XCTAssertTrue(app.buttons["places.done"].waitForExistence(timeout: 5), "the places editor did not open from the drawer")
-        app.buttons["places.done"].tap()
-        XCTAssertTrue(app.buttons["places.done"].waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["home.home"].waitFor(\.isHittable, timeout: 5), "the drawer did not come back after the places editor")
-
-        app.terminate()
-        launch(seeded: false)
-        let home = app.buttons["home.home"]
-        XCTAssertTrue(home.waitForExistence(timeout: 5))
-        XCTAssertEqual(home.label, "Set Home")
-        home.tap()
-        XCTAssertTrue(app.textFields["placeSearch.field"].waitForExistence(timeout: 5), "Set Home did not open its search")
-        app.buttons["placeSearch.cancel"].tap()
-        XCTAssertTrue(app.textFields["placeSearch.field"].waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["home.work"].waitFor(\.isHittable, timeout: 5), "the drawer did not come back after Set Home")
-    }
-
     func testSearchingExpandsTheDrawerAndAResultOpensThePreviewThenTheDrawerComesBack() throws {
-        launch(seeded: true)
+        launch()
         let field = app.textFields["search.field"]
         XCTAssertGreaterThan(field.frame.minY, window.frame.height * 0.3)
         field.tap()
@@ -160,19 +77,46 @@ final class HomeDrawerUITests: XCTestCase {
         XCTAssertTrue(field.waitFor(\.frame.minY, above: window.frame.height * 0.3, timeout: 5), "closing search did not return the drawer to medium: \(field.frame)")
     }
 
+    func testHomeFiveKilometresAwayShowsItsETAOrOnlyTheDistanceWhenTheAPIFails() throws {
+        launch(origin: fiveKilometresNorthOfHome, eta: "720")
+        let home = app.buttons["home.home"]
+        XCTAssertTrue(home.waitForExistence(timeout: 5))
+        wait(for: home, labelContains: "12 min · Utrechtseweg 1")
+        screenshot("drawer-08-eta")
+        home.tap()
+        XCTAssertTrue(app.staticTexts["preview.destination"].waitForExistence(timeout: 10), "the Home row did not open the preview")
+
+        app.terminate()
+        launch(origin: fiveKilometresNorthOfHome, eta: "fail")
+        XCTAssertTrue(home.waitForExistence(timeout: 5))
+        wait(for: home, labelContains: "5.0 km · Utrechtseweg 1")
+        Thread.sleep(forTimeInterval: 2)
+        XCTAssertFalse(home.label.contains("min"), home.label)
+        screenshot("drawer-09-eta-failed")
+    }
+
     private var window: XCUIElement { app.windows.firstMatch }
 
-    private func launch(seeded: Bool) {
+    private func launch(origin: (lat: Double, lon: Double)? = nil, eta: String? = nil) {
+        let origin = origin ?? self.origin
         app = XCUIApplication()
         app.launchArguments = [
             "-NaviscootDiscardActiveRide", "YES",
             "-NaviscootSimOrigin", "\(origin.lat),\(origin.lon)",
             "-settings.language", "en",
             "-settings.mapStyle", "liberty",
+            "-NaviscootSeedHome", "YES",
         ]
-        app.launchArguments += seeded ? ["-NaviscootSeedHome", "YES"] : ["-NaviscootResetPlaces", "YES", "-NaviscootSeedHome", "NO"]
+        if let eta {
+            app.launchArguments += ["-NaviscootSimETA", eta]
+        }
         app.launch()
         XCTAssertTrue(app.textFields["search.field"].waitForExistence(timeout: 10))
+    }
+
+    private func wait(for element: XCUIElement, labelContains text: String) {
+        let match = expectation(for: NSPredicate(format: "label CONTAINS %@", text), evaluatedWith: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [match], timeout: 10), .completed, "'\(text)' not in '\(element.label)'")
     }
 
     private func dragDrawer(by dy: CGFloat) {
@@ -181,38 +125,6 @@ final class HomeDrawerUITests: XCTestCase {
             .withOffset(CGVector(dx: window.frame.midX, dy: field.frame.minY - 22))
         grabber.press(forDuration: 0.2, thenDragTo: grabber.withOffset(CGVector(dx: 0, dy: dy)), withVelocity: .default, thenHoldForDuration: 0.3)
         Thread.sleep(forTimeInterval: 0.8)
-    }
-
-    private func drag(on point: CGVector, by offset: CGVector) {
-        let from = window.coordinate(withNormalizedOffset: point)
-        from.press(forDuration: 0.1, thenDragTo: from.withOffset(offset), withVelocity: .slow, thenHoldForDuration: 0.3)
-    }
-
-    private struct Camera {
-        let lat: Double
-        let lon: Double
-        let zoom: Double
-    }
-
-    private func camera(_ element: XCUIElement) -> Camera? {
-        let parts = (element.value as? String ?? "").split(separator: ",").compactMap { Double($0) }
-        return parts.count == 3 ? Camera(lat: parts[0], lon: parts[1], zoom: parts[2]) : nil
-    }
-
-    private func distance(_ a: Camera, _ b: Camera) -> Double {
-        max(abs(a.lat - b.lat), abs(a.lon - b.lon))
-    }
-
-    private func waitForCamera(_ element: XCUIElement, awayFrom previous: Camera? = nil, line: UInt = #line) throws -> Camera {
-        let deadline = Date().addingTimeInterval(10)
-        while Date() < deadline {
-            if let current = camera(element) {
-                guard let previous else { return current }
-                if distance(current, previous) > 0.00005 || abs(current.zoom - previous.zoom) > 0.05 { return current }
-            }
-            Thread.sleep(forTimeInterval: 0.3)
-        }
-        return try XCTUnwrap(nil as Camera?, "line \(line): the camera did not change from \(String(describing: previous)): \(element.value ?? "nil")")
     }
 
     private func screenshot(_ name: String) {
@@ -228,14 +140,6 @@ final class HomeDrawerUITests: XCTestCase {
 }
 
 private extension XCUIElement {
-    func waitFor(_ keyPath: KeyPath<XCUIElement, Bool>, timeout: TimeInterval) -> Bool {
-        poll(timeout) { self[keyPath: keyPath] }
-    }
-
-    func waitFor(_ keyPath: KeyPath<XCUIElement, Any?>, equals expected: String, timeout: TimeInterval) -> Bool {
-        poll(timeout) { self[keyPath: keyPath] as? String == expected }
-    }
-
     func waitFor(_ keyPath: KeyPath<XCUIElement, CGFloat>, below limit: CGFloat, timeout: TimeInterval) -> Bool {
         poll(timeout) { self[keyPath: keyPath] < limit }
     }

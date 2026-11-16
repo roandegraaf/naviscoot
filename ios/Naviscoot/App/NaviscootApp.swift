@@ -19,6 +19,7 @@ struct RootView: View {
     @StateObject private var location = LocationService()
     @StateObject private var search = SearchModel()
     @StateObject private var reports: ReportQueue
+    @State private var etas: PlaceETAStore
     @State private var destination: Destination?
     @State private var ride: RideModel?
     @State private var resume: ResumeModel?
@@ -32,6 +33,7 @@ struct RootView: View {
         let client = APIConfig.fromBundle().map { NaviscootClient(config: $0) }
         self.client = client
         _reports = StateObject(wrappedValue: ReportQueue(sender: client, storeURL: ReportQueue.defaultStoreURL))
+        _etas = State(initialValue: PlaceETAStore.live(client: client, settings: AppSettings.shared))
     }
 
     var body: some View {
@@ -62,6 +64,7 @@ struct RootView: View {
         }
         .environment(settings)
         .environment(places)
+        .environment(etas)
         .environment(trips)
         .environment(scooter)
         .onChange(of: scooter.telemetry?.batteryPercent) { _, percent in
