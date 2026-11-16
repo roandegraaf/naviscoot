@@ -114,6 +114,13 @@ final class ScooterConnection {
         return !settings.scooterSerial.isEmpty && keychain.value(.password) != nil
     }
 
+    var vehicleIdent: [UInt8]? {
+        #if DEBUG
+        if simulation != nil { return ScooterSimulation.ident }
+        #endif
+        return keychain.value(.ident)
+    }
+
     // Only started once a scooter is configured, so a fresh install never sees the Bluetooth permission prompt.
     func start() {
         guard loop == nil, isConfigured else { return }

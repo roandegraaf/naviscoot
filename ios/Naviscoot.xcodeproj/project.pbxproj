@@ -18,7 +18,8 @@
 		1558C6C476518EBD5D9C0BED /* liberty-night.json in Resources */ = {isa = PBXBuildFile; fileRef = E6CD708F38ACF58F0EEB8301 /* liberty-night.json */; };
 		19CE9B4868ADAB1462E56E96 /* ScooterRideTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23399708091046C06845561 /* ScooterRideTests.swift */; };
 		1D60F819474B26B28CED9264 /* SearchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB88329B867E263A6EA9E0EE /* SearchModel.swift */; };
-		2082C4A8B15D7A8C6442CB87 /* ScooterSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE5B4B38D409906F19EA858 /* ScooterSettingsView.swift */; };
+		2082C4A8B15D7A8C6442CB87 /* ScooterScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE5B4B38D409906F19EA858 /* ScooterScreen.swift */; };
+		5A4E0C1D2B3F4A5B6C7D8E91 /* ScooterAdvancedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4E0C1D2B3F4A5B6C7D8E90 /* ScooterAdvancedView.swift */; };
 		21A2A393AB9FB80C1BD1F54C /* WatchRideMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33EE4D408580E764C35718D4 /* WatchRideMessage.swift */; };
 		2228D37E18D6F5FB31CB4460 /* RouteMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA41FB2C85701FC2A16567B /* RouteMapView.swift */; };
 		242A93F2569CA139650215C7 /* RideCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA0D81729FBCB8E413D2DA6 /* RideCamera.swift */; };
@@ -259,7 +260,8 @@
 		B52100E9E8DEB57331464D9C /* ScooterControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterControls.swift; sourceTree = "<group>"; };
 		B611D7B92C59A66A090FFAAF /* TripDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDraft.swift; sourceTree = "<group>"; };
 		B7AEB19736C67ADC1844F056 /* route-verified-only.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "route-verified-only.json"; sourceTree = "<group>"; };
-		BAE5B4B38D409906F19EA858 /* ScooterSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterSettingsView.swift; sourceTree = "<group>"; };
+		5A4E0C1D2B3F4A5B6C7D8E90 /* ScooterAdvancedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterAdvancedView.swift; sourceTree = "<group>"; };
+		BAE5B4B38D409906F19EA858 /* ScooterScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterScreen.swift; sourceTree = "<group>"; };
 		BC59D2CB1C3CDB03DFABA833 /* ScooterFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterFeatures.swift; sourceTree = "<group>"; };
 		C013CB198BC0B7AD0752EF2C /* ScooterBluetoothLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterBluetoothLink.swift; sourceTree = "<group>"; };
 		C155CF3D17AF41E3A84E6229 /* PlaceSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearchSheet.swift; sourceTree = "<group>"; };
@@ -475,7 +477,6 @@
 		7D6E99FC09CFC53C6237A5E7 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
-				BAE5B4B38D409906F19EA858 /* ScooterSettingsView.swift */,
 				0FED143F64035DA6E9093E78 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -580,9 +581,11 @@
 				55C80898E20A63A3F40C2C17 /* NinebotProtocol.swift */,
 				01290B3189999F8812C83904 /* RangeMath.swift */,
 				C013CB198BC0B7AD0752EF2C /* ScooterBluetoothLink.swift */,
+				5A4E0C1D2B3F4A5B6C7D8E90 /* ScooterAdvancedView.swift */,
 				D4CA22B655A988F251053579 /* ScooterConnection.swift */,
 				B52100E9E8DEB57331464D9C /* ScooterControls.swift */,
 				BC59D2CB1C3CDB03DFABA833 /* ScooterFeatures.swift */,
+				BAE5B4B38D409906F19EA858 /* ScooterScreen.swift */,
 				4450FF7B4B1B60603EB9A833 /* SimulatedScooter.swift */,
 				D009D7B1B998B85A1556A7D9 /* .claude */,
 			);
@@ -826,7 +829,8 @@
 				0307FAB61F51FD6F6523D406 /* ScooterFeatures.swift in Sources */,
 				906C3ED9F371C6D21BFF81D1 /* SimulatedScooter.swift in Sources */,
 				8BA3B7B93B763B5DFDE6683B /* ScooterRideMonitor.swift in Sources */,
-				2082C4A8B15D7A8C6442CB87 /* ScooterSettingsView.swift in Sources */,
+				2082C4A8B15D7A8C6442CB87 /* ScooterScreen.swift in Sources */,
+				5A4E0C1D2B3F4A5B6C7D8E91 /* ScooterAdvancedView.swift in Sources */,
 				1D60F819474B26B28CED9264 /* SearchModel.swift in Sources */,
 				9C758167211D6967066BD13C /* SearchResult.swift in Sources */,
 				ADEB3241AD6CB676130ED484 /* SearchResultRow.swift in Sources */,

@@ -124,16 +124,66 @@ final class HomeDrawerUITests: XCTestCase {
         dragDrawer(by: 400)
         XCTAssertTrue(strip.isHittable, "the strip is hidden with the drawer folded")
         strip.tap()
-        let charging = app.staticTexts["settings.scooter.charging"]
+        let charging = element("settings.scooter.charging")
         XCTAssertTrue(charging.waitForExistence(timeout: 10), "the strip did not open the scooter screen")
         wait(for: charging, labelContains: "Charging")
+        wait(for: element("scooter.battery"), valueContains: "64%")
+        wait(for: element("scooter.range"), valueContains: "31 km")
+        for id in ["settings.scooter.openSeat", "settings.scooter.powerOn", "settings.scooter.powerOff"] {
+            XCTAssertTrue(app.buttons[id].isHittable, "\(id) is not reachable without scrolling")
+            XCTAssertGreaterThanOrEqual(app.buttons[id].frame.height, 60, "\(id) is not a large button")
+        }
+        let fullIn = element("scooter.fullIn")
+        XCTAssertTrue(fullIn.waitForExistence(timeout: 15), "no time to full while charging")
+        XCTAssertTrue(fullIn.label.hasPrefix("Full in about"), fullIn.label)
+        wait(for: element("scooter.cycles"), textContains: "87")
+        XCTAssertTrue(element("scooter.health").exists)
+        XCTAssertTrue(element("scooter.temperature").exists)
+        XCTAssertFalse(element("settings.scooter.speedCurrent").exists, "the speed limit is still on the main scooter screen")
         screenshot("drawer-13-scooter-screen")
+
+        app.buttons["settings.scooter.openSeat"].tap()
+        let result = element("settings.scooter.actionResult")
+        XCTAssertTrue(result.waitForExistence(timeout: 10), "Open seat gave no result")
+
+        app.buttons["scooter.battery.details"].tap()
+        let cells = element("scooter.details.cells")
+        XCTAssertTrue(cells.waitForExistence(timeout: 10), "Details did not open")
+        for id in ["scooter.details.capacity", "scooter.details.chargeCount", "scooter.details.serial"] {
+            XCTAssertTrue(element(id).exists, "Details lacks \(id)")
+        }
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let advanced = app.buttons["scooter.advanced"]
+        scroll(to: advanced)
+        advanced.tap()
+        XCTAssertTrue(element("settings.scooter.speedCurrent").waitForExistence(timeout: 10), "Advanced has no speed limit")
+        XCTAssertTrue(element("settings.scooter.topSpeedCurrent").exists, "Advanced has no top speed")
+        screenshot("drawer-14-scooter-advanced")
+        scroll(to: element("settings.scooter.recovery"))
+        scroll(to: element("settings.scooter.feature.seatDetection"))
+        let clock = element("settings.scooter.clock")
+        scroll(to: clock)
+        XCTAssertTrue(clock.exists, "Advanced has no clock")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.buttons["scooter.done"].waitForExistence(timeout: 5))
         app.buttons["scooter.done"].tap()
         XCTAssertTrue(strip.waitForExistence(timeout: 5))
         XCTAssertTrue(charging.waitForNonExistence(timeout: 5), "Done did not close the scooter screen")
     }
 
     private var window: XCUIElement { app.windows.firstMatch }
+
+    private func element(_ id: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+
+    private func scroll(to target: XCUIElement) {
+        for _ in 0 ..< 6 where !(target.exists && target.isHittable) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(target.isHittable, "could not scroll to \(target)")
+    }
 
     private func launch(origin: (lat: Double, lon: Double)? = nil, eta: String? = nil, extra: [String] = []) {
         let origin = origin ?? self.origin
@@ -161,6 +211,11 @@ final class HomeDrawerUITests: XCTestCase {
     private func wait(for element: XCUIElement, valueContains text: String) {
         let match = expectation(for: NSPredicate(format: "value CONTAINS %@", text), evaluatedWith: element)
         XCTAssertEqual(XCTWaiter.wait(for: [match], timeout: 10), .completed, "'\(text)' not in '\(element.value ?? "")'")
+    }
+
+    private func wait(for element: XCUIElement, textContains text: String) {
+        let match = expectation(for: NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text), evaluatedWith: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [match], timeout: 10), .completed, "'\(text)' not in '\(element.label)' / '\(element.value ?? "")'")
     }
 
     private func dragDrawer(by dy: CGFloat) {

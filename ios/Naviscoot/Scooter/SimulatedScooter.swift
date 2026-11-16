@@ -97,6 +97,7 @@ struct ScooterSimulation: Equatable {
     static let launchKey = "NaviscootSimScooter"
     static let serial = "NAVISIMSCOOTER"
     static let password: [UInt8] = Array(0x10 ... 0x1F as ClosedRange<UInt8>)
+    static let ident: [UInt8] = Array(0x20 ... 0x2F as ClosedRange<UInt8>)
     static let mainPowerOn = 429
     static let mainPowerOff = 421
 

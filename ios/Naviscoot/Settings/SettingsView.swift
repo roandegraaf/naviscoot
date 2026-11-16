@@ -180,7 +180,7 @@ struct SettingsView: View {
     private var scooterSection: some View {
         Section {
             NavigationLink {
-                ScooterSettingsView(settings: settings)
+                ScooterScreen(settings: settings)
             } label: {
                 LabeledContent {
                     Text(ScooterStatus.text(scooter.state, telemetry: scooter.telemetry))

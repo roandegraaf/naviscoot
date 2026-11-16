@@ -240,4 +240,49 @@ final class ScooterControlsTests: XCTestCase {
         XCTAssertEqual(reopened.scooterOriginalSpeedLimit, 0)
         XCTAssertEqual(reopened.chargeNotifyTarget, 80)
     }
+
+    private func simulatedReadings(_ profile: ScooterSimulation.Profile) async throws -> (BatteryReport, Int) {
+        let scooter = ScooterSimulation(profile: profile).makeScooter()
+        let session = NinebotSession(transport: scooter, serial: ScooterSimulation.serial, password: ScooterSimulation.password, handshakeTimeout: .milliseconds(200), readTimeout: .milliseconds(100), listenWindow: .zero)
+        try await session.authenticate()
+        return (await BatteryReport.read(from: session), try await session.value(.timeToFull))
+    }
+
+    func testTheChargingFakeSummarisesHealthCyclesTemperatureAndTimeToFull() async throws {
+        let (report, minutes) = try await simulatedReadings(.charging)
+
+        let summary = ScooterBatterySummary(report: report, timeToFullMinutes: minutes, language: .english)
+
+        XCTAssertEqual(summary.health, "93%")
+        XCTAssertEqual(summary.cycles, "87")
+        XCTAssertEqual(summary.temperature, "22–24 °C")
+        XCTAssertEqual(summary.fullIn, "Full in about 1 h 35 min")
+        XCTAssertEqual(ScooterBatterySummary(report: report, timeToFullMinutes: minutes, language: .dutch).fullIn, "Vol over ongeveer 1 u 35 min")
+    }
+
+    func testTheRidingFakeShowsNoTimeToFull() async throws {
+        let (report, minutes) = try await simulatedReadings(.riding)
+
+        XCTAssertEqual(minutes, 0)
+        XCTAssertEqual(report.isCharging, false)
+        XCTAssertNil(ScooterBatterySummary(report: report, timeToFullMinutes: minutes, language: .english).fullIn)
+    }
+
+    func testTimeToFullOnlyShowsWhileChargingWithMinutesLeft() {
+        XCTAssertEqual(ScooterBatterySummary.fullIn(minutes: 35, charging: true, language: .english), "Full in about 35 min")
+        XCTAssertEqual(ScooterBatterySummary.fullIn(minutes: 35, charging: nil, language: .english), "Full in about 35 min")
+        XCTAssertNil(ScooterBatterySummary.fullIn(minutes: 35, charging: false, language: .english))
+        XCTAssertNil(ScooterBatterySummary.fullIn(minutes: 0, charging: true, language: .english))
+        XCTAssertNil(ScooterBatterySummary.fullIn(minutes: nil, charging: true, language: .english))
+    }
+
+    func testAnUnreadBatteryLeavesTheSummaryEmpty() {
+        let summary = ScooterBatterySummary(report: nil, timeToFullMinutes: nil, language: .english)
+
+        XCTAssertNil(summary.health)
+        XCTAssertNil(summary.cycles)
+        XCTAssertNil(summary.temperature)
+        XCTAssertNil(summary.fullIn)
+        XCTAssertEqual(ScooterBatterySummary.temperature([23]), "23 °C")
+    }
 }

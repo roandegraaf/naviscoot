@@ -320,6 +320,9 @@ enum Strings {
 
     static var scooterRecoveryFooter: String { tr("scooter.settings.recoveryFooter") }
     static var scooterPairing: String { tr("scooter.settings.pairing") }
+    static var scooterAdvanced: String { tr("scooter.screen.advanced") }
+    static var scooterAdvancedHint: String { tr("scooter.screen.advancedHint") }
+    static var scooterDetails: String { tr("scooter.screen.details") }
 
     static func scooterFeatureWrite(_ id: ScooterFeature.ID, _ result: FeatureWrite) -> String {
         switch result {

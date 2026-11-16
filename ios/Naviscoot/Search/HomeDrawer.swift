@@ -64,7 +64,7 @@ struct HomeDrawer: View {
         }
         .sheet(isPresented: $showsScooter) {
             NavigationStack {
-                ScooterSettingsView(settings: settings)
+                ScooterScreen(settings: settings)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button(Strings.done) { showsScooter = false }

@@ -3129,6 +3129,74 @@
         }
       }
     },
+    "scooter.screen.advanced": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Advanced"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geavanceerd"
+          }
+        }
+      }
+    },
+    "scooter.screen.advancedHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speed limit, top speed and scooter settings"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snelheidsbegrenzing, topsnelheid en scooterinstellingen"
+          }
+        }
+      }
+    },
+    "scooter.screen.details": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        }
+      }
+    },
+    "scooter.screen.fullIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full in about %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vol over ongeveer %@"
+          }
+        }
+      }
+    },
     "scooter.settings.battery": {
       "extractionState": "manual",
       "localizations": {
@@ -3594,13 +3662,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The same settings as in the Segway app. Each change is read back from the scooter. Locked while riding."
+            "value": "The Segway app's own settings, read back after every change. Locked while riding."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dezelfde instellingen als in de Segway-app. Elke wijziging wordt teruggelezen van de scooter. Vergrendeld tijdens het rijden."
+            "value": "De instellingen uit de Segway-app, na elke wijziging teruggelezen. Vergrendeld tijdens het rijden."
           }
         }
       }
@@ -4155,13 +4223,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The limit can only cap the speed below the rated %lld km/h. A higher top speed needs the motor controller, which doesn't answer on this scooter. Changing the limit can make the scooter no longer road-legal."
+            "value": "Caps the speed below the rated %lld km/h. A changed limit can make the scooter no longer road-legal."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De begrenzing kan de snelheid alleen onder de nominale %lld km/u houden. Een hogere topsnelheid vraagt de motorregelaar, en die antwoordt niet op deze scooter. Een andere begrenzing kan de scooter onwettig maken op de openbare weg."
+            "value": "Begrenst de snelheid onder de nominale %lld km/u. Een andere begrenzing kan de scooter onwettig maken op de openbare weg."
           }
         }
       }
@@ -4376,13 +4444,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unlocking raises the motor's limit from 45 to 50 km/h; the dashboard keeps showing at most 45. This writes the vehicle controller directly and reads it back, and it is reversible, but it is not an officially documented command. A scooter set above 45 km/h is not road-legal in the Netherlands and your insurance may not cover it — use it only on private land."
+            "value": "Raises the motor limit from 45 to 50 km/h; the dashboard still shows 45. Unofficial but reversible. Above 45 km/h the scooter is not road-legal in the Netherlands and your insurance may not cover it: private land only."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ontgrendelen verhoogt de limiet van de motor van 45 naar 50 km/u; het dashboard blijft maximaal 45 tonen. Dit schrijft rechtstreeks naar de voertuigcomputer en leest de waarde terug, en is omkeerbaar, maar het is geen officiële gedocumenteerde opdracht. Een scooter die boven 45 km/u is ingesteld, is in Nederland niet toegestaan op de openbare weg en je verzekering dekt dit mogelijk niet — gebruik het alleen op eigen terrein."
+            "value": "Verhoogt de motorlimiet van 45 naar 50 km/u; het dashboard toont nog 45. Onofficieel maar omkeerbaar. Boven 45 km/u is de scooter in Nederland niet toegestaan op de openbare weg en dekt je verzekering het mogelijk niet: alleen op eigen terrein."
           }
         }
       }
