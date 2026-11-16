@@ -95,6 +95,63 @@ final class HomeDrawerUITests: XCTestCase {
         screenshot("drawer-09-eta-failed")
     }
 
+    func testThePreviewTidiesTheBreakdownReordersStopsAndPicksAnAlternativeFromTheMap() throws {
+        launch(extra: ["-settings.verifiedOnlyByDefault", "NO"])
+        app.buttons["home.home"].tap()
+        let duration = app.staticTexts["preview.duration"]
+        XCTAssertTrue(duration.waitForExistence(timeout: 30), "the route to Home did not load")
+        let any = app.descendants(matching: .any)
+        XCTAssertTrue(any["preview.total.carriageway"].exists)
+        XCTAssertFalse(any["preview.total.moped_path"].exists, "a 0 m moped path row shows")
+        XCTAssertFalse(any["preview.total.unverified"].exists, "a 0 m unverified row shows")
+        XCTAssertFalse(app.switches["preview.verifiedOnly"].exists, "the verified-only toggle shows on a route without unverified stretches")
+        screenshot("preview-01-breakdown")
+
+        addStop("Koppelpoort")
+        addStop("Lieve Vrouwestraat")
+        let first = app.staticTexts["preview.stop.0"]
+        let second = app.staticTexts["preview.stop.1"]
+        XCTAssertTrue(second.waitForExistence(timeout: 5))
+        XCTAssertTrue(first.label.contains("Koppelpoort"), first.label)
+        XCTAssertTrue(app.buttons["preview.stop.1.remove"].waitForExistence(timeout: 5))
+        screenshot("preview-02-stops")
+
+        second.press(forDuration: 1.0, thenDragTo: first, withVelocity: .slow, thenHoldForDuration: 0.5)
+        wait(for: first, labelContains: "Lieve Vrouwestraat")
+        XCTAssertTrue(second.label.contains("Koppelpoort"), second.label)
+        screenshot("preview-03-reordered")
+
+        app.terminate()
+        let fixture = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("NaviscootTests/Fixtures/route-alternatives.json").path
+        launch(extra: ["-NaviscootSimRoutesFile", fixture])
+        app.buttons["home.home"].tap()
+        let bubble = app.buttons["preview.bubble.2"]
+        XCTAssertTrue(bubble.waitForExistence(timeout: 15), "no time bubble on the alternative")
+        XCTAssertTrue(app.buttons["preview.bubble.1"].exists)
+        XCTAssertTrue(app.buttons["preview.bubble.0"].isSelected)
+        XCTAssertFalse(bubble.isSelected)
+        XCTAssertTrue(bubble.label.hasSuffix("43 min"), bubble.label)
+        screenshot("preview-04-alternatives")
+
+        bubble.tap()
+        let card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'preview.route.2.'")).firstMatch
+        let selected = expectation(for: NSPredicate(format: "isSelected == true"), evaluatedWith: card)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed, "tapping the bubble did not select its route")
+        XCTAssertTrue(bubble.isSelected)
+        XCTAssertFalse(app.buttons["preview.bubble.0"].isSelected)
+        screenshot("preview-05-alternative-selected")
+    }
+
+    private func addStop(_ name: String) {
+        app.buttons["preview.addStop"].tap()
+        let place = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'placeSearch.saved.' AND label CONTAINS %@", name)).firstMatch
+        XCTAssertTrue(place.waitForExistence(timeout: 5), "\(name) is not among the saved places")
+        place.tap()
+        XCTAssertTrue(place.waitForNonExistence(timeout: 5))
+    }
+
     func testParkedPinOffersWalkThereAndTheScooterStripOpensTheScooterScreen() throws {
         launch(extra: ["-NaviscootSeedParked", "\(origin.lat),\(origin.lon)"])
         XCTAssertFalse(app.buttons["home.scooter"].exists, "the strip shows without a scooter set up")

@@ -1004,6 +1004,23 @@
         }
       }
     },
+    "preview.moveStopDown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move stop down"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop omlaag"
+          }
+        }
+      }
+    },
     "preview.moveStopUp": {
       "extractionState": "manual",
       "localizations": {

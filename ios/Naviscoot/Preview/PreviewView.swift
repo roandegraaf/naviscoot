@@ -32,6 +32,8 @@ struct PreviewView: View {
     @State private var panelFrame: CGRect = .zero
     @State private var backFrame: CGRect = .zero
     @State private var windowFrame: CGRect = .zero
+    @State private var routePoints = MapPointTracker()
+    @State private var stopDropTarget: Int?
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     init(
@@ -59,6 +61,18 @@ struct PreviewView: View {
                 origin: originCoordinate,
                 destination: model.destination.coordinate
             )
+            .onMapViewProxyUpdate(updateMode: .realtime) { [routePoints] proxy in
+                routePoints.mapChanged(proxy)
+            }
+            .onTapMapGesture { context in
+                selectRoute(near: Coordinate(context.coordinate))
+            }
+            .overlay(alignment: .topLeading) {
+                if model.plans.count > 1 {
+                    RouteTimeBubbles(bubbles: bubbles, tracker: routePoints) { model.select($0) }
+                        .ignoresSafeArea()
+                }
+            }
 
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
@@ -95,7 +109,11 @@ struct PreviewView: View {
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { windowFrame = $0 }
                 .ignoresSafeArea()
         }
-        .onAppear { model.originChanged(location.coordinate) }
+        .onAppear {
+            model.originChanged(location.coordinate)
+            routePoints.track(model.bubbleAnchors)
+        }
+        .onChange(of: model.bubbleAnchors) { _, anchors in routePoints.track(anchors) }
         .onChange(of: location.coordinate) { _, coordinate in model.originChanged(coordinate) }
         .onChange(of: plan?.meta.routeId) { _, _ in fitRoute() }
         .onChange(of: sheetHeight) { _, _ in
@@ -139,9 +157,31 @@ struct PreviewView: View {
     private var plan: RoutePlan? { model.selectedPlan }
 
     private var otherRoutes: [[Coordinate]] {
+        alternatives.map(\.coordinates)
+    }
+
+    private var alternatives: [(index: Int, coordinates: [Coordinate])] {
         model.plans.enumerated()
             .filter { $0.offset != model.selectedIndex }
-            .map { $0.element.route.geometry.map(Coordinate.init) }
+            .map { ($0.offset, $0.element.route.geometry.map(Coordinate.init)) }
+    }
+
+    private var bubbles: [RouteTimeBubble] {
+        model.plans.enumerated().map { index, plan in
+            RouteTimeBubble(
+                index: index,
+                duration: Format.duration(seconds: plan.durationS),
+                selected: index == model.selectedIndex
+            )
+        }
+    }
+
+    private func selectRoute(near coordinate: Coordinate) {
+        guard model.plans.count > 1, let tap = routePoints.screenPoints([coordinate]).first else { return }
+        let routes = alternatives.map { (index: $0.index, points: routePoints.screenPoints($0.coordinates)) }
+        if let index = RouteBubbles.nearestRoute(to: tap, routes: routes, tolerance: 22) {
+            model.select(index)
+        }
     }
 
     private var originCoordinate: Coordinate? {
@@ -313,6 +353,29 @@ struct PreviewView: View {
             fromRow
             ForEach(Array(model.trip.stops.enumerated()), id: \.offset) { index, stop in
                 stopRow(index: index, stop: stop)
+                    .contentShape(Rectangle())
+                    .draggable(TripPlan.stopDragPayload(index)) {
+                        stopRow(index: index, stop: stop)
+                            .padding(.horizontal, 12)
+                            .frame(width: 320)
+                            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .dropDestination(for: String.self) { payloads, _ in
+                        guard let source = payloads.first.flatMap(TripPlan.stopIndex(fromDragPayload:)) else { return false }
+                        model.moveStop(from: source, to: index)
+                        return true
+                    } isTargeted: { targeted in
+                        if targeted {
+                            stopDropTarget = index
+                        } else if stopDropTarget == index {
+                            stopDropTarget = nil
+                        }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(stopDropTarget == index ? Theme.selectedBackground : .clear)
+                            .padding(.horizontal, -6)
+                    )
             }
             toRow
             HStack(spacing: 10) {
@@ -371,7 +434,8 @@ struct PreviewView: View {
     }
 
     private func stopRow(index: Int, stop: Destination) -> some View {
-        HStack(spacing: 12) {
+        let count = model.trip.stops.count
+        return HStack(spacing: 12) {
             Text(verbatim: "\(index + 1)")
                 .font(.system(size: 15, weight: .heavy))
                 .foregroundStyle(Theme.screen)
@@ -386,16 +450,24 @@ struct PreviewView: View {
                 .accessibilityLabel(Text(verbatim: "\(Strings.stop(index + 1)), \(stop.title)"))
                 .accessibilityIdentifier("preview.stop.\(index)")
             Spacer(minLength: 0)
-            if index > 0 {
-                iconButton("arrow.up", label: Strings.moveStopUp, id: "preview.stop.\(index).up") {
-                    model.moveStopUp(at: index)
-                }
-            }
             iconButton("xmark", label: Strings.removeStop, id: "preview.stop.\(index).remove") {
                 model.removeStop(at: index)
             }
+            if count > 1 {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.muted)
+                    .frame(width: 32, height: 44)
+                    .accessibilityHidden(true)
+            }
         }
         .frame(minHeight: 52)
+        .accessibilityAction(named: Strings.moveStopUp) {
+            if index > 0 { model.moveStop(from: index, to: index - 1) }
+        }
+        .accessibilityAction(named: Strings.moveStopDown) {
+            if index < count - 1 { model.moveStop(from: index, to: index + 1) }
+        }
     }
 
     private var toRow: some View {
@@ -501,15 +573,19 @@ struct PreviewView: View {
     private var footer: some View {
         if isLandscape {
             HStack(alignment: .center, spacing: 12) {
-                verifiedOnlyToggle(plan: plan)
-                if case .loaded = model.state {
+                if model.showsVerifiedOnlyToggle {
+                    verifiedOnlyToggle(plan: plan)
+                    if case .loaded = model.state {
+                        startControl
+                            .frame(width: 140)
+                    }
+                } else {
                     startControl
-                        .frame(width: 140)
                 }
             }
         } else {
             VStack(spacing: 12) {
-                if !sheetCollapsed {
+                if !sheetCollapsed, model.showsVerifiedOnlyToggle {
                     verifiedOnlyToggle(plan: plan)
                 }
                 startControl
@@ -658,11 +734,11 @@ struct PreviewView: View {
     }
 
     private func breakdown(_ totals: RouteTotals) -> some View {
-        let classes = StretchClass.allCases.filter { $0 != .forbidden || totals.forbidden > 0 }
+        let classes = totals.presentClasses
         return VStack(alignment: .leading, spacing: 8) {
             GeometryReader { proxy in
                 HStack(spacing: 2) {
-                    ForEach(classes.filter { totals[$0] > 0 }, id: \.self) { stretchClass in
+                    ForEach(classes, id: \.self) { stretchClass in
                         Theme.barColor(for: stretchClass)
                             .frame(width: max(4, proxy.size.width * CGFloat(totals[stretchClass]) / CGFloat(max(1, totals.sum))))
                     }
@@ -691,6 +767,10 @@ struct PreviewView: View {
 
     private func totalRow(_ stretchClass: StretchClass, totals: RouteTotals, showsMapHint: Bool) -> some View {
         HStack(spacing: 8) {
+            Circle()
+                .fill(Theme.barColor(for: stretchClass))
+                .frame(width: 10, height: 10)
+                .accessibilityHidden(true)
             Text(Strings.label(for: stretchClass))
                 .foregroundStyle(Theme.labelColor(for: stretchClass))
             if showsMapHint {
@@ -762,5 +842,56 @@ struct PreviewView: View {
         guard let unverified = model.defaultUnverifiedM else { return " " }
         guard unverified > 0 else { return Strings.verifiedOnlyNothingToSkip }
         return Strings.skipsUnverified(Format.distance(meters: unverified))
+    }
+}
+
+struct RouteTimeBubble: Identifiable {
+    let index: Int
+    let duration: String
+    let selected: Bool
+
+    var id: Int { index }
+}
+
+private struct RouteTimeBubbles: View {
+    let bubbles: [RouteTimeBubble]
+    let tracker: MapPointTracker
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        let points = tracker.points
+        ZStack(alignment: .topLeading) {
+            ForEach(bubbles.sorted { !$0.selected && $1.selected }) { bubble in
+                if points.indices.contains(bubble.index) {
+                    button(bubble)
+                        .position(points[bubble.index])
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func button(_ bubble: RouteTimeBubble) -> some View {
+        Button {
+            onSelect(bubble.index)
+        } label: {
+            Text(verbatim: bubble.duration)
+                .font(.system(size: 15, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(bubble.selected ? .white : Theme.ink)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(bubble.selected ? Theme.verified : Theme.surface, in: Capsule())
+                .overlay(Capsule().stroke(bubble.selected ? Color.white : Theme.line, lineWidth: 2))
+                .shadow(color: .black.opacity(0.22), radius: 4, y: 2)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: "\(Strings.route(bubble.index + 1)), \(bubble.duration)"))
+        .accessibilityAddTraits(bubble.selected ? .isSelected : [])
+        .accessibilityIdentifier("preview.bubble.\(bubble.index)")
     }
 }

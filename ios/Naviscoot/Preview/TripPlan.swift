@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 enum TripStart: Equatable {
@@ -43,9 +44,18 @@ struct TripPlan: Equatable {
         stops.remove(at: index)
     }
 
-    mutating func moveStopUp(at index: Int) {
-        guard index > 0, stops.indices.contains(index) else { return }
-        stops.swapAt(index, index - 1)
+    mutating func moveStop(from source: Int, to destination: Int) {
+        guard source != destination, stops.indices.contains(source), stops.indices.contains(destination) else { return }
+        stops.insert(stops.remove(at: source), at: destination)
+    }
+
+    static let stopDragPrefix = "naviscoot-stop:"
+
+    static func stopDragPayload(_ index: Int) -> String { "\(stopDragPrefix)\(index)" }
+
+    static func stopIndex(fromDragPayload payload: String) -> Int? {
+        guard payload.hasPrefix(stopDragPrefix) else { return nil }
+        return Int(payload.dropFirst(stopDragPrefix.count))
     }
 
     func origin(currentLocation: Coordinate?) -> Coordinate? {
@@ -117,5 +127,83 @@ enum UnverifiedStatus: Equatable {
         } else {
             self = .remaining(total)
         }
+    }
+}
+
+extension RouteTotals {
+    var presentClasses: [StretchClass] {
+        StretchClass.allCases.filter { self[$0] > 0 }
+    }
+}
+
+enum VerifiedOnlyToggleRule {
+    static func isShown(verifiedOnly: Bool, touched: Bool, plans: [NaviscootMeta]) -> Bool {
+        verifiedOnly || touched || plans.contains { UnverifiedStatus(meta: $0) != .none }
+    }
+}
+
+enum RouteBubbles {
+    static let candidateSamples = 120
+    static let referenceSamples = 400
+
+    // The point on each route furthest from every other route, so a bubble never lands on a shared stretch.
+    static func anchors(for routes: [[Coordinate]]) -> [Coordinate] {
+        let references = routes.map { sample($0, count: referenceSamples) }
+        return routes.enumerated().compactMap { index, route in
+            guard !route.isEmpty else { return nil }
+            let middle = route[route.count / 2]
+            let others = references.enumerated().filter { $0.offset != index }.map(\.element)
+            guard !others.isEmpty else { return middle }
+            let trimmed = Array(route[(route.count / 10) ..< max(route.count / 10 + 1, route.count - route.count / 10)])
+            var best = middle
+            var bestGap = 0.0
+            for candidate in sample(trimmed, count: candidateSamples) {
+                let gap = others.map { nearestSquaredM(from: candidate, to: $0) }.min() ?? 0
+                if gap > bestGap {
+                    bestGap = gap
+                    best = candidate
+                }
+            }
+            return best
+        }
+    }
+
+    static func nearestRoute(to point: CGPoint, routes: [(index: Int, points: [CGPoint])], tolerance: CGFloat) -> Int? {
+        var best: (index: Int, distance: CGFloat)?
+        for route in routes {
+            let distance = distance(from: point, toPolyline: route.points)
+            if distance <= tolerance, distance < best?.distance ?? .infinity {
+                best = (route.index, distance)
+            }
+        }
+        return best?.index
+    }
+
+    static func distance(from point: CGPoint, toPolyline points: [CGPoint]) -> CGFloat {
+        guard let first = points.first else { return .infinity }
+        guard points.count > 1 else { return hypot(point.x - first.x, point.y - first.y) }
+        return zip(points, points.dropFirst()).map { distance(from: point, segment: $0, $1) }.min() ?? .infinity
+    }
+
+    private static func distance(from p: CGPoint, segment a: CGPoint, _ b: CGPoint) -> CGFloat {
+        let dx = b.x - a.x
+        let dy = b.y - a.y
+        let lengthSquared = dx * dx + dy * dy
+        let t = lengthSquared == 0 ? 0 : max(0, min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared))
+        return hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+    }
+
+    private static func sample(_ points: [Coordinate], count: Int) -> [Coordinate] {
+        guard points.count > count, count > 1 else { return points }
+        return (0 ..< count).map { points[$0 * (points.count - 1) / (count - 1)] }
+    }
+
+    private static func nearestSquaredM(from point: Coordinate, to route: [Coordinate]) -> Double {
+        let metresPerLon = 111_320 * cos(point.lat * .pi / 180)
+        return route.map { other in
+            let dx = (other.lon - point.lon) * metresPerLon
+            let dy = (other.lat - point.lat) * 110_540
+            return dx * dx + dy * dy
+        }.min() ?? 0
     }
 }

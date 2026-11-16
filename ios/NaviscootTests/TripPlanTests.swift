@@ -26,11 +26,12 @@ final class TripPlanTests: XCTestCase {
         XCTAssertEqual(request.options.stops, [zeist.coordinate, soesterberg.coordinate])
         XCTAssertEqual(request.options.alternatives, 0)
 
-        trip.moveStopUp(at: 1)
+        trip.moveStop(from: 1, to: 0)
         XCTAssertEqual(trip.stops, [soesterberg, zeist])
         XCTAssertEqual(trip.request(currentLocation: here, avoid: RouteAvoid())?.options.stops, [soesterberg.coordinate, zeist.coordinate])
 
-        trip.moveStopUp(at: 0)
+        trip.moveStop(from: 0, to: 0)
+        trip.moveStop(from: 0, to: 5)
         XCTAssertEqual(trip.stops, [soesterberg, zeist])
         trip.removeStop(at: 0)
         XCTAssertEqual(trip.stops, [zeist])
@@ -184,6 +185,90 @@ final class TripPlanTests: XCTestCase {
         reopened.avoidFerries = false
         XCTAssertEqual(AppSettings(defaults: defaults).routeAvoid, RouteAvoid(ferries: false, unpaved: true, mainRoads: true))
     }
+
+    func testDraggingTheLastStopToTheTopKeepsTheOthersInOrder() throws {
+        var trip = TripPlan(destination: amersfoort)
+        let bunnik = Destination(title: "Bunnik", subtitle: "", coordinate: Coordinate(lat: 52.0667, lon: 5.1986))
+        trip.addStop(zeist)
+        trip.addStop(soesterberg)
+        trip.addStop(bunnik)
+
+        trip.moveStop(from: 2, to: 0)
+        XCTAssertEqual(trip.stops, [bunnik, zeist, soesterberg])
+        trip.moveStop(from: 0, to: 2)
+        XCTAssertEqual(trip.stops, [zeist, soesterberg, bunnik])
+        XCTAssertEqual(trip.request(currentLocation: here, avoid: RouteAvoid())?.options.stops, [zeist, soesterberg, bunnik].map(\.coordinate))
+
+        let payload = TripPlan.stopDragPayload(2)
+        XCTAssertEqual(TripPlan.stopIndex(fromDragPayload: payload), 2)
+        XCTAssertNil(TripPlan.stopIndex(fromDragPayload: "2"), "plain text dropped from elsewhere is not a stop")
+        XCTAssertNil(TripPlan.stopIndex(fromDragPayload: "Amersfoort"))
+    }
+
+    func testTheBreakdownOnlyListsRoadTypesTheRouteUses() {
+        let allCarriageway = RouteTotals(carriageway: 1278, mopedPath: 0, unverified: 0, forbidden: 0)
+        XCTAssertEqual(allCarriageway.presentClasses, [.carriageway])
+        let mixed = RouteTotals(carriageway: 500, mopedPath: 0, unverified: 120, forbidden: 30)
+        XCTAssertEqual(mixed.presentClasses, [.carriageway, .unverified, .forbidden])
+    }
+
+    func testTheVerifiedOnlyToggleHidesWhenNoRouteHasUnverifiedStretches() {
+        let clean = meta(unverified: 0)
+        let rough = meta(unverified: 150)
+
+        XCTAssertFalse(VerifiedOnlyToggleRule.isShown(verifiedOnly: false, touched: false, plans: [clean]))
+        XCTAssertFalse(VerifiedOnlyToggleRule.isShown(verifiedOnly: false, touched: false, plans: [clean, clean]))
+        XCTAssertTrue(VerifiedOnlyToggleRule.isShown(verifiedOnly: false, touched: false, plans: [clean, rough]), "an alternative with unverified stretches still needs the toggle")
+        XCTAssertTrue(VerifiedOnlyToggleRule.isShown(verifiedOnly: true, touched: false, plans: [clean]), "the user must always be able to turn it off")
+        XCTAssertTrue(VerifiedOnlyToggleRule.isShown(verifiedOnly: false, touched: true, plans: [clean]), "a toggle the user just used doesn't vanish")
+    }
+
+    func testBubblesSitWhereTheAlternativesSplitOffAndATapPicksTheNearestAlternative() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "route-alternatives", withExtension: "json"))
+        let plans = try RouteParser.parseAll(Data(contentsOf: url))
+        let routes = plans.map { $0.route.geometry.map(Coordinate.init) }
+
+        let anchors = RouteBubbles.anchors(for: routes)
+        XCTAssertEqual(anchors.count, 3)
+        for (index, anchor) in anchors.enumerated() {
+            XCTAssertTrue(routes[index].contains(anchor), "bubble \(index) is not on its own route")
+            for (other, route) in routes.enumerated() where other != index {
+                let gap = route.map { Geo.distanceM($0, anchor) }.min() ?? 0
+                XCTAssertGreaterThan(gap, 300, "bubble \(index) sits on route \(other)")
+            }
+        }
+
+        let line = [Coordinate(lat: 52, lon: 5), Coordinate(lat: 52.01, lon: 5), Coordinate(lat: 52.02, lon: 5)]
+        XCTAssertEqual(RouteBubbles.anchors(for: [line]), [line[1]], "a lone route gets its middle")
+        XCTAssertEqual(RouteBubbles.anchors(for: [line, line]), [line[1], line[1]], "identical routes fall back to the middle")
+
+        let routesOnScreen = [
+            (index: 1, points: [CGPoint(x: 0, y: 100), CGPoint(x: 200, y: 100)]),
+            (index: 2, points: [CGPoint(x: 0, y: 140), CGPoint(x: 200, y: 140)]),
+        ]
+        XCTAssertEqual(RouteBubbles.nearestRoute(to: CGPoint(x: 50, y: 110), routes: routesOnScreen, tolerance: 22), 1)
+        XCTAssertEqual(RouteBubbles.nearestRoute(to: CGPoint(x: 50, y: 125), routes: routesOnScreen, tolerance: 22), 2)
+        XCTAssertNil(RouteBubbles.nearestRoute(to: CGPoint(x: 50, y: 300), routes: routesOnScreen, tolerance: 22))
+        XCTAssertNil(RouteBubbles.nearestRoute(to: CGPoint(x: 260, y: 100), routes: routesOnScreen, tolerance: 22), "past the end of the line")
+    }
+
+    private func meta(unverified: Int) -> NaviscootMeta {
+        let stretches = [
+            Stretch(stretchClass: .carriageway, startShapeIndex: 0, endShapeIndex: 1, lengthM: 1000 - unverified, wayIds: [], unavoidable: nil),
+        ] + (unverified > 0 ? [Stretch(stretchClass: .unverified, startShapeIndex: 1, endShapeIndex: 2, lengthM: unverified, wayIds: [], unavoidable: nil)] : [])
+        return NaviscootMeta(
+            routeId: "r\(unverified)",
+            lengthM: 1000,
+            totalsM: RouteTotals(carriageway: 1000 - unverified, mopedPath: 0, unverified: unverified, forbidden: 0),
+            stretches: stretches,
+            speedLimits: nil,
+            warnings: [],
+            verifiedOnly: nil,
+            avoidUnpaved: nil,
+            legs: nil,
+            alternates: nil
+        )
+    }
 }
 
 final class StubRouteProtocol: URLProtocol {
@@ -281,6 +366,15 @@ final class PreviewModelTests: XCTestCase {
         XCTAssertNotEqual(model.plans[2].meta.routeId, model.plans[0].meta.routeId)
         model.select(5)
         XCTAssertEqual(model.selectedIndex, 2)
+
+        XCTAssertEqual(model.bubbleAnchors.count, 3, "every route gets a time bubble")
+        XCTAssertFalse(model.showsVerifiedOnlyToggle, "none of the routes has unverified stretches")
+        model.verifiedOnly = true
+        XCTAssertTrue(model.showsVerifiedOnlyToggle)
+        try await waitUntilLoaded(model)
+        model.verifiedOnly = false
+        try await waitUntilLoaded(model)
+        XCTAssertTrue(model.showsVerifiedOnlyToggle, "the toggle stays once the user has used it")
     }
 
     func testStopsKeepStartAndAnotherStartHidesIt() async throws {
@@ -306,6 +400,13 @@ final class PreviewModelTests: XCTestCase {
         XCTAssertTrue(model.canStart)
         XCTAssertEqual(model.rideToStart()?.stops, [stop, second])
         XCTAssertEqual(model.rideToStart()?.destination, model.destination)
+        XCTAssertEqual(model.bubbleAnchors, [], "a route with stops has no alternatives")
+
+        model.moveStop(from: 1, to: 0)
+        try await waitUntilLoaded(model)
+        let reordered = try XCTUnwrap(StubRouteProtocol.bodies.last?["waypoints"] as? [[String: Double]])
+        XCTAssertEqual(reordered.first, ["lat": second.coordinate.lat, "lon": second.coordinate.lon])
+        XCTAssertEqual(model.rideToStart()?.stops, [second, stop])
 
         model.removeStop(at: 1)
         try await waitUntilSettled(model)
@@ -331,6 +432,6 @@ final class PreviewModelTests: XCTestCase {
         let schedule = try XCTUnwrap(model.schedule())
         XCTAssertEqual(schedule.arrival, nine)
         XCTAssertEqual(schedule.departure, nine.addingTimeInterval(-(model.selectedPlan?.durationS ?? 0)))
-        XCTAssertEqual(StubRouteProtocol.bodies.count, 8)
+        XCTAssertEqual(StubRouteProtocol.bodies.count, 9)
     }
 }

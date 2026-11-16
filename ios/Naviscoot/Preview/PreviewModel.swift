@@ -14,11 +14,17 @@ final class PreviewModel: ObservableObject {
     @Published private(set) var selectedIndex = 0
     @Published var verifiedOnly: Bool {
         didSet {
-            if verifiedOnly != oldValue { reload() }
+            guard verifiedOnly != oldValue else { return }
+            verifiedOnlyTouched = true
+            showsVerifiedOnlyToggle = true
+            reload()
         }
     }
 
     @Published private(set) var defaultUnverifiedM: Int?
+    @Published private(set) var showsVerifiedOnlyToggle: Bool
+    @Published private(set) var bubbleAnchors: [Coordinate] = []
+    private var verifiedOnlyTouched = false
     private let client: NaviscootClient?
     private let settings: AppSettings
     private var currentLocation: Coordinate?
@@ -30,6 +36,7 @@ final class PreviewModel: ObservableObject {
         self.client = client
         self.settings = settings
         verifiedOnly = settings.verifiedOnlyByDefault
+        showsVerifiedOnlyToggle = settings.verifiedOnlyByDefault
     }
 
     var destination: Destination { trip.destination }
@@ -85,8 +92,8 @@ final class PreviewModel: ObservableObject {
         changeTrip { $0.removeStop(at: index) }
     }
 
-    func moveStopUp(at index: Int) {
-        changeTrip { $0.moveStopUp(at: index) }
+    func moveStop(from source: Int, to destination: Int) {
+        changeTrip { $0.moveStop(from: source, to: destination) }
     }
 
     func setTime(_ time: RouteTime?) {
@@ -114,26 +121,50 @@ final class PreviewModel: ObservableObject {
         task?.cancel()
         state = .loading
         selectedIndex = 0
+        bubbleAnchors = []
         lastRequest = request
         let verifiedOnly = verifiedOnly
         let language = settings.language
         task = Task { [weak self] in
             do {
-                let plans = try await client.routes(
-                    from: request.origin,
-                    to: request.destination,
-                    options: request.options,
-                    verifiedOnly: verifiedOnly,
-                    language: language
-                )
+                let plans: [RoutePlan] = if let simulated = try Self.simulatedPlans(for: request) {
+                    simulated
+                } else {
+                    try await client.routes(
+                        from: request.origin,
+                        to: request.destination,
+                        options: request.options,
+                        verifiedOnly: verifiedOnly,
+                        language: language
+                    )
+                }
                 guard !Task.isCancelled, let self else { return }
                 guard let primary = plans.first else { throw RouteParseError.noRoute }
                 if !verifiedOnly { self.defaultUnverifiedM = primary.meta.totalsM.unverified }
+                self.showsVerifiedOnlyToggle = VerifiedOnlyToggleRule.isShown(
+                    verifiedOnly: verifiedOnly,
+                    touched: self.verifiedOnlyTouched,
+                    plans: plans.map(\.meta)
+                )
+                self.bubbleAnchors = plans.count > 1
+                    ? RouteBubbles.anchors(for: plans.map { $0.route.geometry.map(Coordinate.init) })
+                    : []
                 self.state = .loaded(plans)
             } catch {
                 guard !Task.isCancelled, let self else { return }
                 self.state = .failed(Strings.message(for: error))
             }
         }
+    }
+
+    static let simulatedRoutesLaunchKey = "NaviscootSimRoutesFile"
+
+    private static func simulatedPlans(for request: TripRequest, defaults: UserDefaults = .standard) throws -> [RoutePlan]? {
+#if DEBUG
+        guard request.options.stops.isEmpty, let path = defaults.string(forKey: simulatedRoutesLaunchKey) else { return nil }
+        return try RouteParser.parseAll(Data(contentsOf: URL(fileURLWithPath: path)))
+#else
+        return nil
+#endif
     }
 }

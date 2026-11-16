@@ -130,13 +130,15 @@ private struct StripBackground: ViewModifier {
     }
 }
 
-// Fed from the map's realtime proxy so only the pin redraws while the map pans, not the whole home screen.
+// Fed from the map's realtime proxy so only the overlay redraws while the map pans, not the whole screen.
 @MainActor
 @Observable
 final class MapPointTracker {
-    private(set) var point: CGPoint?
+    private(set) var points: [CGPoint] = []
     @ObservationIgnored private var proxy: MapViewProxy?
-    @ObservationIgnored private var coordinate: Coordinate?
+    @ObservationIgnored private var coordinates: [Coordinate] = []
+
+    var point: CGPoint? { points.first }
 
     func mapChanged(_ proxy: MapViewProxy) {
         self.proxy = proxy
@@ -144,13 +146,22 @@ final class MapPointTracker {
     }
 
     func track(_ coordinate: Coordinate?) {
-        self.coordinate = coordinate
+        track(coordinate.map { [$0] } ?? [])
+    }
+
+    func track(_ coordinates: [Coordinate]) {
+        self.coordinates = coordinates
         refresh()
     }
 
+    func screenPoints(_ coordinates: [Coordinate]) -> [CGPoint] {
+        guard let proxy else { return [] }
+        return coordinates.map { proxy.convert($0.clLocation, toPointTo: nil) }
+    }
+
     private func refresh() {
-        let next = coordinate.flatMap { coordinate in proxy.map { $0.convert(coordinate.clLocation, toPointTo: nil) } }
-        if next != point { point = next }
+        let next = screenPoints(coordinates)
+        if next != points { points = next }
     }
 }
 

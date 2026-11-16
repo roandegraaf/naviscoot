@@ -109,6 +109,7 @@ enum Strings {
     static var changeStart: String { tr("preview.changeStart") }
     static var addStop: String { tr("preview.addStop") }
     static var moveStopUp: String { tr("preview.moveStopUp") }
+    static var moveStopDown: String { tr("preview.moveStopDown") }
     static var removeStop: String { tr("preview.removeStop") }
     static var startSearchTitle: String { tr("preview.startSearchTitle") }
     static var stopSearchTitle: String { tr("preview.stopSearchTitle") }
