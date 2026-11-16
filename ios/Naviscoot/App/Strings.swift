@@ -24,6 +24,8 @@ enum Strings {
     static var recentTrips: String { tr("home.recentTrips") }
     static var seeAll: String { tr("home.seeAll") }
     static var seeAllTrips: String { tr("home.seeAll.trips") }
+    static var scooterStripHint: String { tr("home.scooter.hint") }
+    static var walkThere: String { tr("home.parked.walk") }
     static var tripHistory: String { tr("trips.title") }
     static var noTrips: String { tr("trips.empty") }
     static var noTripsFooter: String { tr("trips.empty.footer") }

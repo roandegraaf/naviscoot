@@ -188,3 +188,99 @@ private func bytes(_ hex: String) -> [UInt8] {
         return UInt8(hex[start ..< hex.index(start, offsetBy: 2)], radix: 16)!
     }
 }
+
+@MainActor
+final class ScooterSimulationTests: XCTestCase {
+    func testTheLaunchOptionNamesAProfile() {
+        XCTAssertEqual(ScooterSimulation.parse("charging")?.profile, .charging)
+        XCTAssertEqual(ScooterSimulation.parse(" Riding ")?.profile, .riding)
+        XCTAssertNil(ScooterSimulation.parse("YES"))
+        XCTAssertNil(ScooterSimulation.parse(""))
+    }
+
+    func testTheFakeConnectsAndAnswersEveryRegisterTheScooterScreenReads() async throws {
+        let defaults = UserDefaults(suiteName: "scooter-sim-\(UUID().uuidString)")!
+        let connection = ScooterConnection(
+            settings: AppSettings(defaults: defaults),
+            keychain: ScooterKeychain(service: "nl.naviscoot.tests.\(UUID().uuidString)"),
+            simulation: ScooterSimulation(profile: .charging)
+        )
+        XCTAssertTrue(connection.isConfigured)
+        let started = ContinuousClock.now
+        connection.start()
+        defer { connection.stop() }
+        while connection.telemetry == nil, ContinuousClock.now - started < .seconds(5) {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(connection.state, .connected)
+        XCTAssertEqual(connection.telemetry, ScooterTelemetry(batteryPercent: 64, rangeKm: 31, odometerKm: 1234.5, speedKmh: 0))
+        XCTAssertNotNil(connection.clockSync)
+
+        let readStarted = ContinuousClock.now
+        let report = try await connection.run { await BatteryReport.read(from: $0) }
+        XCTAssertEqual(report.isCharging, true)
+        XCTAssertEqual(report.cycles, 87)
+        XCTAssertEqual(report.healthPercent ?? 0, 93, accuracy: 0.1)
+        XCTAssertEqual(report.chargePercent, 64)
+        XCTAssertEqual(report.temperaturesC, [22, 23, 22, 24])
+        XCTAssertEqual(report.cellsMv.count, 13)
+        XCTAssertNotNil(report.manufactured)
+        XCTAssertNotNil(report.estimatedTime(reaching: 80, from: Date()))
+
+        let timeToFull = try await connection.run { try await $0.value(.timeToFull) }
+        XCTAssertEqual(timeToFull, 95)
+        let features = try await connection.run { await ScooterFeatureControl.read(from: $0) }
+        XCTAssertEqual(features.count, ScooterFeature.all.count)
+        let recovery = try await connection.run { await ScooterFeatureControl.readRecovery(from: $0) }
+        XCTAssertEqual(recovery, .weak)
+        let limits = try await connection.run { session in
+            (try await session.value(.speedLimit), try await session.value(.ratedSpeed), try await session.value(.topSpeed), try await session.value(.mainPower))
+        }
+        XCTAssertEqual(limits.0, 0)
+        XCTAssertEqual(limits.1, 450)
+        XCTAssertEqual(limits.2, TopSpeedControl.lockedRegister)
+        XCTAssertEqual(limits.3, ScooterSimulation.mainPowerOn)
+        XCTAssertLessThan(ContinuousClock.now - readStarted, .seconds(1), "a register the screen reads is missing from the fake and timed out")
+        XCTAssertTrue(defaults.string(forKey: "settings.scooterSerial")?.isEmpty ?? true)
+    }
+
+    func testTheRidingProfileReportsSpeedAndDischarge() {
+        let simulation = ScooterSimulation(profile: .riding)
+        XCTAssertEqual(simulation.speedKmh, 24)
+        XCTAssertGreaterThan(simulation.packCurrentA, 0)
+    }
+}
+
+final class ScooterGlanceTests: XCTestCase {
+    private let telemetry = ScooterTelemetry(batteryPercent: 64, rangeKm: 30.6, odometerKm: 0, speedKmh: 0)
+
+    func testNoScooterSetUpHidesTheStrip() {
+        XCTAssertNil(ScooterGlance(state: .off, telemetry: nil, configured: false, language: .english))
+    }
+
+    func testAConnectedScooterShowsBatteryAndWholeKilometres() throws {
+        let glance = try XCTUnwrap(ScooterGlance(state: .connected, telemetry: telemetry, configured: true, language: .english))
+        XCTAssertEqual(glance.battery, "64%")
+        XCTAssertEqual(glance.range, "31 km")
+        XCTAssertEqual(glance.link, .connected)
+        XCTAssertEqual(glance.accessibilityValue, "64%, 31 km, Connected")
+        XCTAssertEqual(glance.batterySymbol, "battery.75percent")
+        let dutch = try XCTUnwrap(ScooterGlance(state: .connected, telemetry: telemetry, configured: true, language: .dutch))
+        XCTAssertEqual(dutch.accessibilityValue, "64%, 31 km, Verbonden")
+    }
+
+    func testALostLinkKeepsTheLastReadingButGoesQuiet() throws {
+        let glance = try XCTUnwrap(ScooterGlance(state: .failed(.timeout), telemetry: telemetry, configured: true, language: .english))
+        XCTAssertEqual(glance.link, .offline)
+        XCTAssertEqual(glance.accessibilityValue, "64%, 31 km, Not connected")
+    }
+
+    func testASetUpScooterWithoutAReadingShowsOnlyItsStatus() throws {
+        let glance = try XCTUnwrap(ScooterGlance(state: .connecting, telemetry: nil, configured: true, language: .english))
+        XCTAssertNil(glance.battery)
+        XCTAssertNil(glance.range)
+        XCTAssertEqual(glance.link, .connecting)
+        XCTAssertEqual(glance.accessibilityValue, "Connecting…")
+        XCTAssertEqual(glance.batterySymbol, "scooter")
+    }
+}

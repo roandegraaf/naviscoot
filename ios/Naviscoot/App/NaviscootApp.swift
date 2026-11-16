@@ -93,7 +93,7 @@ struct RootView: View {
         }
         .onAppear {
             #if DEBUG
-            HomeSeed.applyIfRequested(places: places, trips: trips)
+            HomeSeed.applyIfRequested(places: places, trips: trips, parked: parked)
             #endif
             search.origin = { [weak location] in location?.coordinate }
             location.start()

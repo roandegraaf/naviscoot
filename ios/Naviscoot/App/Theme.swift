@@ -17,6 +17,7 @@ enum Theme {
     static let surface = Color(light: 0xFFFFFF, dark: 0x1B212B)
     static let screen = Color(light: 0xFFFFFF, dark: 0x0F141B)
     static let warningBackground = Color(light: 0xFFF1E7, dark: 0x3A2112)
+    static let connected = Color(light: 0x15803D, dark: 0x22C55E)
 
     static let bannerFill = Color(hex: 0x111827)
     static let signInk = Color(hex: 0x111827)

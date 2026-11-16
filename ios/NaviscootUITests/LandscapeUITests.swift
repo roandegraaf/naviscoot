@@ -22,7 +22,8 @@ final class LandscapeUITests: XCTestCase {
         launch()
         rotate(to: .landscapeLeft)
 
-        assertReachable(["search.field", "search.settings", "home.home", "home.work", "home.locate", "home.layers"])
+        assertReachable(["search.field", "search.settings", "home.scooter", "home.home", "home.work", "home.locate", "home.layers"])
+        screenshot("landscape-00-home")
         let field = app.textFields["search.field"]
         field.tap()
         assertReachable(["search.close", "home.home", "home.work"])
@@ -44,7 +45,7 @@ final class LandscapeUITests: XCTestCase {
         app.buttons["preview.back"].tap()
         XCTAssertTrue(app.buttons["search.clear"].waitForExistence(timeout: 5))
         rotate(to: .portrait)
-        assertReachable(["search.field", "search.settings", "search.clear", "home.locate", "home.layers"])
+        assertReachable(["search.field", "search.settings", "search.clear", "home.scooter", "home.locate", "home.layers"])
     }
 
     private var window: XCUIElement { app.windows.firstMatch }
@@ -60,6 +61,7 @@ final class LandscapeUITests: XCTestCase {
             "-settings.avoidUnpaved", "NO",
             "-settings.avoidMainRoads", "NO",
             "-settings.mapStyle", "liberty",
+            "-NaviscootSimScooter", "charging",
         ]
         app.launch()
         XCTAssertTrue(app.textFields["search.field"].waitForExistence(timeout: 10))

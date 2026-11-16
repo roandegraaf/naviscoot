@@ -14,6 +14,7 @@
 		0D96847CEAA1BDBA342A0690 /* RangeCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = E05E7BAF310286CC583476FA /* RangeCheck.swift */; };
 		0EF1A9505A30FEC6C5F2F0B6 /* HomeSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA6EC744691F731B3C86DC2 /* HomeSurface.swift */; };
 		111CF6A5554C0D2676F9B286 /* HomeDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85969C5F1CE40AAA5A30A4F0 /* HomeDrawer.swift */; };
+		E2C7A25EC5DA5E3133C6C03B /* HomeMapOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8632A9C29E58542A0120110C /* HomeMapOverlays.swift */; };
 		1558C6C476518EBD5D9C0BED /* liberty-night.json in Resources */ = {isa = PBXBuildFile; fileRef = E6CD708F38ACF58F0EEB8301 /* liberty-night.json */; };
 		19CE9B4868ADAB1462E56E96 /* ScooterRideTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23399708091046C06845561 /* ScooterRideTests.swift */; };
 		1D60F819474B26B28CED9264 /* SearchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB88329B867E263A6EA9E0EE /* SearchModel.swift */; };
@@ -232,6 +233,7 @@
 		79DE94D4ACCFDD08A621C7B5 /* HomeSeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeSeed.swift; sourceTree = "<group>"; };
 		81E60D822ECFEDAF1A8D2E99 /* NaviscootWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaviscootWatchApp.swift; sourceTree = "<group>"; };
 		85969C5F1CE40AAA5A30A4F0 /* HomeDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeDrawer.swift; sourceTree = "<group>"; };
+		8632A9C29E58542A0120110C /* HomeMapOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeMapOverlays.swift; sourceTree = "<group>"; };
 		86F36C5838D8D6860D717781 /* ScooterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterTests.swift; sourceTree = "<group>"; };
 		874576FAC5B263C49304EBE0 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		8AA1856D5DEB4FAFCC3B5C9E /* PlacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesTests.swift; sourceTree = "<group>"; };
@@ -402,7 +404,6 @@
 				86F36C5838D8D6860D717781 /* ScooterTests.swift */,
 				0E06754939C12B838C133BCE /* SearchTests.swift */,
 				50D5524E815E878CE6DEEE0D /* SettingsTests.swift */,
-				4450FF7B4B1B60603EB9A833 /* SimulatedScooter.swift */,
 				F37980E760AFDC5CC6AF52BF /* TripPlanTests.swift */,
 				3C7ACC6015E8821DFEA9B5F9 /* TripTests.swift */,
 				20779789AF30D76F643AF78F /* VoiceTests.swift */,
@@ -458,6 +459,7 @@
 			isa = PBXGroup;
 			children = (
 				85969C5F1CE40AAA5A30A4F0 /* HomeDrawer.swift */,
+				8632A9C29E58542A0120110C /* HomeMapOverlays.swift */,
 				5C0FED6B1C9C8E7293BE382E /* MapStyleSheet.swift */,
 				681B3084E9093C0CA329B049 /* PDOKClient.swift */,
 				A7C2E13419B77B69871E7E8A /* PlaceSearch.swift */,
@@ -581,6 +583,7 @@
 				D4CA22B655A988F251053579 /* ScooterConnection.swift */,
 				B52100E9E8DEB57331464D9C /* ScooterControls.swift */,
 				BC59D2CB1C3CDB03DFABA833 /* ScooterFeatures.swift */,
+				4450FF7B4B1B60603EB9A833 /* SimulatedScooter.swift */,
 				D009D7B1B998B85A1556A7D9 /* .claude */,
 			);
 			path = Scooter;
@@ -780,6 +783,7 @@
 				331983C3A099B3669806C6FA /* Format.swift in Sources */,
 				65D5D3940B44F0D078CB52A7 /* GuidanceSpeech.swift in Sources */,
 				111CF6A5554C0D2676F9B286 /* HomeDrawer.swift in Sources */,
+				E2C7A25EC5DA5E3133C6C03B /* HomeMapOverlays.swift in Sources */,
 				F604FD03519CF37B7F92519F /* HomeSeed.swift in Sources */,
 				0EF1A9505A30FEC6C5F2F0B6 /* HomeSurface.swift in Sources */,
 				70ABF4620BEC243887DE1533 /* LocationService.swift in Sources */,
@@ -820,6 +824,7 @@
 				915A4C40EB9161D844768568 /* ScooterConnection.swift in Sources */,
 				A6A39C0CED5234557193C8B8 /* ScooterControls.swift in Sources */,
 				0307FAB61F51FD6F6523D406 /* ScooterFeatures.swift in Sources */,
+				906C3ED9F371C6D21BFF81D1 /* SimulatedScooter.swift in Sources */,
 				8BA3B7B93B763B5DFDE6683B /* ScooterRideMonitor.swift in Sources */,
 				2082C4A8B15D7A8C6442CB87 /* ScooterSettingsView.swift in Sources */,
 				1D60F819474B26B28CED9264 /* SearchModel.swift in Sources */,
@@ -859,7 +864,6 @@
 				C9CD64726E8C9D72BD7FB3DA /* ScooterTests.swift in Sources */,
 				56783EA23D392243B8C75410 /* SearchTests.swift in Sources */,
 				CE8B52A86CD7ABEEDA6E4998 /* SettingsTests.swift in Sources */,
-				906C3ED9F371C6D21BFF81D1 /* SimulatedScooter.swift in Sources */,
 				65873C4474CDA34BC9340F29 /* TripPlanTests.swift in Sources */,
 				9736B6F43A21470E403C16F5 /* TripTests.swift in Sources */,
 				FE8A60664073927CCB2F45D7 /* VoiceTests.swift in Sources */,

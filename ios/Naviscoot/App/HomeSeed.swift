@@ -4,8 +4,14 @@ import Foundation
 @MainActor
 enum HomeSeed {
     static let launchKey = "NaviscootSeedHome"
+    static let parkedKey = "NaviscootSeedParked"
 
-    static func applyIfRequested(places: PlacesStore, trips: TripStore, defaults: UserDefaults = .standard) {
+    static func applyIfRequested(places: PlacesStore, trips: TripStore, parked: ParkedScooterStore, defaults: UserDefaults = .standard) {
+        if let spot = defaults.string(forKey: parkedKey).flatMap(RideOptions.parseCoordinate) {
+            parked.record(spot, at: Date().addingTimeInterval(-600))
+        } else if defaults.bool(forKey: launchKey) {
+            parked.clear()
+        }
         guard defaults.bool(forKey: launchKey) else { return }
         places.removeAll()
         places.setHome(Destination(title: "Utrechtseweg 1", subtitle: "Amersfoort", coordinate: Coordinate(lat: 52.1491, lon: 5.3738)))

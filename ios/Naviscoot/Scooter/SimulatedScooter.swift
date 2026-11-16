@@ -1,4 +1,4 @@
-@testable import Naviscoot
+#if DEBUG
 import Foundation
 
 final class SimulatedScooter: NinebotTransport {
@@ -86,3 +86,86 @@ final class SimulatedScooter: NinebotTransport {
         inbox.push(crypto.encrypt(frame.bytes))
     }
 }
+
+// A DEBUG stand-in for the scooter: a real NinebotSession runs against this register map, so every screen reads it like hardware.
+struct ScooterSimulation: Equatable {
+    enum Profile: String, CaseIterable {
+        case charging
+        case riding
+    }
+
+    static let launchKey = "NaviscootSimScooter"
+    static let serial = "NAVISIMSCOOTER"
+    static let password: [UInt8] = Array(0x10 ... 0x1F as ClosedRange<UInt8>)
+    static let mainPowerOn = 429
+    static let mainPowerOff = 421
+
+    let profile: Profile
+    var batteryPercent = 64
+    var rangeKm = 31.0
+    var odometerKm = 1234.5
+    var timeToFullMinutes = 95
+
+    init(profile: Profile) {
+        self.profile = profile
+    }
+
+    static func requested(defaults: UserDefaults = .standard) -> ScooterSimulation? {
+        defaults.string(forKey: launchKey).flatMap(parse)
+    }
+
+    static func parse(_ text: String) -> ScooterSimulation? {
+        Profile(rawValue: text.trimmingCharacters(in: .whitespaces).lowercased()).map(ScooterSimulation.init(profile:))
+    }
+
+    var speedKmh: Double { profile == .riding ? 24 : 0 }
+
+    var packCurrentA: Double { profile == .charging ? -2.5 : 6.0 }
+
+    func makeScooter() -> SimulatedScooter {
+        let scooter = SimulatedScooter(serial: Self.serial, password: Self.password)
+        let dashboard = NinebotFrame.dashboardBoard
+        scooter.set(.battery, batteryPercent)
+        scooter.set(.range, Int((rangeKm * 10).rounded()))
+        scooter.set(.speed, Int((speedKmh * 10).rounded()))
+        let odometerM = UInt32((odometerKm * 1000).rounded())
+        scooter.set(board: dashboard, index: NinebotRegister.odometer.index, words: [UInt16(odometerM & 0xFFFF), UInt16(odometerM >> 16)])
+        scooter.set(.timeToFull, profile == .charging ? timeToFullMinutes : 0)
+        scooter.set(.ratedSpeed, 450)
+        scooter.set(.speedLimit, 0)
+        scooter.set(.controlFlags, 0)
+        scooter.set(.featureFlags, 0x4000 | 0x0008)
+        scooter.set(.timeZone, Int(UInt16(bitPattern: Int16(ScooterClock.offsetMinutes(.current, at: Date())))))
+        scooter.set(.mainPower, Self.mainPowerOn)
+        scooter.set(.topSpeed, TopSpeedControl.lockedRegister)
+        let battery = NinebotFrame.batteryBoard
+        scooter.set(board: battery, index: NinebotRegister.packInfo.index, bytes: packInfo)
+        scooter.set(board: battery, index: NinebotRegister.packManufactureDate.index, words: [UInt16((23 << 9) | (4 << 5) | 12)])
+        scooter.set(board: battery, index: NinebotRegister.packLive.index, words: packLive)
+        scooter.set(board: battery, index: NinebotRegister.packCells.index, words: [3851, 3849, 3853, 3850, 3848, 3852, 3851, 3846, 3850, 3854, 3849, 3851, 3850])
+        scooter.onAction = { action, scooter in
+            switch action {
+            case .powerOn: scooter.set(.mainPower, Self.mainPowerOn)
+            case .powerOff: scooter.set(.mainPower, Self.mainPowerOff)
+            case .openSeat: break
+            }
+        }
+        return scooter
+    }
+
+    private static let fullCapacityCAh = 2790
+
+    private var packInfo: [UInt8] {
+        let words: [UInt16] = [0x0355, 3000, UInt16(Self.fullCapacityCAh), 0, 87, 112]
+        return Array("NAVISIMPACK001".utf8) + words.flatMap { [UInt8($0 & 0xFF), UInt8($0 >> 8)] }
+    }
+
+    private var packLive: [UInt16] {
+        let remaining = UInt16(Self.fullCapacityCAh * batteryPercent / 100)
+        let current = UInt16(bitPattern: Int16((packCurrentA * 100).rounded()))
+        let temperatures: [UInt8] = [22, 23, 22, 24].map { $0 + 20 }
+        return [0x41, remaining, UInt16(batteryPercent * 10), current, 5005, 0,
+                UInt16(temperatures[0]) | UInt16(temperatures[1]) << 8, UInt16(temperatures[2]) | UInt16(temperatures[3]) << 8]
+    }
+}
+#endif

@@ -13,12 +13,16 @@ struct SearchView: View {
     @Environment(PlaceETAStore.self) private var etas
     @Environment(TripStore.self) private var trips
     @Environment(ParkedScooterStore.self) private var parked
+    @Environment(ScooterConnection.self) private var scooter
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var screenSize = CGSize(width: 400, height: 800)
     @State private var camera = MapViewCamera.center(CLLocationCoordinate2D(latitude: 52.156, longitude: 5.387), zoom: 12)
     @State private var centeredOnUser = false
     @State private var detent: PresentationDetent = .medium
     @State private var showsLayers = false
+    @State private var showsScooter = false
+    @State private var parkedPoint = MapPointTracker()
+    @State private var parkedExpanded = false
     @State private var leaving = false
 
     private var landscape: Bool { verticalSizeClass == .compact }
@@ -30,6 +34,20 @@ struct SearchView: View {
                     guard context.state == .began else { return }
                     model.dropPin(at: Coordinate(context.coordinate))
                 }
+                .onTapMapGesture { _ in
+                    parkedExpanded = false
+                }
+                .onMapViewProxyUpdate(updateMode: .realtime) { [parkedPoint] proxy in
+                    parkedPoint.mapChanged(proxy)
+                }
+                .overlay(alignment: .topLeading) {
+                    if let spot = parked.parked {
+                        ParkedScooterPin(parked: spot, tracker: parkedPoint, expanded: $parkedExpanded) {
+                            parked.openWalkingDirections()
+                        }
+                        .ignoresSafeArea()
+                    }
+                }
 
             if landscape {
                 landscapePanel
@@ -40,6 +58,13 @@ struct SearchView: View {
                 .padding(.trailing, 12)
                 .padding(.top, 8)
         }
+        .overlay(alignment: .topLeading) {
+            if !landscape, let glance = ScooterGlance(scooter) {
+                ScooterStrip(glance: glance) { showsScooter = true }
+                    .padding(.leading, 12)
+                    .padding(.top, 8)
+            }
+        }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
         .sheet(isPresented: drawerPresented) {
@@ -49,12 +74,17 @@ struct SearchView: View {
                 .environment(etas)
                 .environment(trips)
                 .environment(parked)
+                .environment(scooter)
                 .presentationDetents([.drawerCollapsed, .medium, .large], selection: $detent)
                 .presentationBackgroundInteraction(.enabled(upThrough: .medium))
                 .presentationContentInteraction(.resizes)
                 .presentationDragIndicator(.visible)
                 .interactiveDismissDisabled()
                 .drawerBackground()
+        }
+        .onChange(of: parked.parked?.coordinate, initial: true) { _, coordinate in
+            parkedPoint.track(coordinate)
+            if coordinate == nil { parkedExpanded = false }
         }
         .onChange(of: location.coordinate, initial: true) { _, coordinate in
             guard !centeredOnUser, let coordinate else { return }
@@ -74,6 +104,7 @@ struct SearchView: View {
             inSheet: inSheet,
             detent: inSheet ? $detent : .constant(.large),
             showsLayers: $showsLayers,
+            showsScooter: $showsScooter,
             onSelect: choose
         )
         .modifier(resumeOffer)

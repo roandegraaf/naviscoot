@@ -95,9 +95,47 @@ final class HomeDrawerUITests: XCTestCase {
         screenshot("drawer-09-eta-failed")
     }
 
+    func testParkedPinOffersWalkThereAndTheScooterStripOpensTheScooterScreen() throws {
+        launch(extra: ["-NaviscootSeedParked", "\(origin.lat),\(origin.lon)"])
+        XCTAssertFalse(app.buttons["home.scooter"].exists, "the strip shows without a scooter set up")
+        dragDrawer(by: 400)
+        let pin = app.buttons["home.parkedPin"]
+        XCTAssertTrue(pin.waitForExistence(timeout: 10), "no parked scooter pin on the map")
+        XCTAssertTrue(pin.isHittable)
+        screenshot("drawer-10-parked-pin")
+        XCTAssertEqual(pin.frame.midX, window.frame.midX, accuracy: 4, "the pin is not on the parked spot: \(pin.frame)")
+        // The map centres the camera in its safe area, a few points below the window centre.
+        XCTAssertEqual(pin.frame.midY, window.frame.midY, accuracy: 20, "the pin is not on the parked spot: \(pin.frame)")
+        pin.tap()
+        let walk = app.buttons["home.parkedPin.walk"]
+        XCTAssertTrue(walk.waitForExistence(timeout: 5), "the pin does not offer Walk there")
+        XCTAssertTrue(walk.isHittable)
+        XCTAssertEqual(walk.label, "Walk there")
+        screenshot("drawer-11-parked-callout")
+
+        app.terminate()
+        launch(extra: ["-NaviscootSimScooter", "charging"])
+        let strip = app.buttons["home.scooter"]
+        XCTAssertTrue(strip.waitForExistence(timeout: 10), "no scooter strip on home")
+        wait(for: strip, valueContains: "64%, 31 km, Connected")
+        XCTAssertTrue(strip.isHittable)
+        XCTAssertFalse(app.buttons["home.parkedPin"].exists, "a connected scooter still shows as parked")
+        screenshot("drawer-12-scooter-strip")
+        dragDrawer(by: 400)
+        XCTAssertTrue(strip.isHittable, "the strip is hidden with the drawer folded")
+        strip.tap()
+        let charging = app.staticTexts["settings.scooter.charging"]
+        XCTAssertTrue(charging.waitForExistence(timeout: 10), "the strip did not open the scooter screen")
+        wait(for: charging, labelContains: "Charging")
+        screenshot("drawer-13-scooter-screen")
+        app.buttons["scooter.done"].tap()
+        XCTAssertTrue(strip.waitForExistence(timeout: 5))
+        XCTAssertTrue(charging.waitForNonExistence(timeout: 5), "Done did not close the scooter screen")
+    }
+
     private var window: XCUIElement { app.windows.firstMatch }
 
-    private func launch(origin: (lat: Double, lon: Double)? = nil, eta: String? = nil) {
+    private func launch(origin: (lat: Double, lon: Double)? = nil, eta: String? = nil, extra: [String] = []) {
         let origin = origin ?? self.origin
         app = XCUIApplication()
         app.launchArguments = [
@@ -110,6 +148,7 @@ final class HomeDrawerUITests: XCTestCase {
         if let eta {
             app.launchArguments += ["-NaviscootSimETA", eta]
         }
+        app.launchArguments += extra
         app.launch()
         XCTAssertTrue(app.textFields["search.field"].waitForExistence(timeout: 10))
     }
@@ -117,6 +156,11 @@ final class HomeDrawerUITests: XCTestCase {
     private func wait(for element: XCUIElement, labelContains text: String) {
         let match = expectation(for: NSPredicate(format: "label CONTAINS %@", text), evaluatedWith: element)
         XCTAssertEqual(XCTWaiter.wait(for: [match], timeout: 10), .completed, "'\(text)' not in '\(element.label)'")
+    }
+
+    private func wait(for element: XCUIElement, valueContains text: String) {
+        let match = expectation(for: NSPredicate(format: "value CONTAINS %@", text), evaluatedWith: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [match], timeout: 10), .completed, "'\(text)' not in '\(element.value ?? "")'")
     }
 
     private func dragDrawer(by dy: CGFloat) {

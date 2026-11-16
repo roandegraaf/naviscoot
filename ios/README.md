@@ -73,22 +73,24 @@ xcodebuild -project Naviscoot.xcodeproj -scheme Naviscoot -destination "platform
 
 ### UI proof (`NaviscootUITests` scheme)
 
-A small smoke set: about one test per core flow, six tests in four classes, about 4 minutes of test time (5 with the
+A small smoke set: about one test per core flow, seven tests in four classes, about 5 minutes of test time (5 with the
 build). The detailed behaviour (parsing, totals, stops, resume, voice, appearance, trip stats) is covered by the unit
 tests, which run in seconds. Run the whole set when a change touches several screens; otherwise run only the classes for
 the screens you changed with `-only-testing:NaviscootUITests/<Class>`.
 
 | Class | Flow it proves |
 | --- | --- |
-| `HomeDrawerUITests` | Seeded places and recent trips show in the drawer on launch; "See all" and a recent trip open trip history and close back to the drawer. Searching expands the drawer, a result opens the preview, and backing out brings the drawer back with the query kept. With `-NaviscootSimETA`, Home 5 km away reads "12 min · …" and opens the preview; a failing fake shows "5.0 km · …" only. |
+| `HomeDrawerUITests` | Seeded places and recent trips show in the drawer on launch; "See all" and a recent trip open trip history and close back to the drawer. Searching expands the drawer, a result opens the preview, and backing out brings the drawer back with the query kept. With `-NaviscootSimETA`, Home 5 km away reads "12 min · …" and opens the preview; a failing fake shows "5.0 km · …" only. A seeded parking spot shows a scooter pin on the map that offers "Walk there"; with `-NaviscootSimScooter charging` the map's strip reads "64%, 31 km, Connected" and opens the scooter screen with the fake battery report. |
 | `TripsUITests` | Search → preview → Start → End through the alert at 60 km/h: a ride ended at once isn't recorded, one ended after 45 s is, with plausible distance, duration and speed. |
 | `StopRideUITests` | A ride killed mid-way is offered for resuming on the next launch; declining ("End ride") forgets it. |
-| `LandscapeUITests` | In landscape the side panel holds the drawer, search results and the preview's controls, all reachable and unclipped; rotating back keeps the query. |
+| `LandscapeUITests` | In landscape the side panel holds the drawer, search results and the preview's controls, all reachable and unclipped, the scooter strip included (fake scooter); rotating back keeps the query. |
 
 Every launch pins the language with `-settings.language en` and turns verified-only and the three avoid settings off,
 so the proof doesn't depend on the simulator's locale or on settings a previous run left behind. Every launch also
 passes `-NaviscootDiscardActiveRide YES`, except the resume relaunches. `HomeDrawerUITests` seeds Home, Work, a
-favourite, a recent and two trips with `-NaviscootSeedHome YES` (DEBUG only).
+favourite, a recent and two trips with `-NaviscootSeedHome YES`, and a parking spot with `-NaviscootSeedParked lat,lon`.
+`-NaviscootSimScooter charging|riding` connects a fake scooter: a real `NinebotSession` over `SimulatedScooter`, a
+register map at 64 %, 31 km and a charging battery report. No Bluetooth, and nothing is saved. All of these are DEBUG only.
 
 The previews and rides talk to the API with the key from `Local.xcconfig`. `TripsUITests`, `StopRideUITests` and
 `LandscapeUITests` skip without `TEST_RUNNER_NAVISCOOT_API_KEY`. The default base URL is the local stack (API on 8080); add

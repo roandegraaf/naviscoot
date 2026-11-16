@@ -10,12 +10,14 @@ struct HomeDrawer: View {
     let inSheet: Bool
     @Binding var detent: PresentationDetent
     @Binding var showsLayers: Bool
+    @Binding var showsScooter: Bool
     let onSelect: (Destination) -> Void
 
     @Environment(AppSettings.self) private var settings
     @Environment(PlacesStore.self) private var places
     @Environment(PlaceETAStore.self) private var etas
     @Environment(TripStore.self) private var trips
+    @Environment(ScooterConnection.self) private var scooter
     @State private var showsSettings = false
     @State private var showsPlacesEditor = false
     @State private var settingSlot: PlaceKind?
@@ -60,6 +62,17 @@ struct HomeDrawer: View {
         .sheet(isPresented: $showsLayers) {
             MapStyleSheet()
         }
+        .sheet(isPresented: $showsScooter) {
+            NavigationStack {
+                ScooterSettingsView(settings: settings)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(Strings.done) { showsScooter = false }
+                                .accessibilityIdentifier("scooter.done")
+                        }
+                    }
+            }
+        }
         .task(id: etaRefresh) {
             guard let etaRefresh else { return }
             await etas.keepFresh(from: etaRefresh.origin, to: etaRefresh.destinations)
@@ -88,6 +101,12 @@ struct HomeDrawer: View {
 
     @ViewBuilder
     private var content: some View {
+        if !inSheet, !searching, let glance = ScooterGlance(scooter) {
+            ScooterStrip(glance: glance, floating: false) {
+                fieldFocused = false
+                showsScooter = true
+            }
+        }
         if let pin = model.pin {
             pinCard(pin)
         }

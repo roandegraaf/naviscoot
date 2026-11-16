@@ -90,21 +90,59 @@ final class ScooterConnection {
     @ObservationIgnored private var queueTail: Task<Void, Never>?
     @ObservationIgnored private let pollInterval: Duration
 
+    #if DEBUG
+    @ObservationIgnored private let simulation: ScooterSimulation?
+
+    init(settings: AppSettings, keychain: ScooterKeychain, pollInterval: Duration = .seconds(5), simulation: ScooterSimulation? = .requested()) {
+        self.settings = settings
+        self.keychain = keychain
+        self.pollInterval = pollInterval
+        self.simulation = simulation
+    }
+    #else
     init(settings: AppSettings, keychain: ScooterKeychain, pollInterval: Duration = .seconds(5)) {
         self.settings = settings
         self.keychain = keychain
         self.pollInterval = pollInterval
     }
+    #endif
 
     var isConfigured: Bool {
-        !settings.scooterSerial.isEmpty && keychain.value(.password) != nil
+        #if DEBUG
+        if simulation != nil { return true }
+        #endif
+        return !settings.scooterSerial.isEmpty && keychain.value(.password) != nil
     }
 
     // Only started once a scooter is configured, so a fresh install never sees the Bluetooth permission prompt.
     func start() {
         guard loop == nil, isConfigured else { return }
+        #if DEBUG
+        if let simulation {
+            loop = Task { [weak self] in await self?.runSimulated(simulation) }
+            return
+        }
+        #endif
         loop = Task { [weak self] in await self?.run() }
     }
+
+    #if DEBUG
+    private func runSimulated(_ simulation: ScooterSimulation) async {
+        state = .connecting
+        let session = NinebotSession(transport: simulation.makeScooter(), serial: ScooterSimulation.serial, password: ScooterSimulation.password, listenWindow: .zero)
+        do {
+            try await session.authenticate()
+            self.session = session
+            state = .connected
+            if !rideActive { clockSync = try? await run { try await ScooterClock.sync(session: $0) } }
+            try await poll()
+        } catch {
+            guard !Task.isCancelled else { return }
+            self.session = nil
+            state = .failed(error as? ScooterError ?? .unexpectedResponse)
+        }
+    }
+    #endif
 
     func stop() {
         loop?.cancel()

@@ -460,6 +460,23 @@
         }
       }
     },
+    "home.parked.walk": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walk there"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loop erheen"
+          }
+        }
+      }
+    },
     "home.recentTrips": {
       "extractionState": "manual",
       "localizations": {
@@ -473,6 +490,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recente ritten"
+          }
+        }
+      }
+    },
+    "home.scooter.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens your scooter"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opent je scooter"
           }
         }
       }
