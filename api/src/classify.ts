@@ -27,6 +27,7 @@ export interface Classification {
   length_m: number;
   edge_length_m: number;
   totals_m: Record<StretchClass, number>;
+  main_road_m: number;
   stretches: Stretch[];
   speed_limits: SpeedLimitRun[];
   warnings: string[];
@@ -48,6 +49,8 @@ const PATH_USES = new Set([
 ]);
 
 const EDGE_MISMATCH_WARNING = 0.005;
+
+const MAIN_ROAD_CLASSES = new Set(["motorway", "trunk", "primary", "secondary"]);
 
 export function edgeClass(edge: TraceEdge, fused: FusedAccess): StretchClass {
   switch (fused.get(edge.way_id)) {
@@ -118,6 +121,8 @@ export function classifyRoute(edges: TraceEdge[], routeLengthM: number, fused: F
   const totals = Object.fromEntries(STRETCH_CLASSES.map((c) => [c, 0])) as Record<StretchClass, number>;
   for (const s of stretches) totals[s.class] += s.length_m;
 
+  const mainRoadKm = edges.reduce((sum, e) => sum + (e.road_class && MAIN_ROAD_CLASSES.has(e.road_class) ? e.length : 0), 0);
+
   const warnings: string[] = [];
   const forbidden = stretches.filter((s) => s.class === "forbidden").flatMap((s) => s.way_ids);
   if (forbidden.length) {
@@ -131,6 +136,7 @@ export function classifyRoute(edges: TraceEdge[], routeLengthM: number, fused: F
     length_m: lengthM,
     edge_length_m: Math.round(edgeLengthM),
     totals_m: totals,
+    main_road_m: Math.round(mainRoadKm * 1000 * scale),
     stretches,
     speed_limits: speedLimits(edges, fused),
     warnings,

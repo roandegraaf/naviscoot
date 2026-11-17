@@ -1803,6 +1803,10 @@ function filter_tags_generic(kv)
     kv["max_speed"] = limit
     if kv["moped"] == "unverified" then
       kv["average_speed"] = naviscoot_unverified_speed
+    else
+      -- Class 7 (service/other) carries a 0.5 road-class cost factor in motor_scooter costing, more than
+      -- primary (0.2), so verified moped paths would lose to busy roads. Residential (6) carries none.
+      kv["road_class"] = road_class["residential"]
     end
   end
   kv["int"] = kv["int"]

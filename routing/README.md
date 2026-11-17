@@ -21,6 +21,7 @@ a synthetic fixture that proves the patches, and the regression cases every grap
 | Untagged `barrier=bollard`, `block` or `cycle_barrier` nodes close moped access | the route detours around a moped path with one bollard; 1,062 allowed moped paths in the region carry such a node | a moped passes these like a bicycle; `motorcycle_barrier`, gates, chains and bars still close it |
 | Autoweg (`motorroad=yes`) is closed only by the admin-based country override, and only up to road class primary | already avoided on the fixture trunk | `motorroad=yes` always closes moped access |
 | `moped=no` is reopened by `motor_vehicle:forward`, `vehicle:backward` and the like, which are read later | a residential street with `moped=no` and `motor_vehicle:forward=yes` is ridden | `naviscoot:override=forbidden` (set by the rewrite step for a forbidden entry in `data/overrides.csv`) always closes moped access |
+| Cycleways and paths get road class 7 (service/other), which `motor_scooter` costing weights 0.5, more than primary (0.2); `use_primary=0` triples it | the route takes a 13% longer 30 km/h street over an equally fast moped path | a verified moped path gets road class residential (no class penalty); unverified paths keep class 7 |
 
 - The 8 km/h figure from the OVERVIEW was not observed on paved paths in 3.9.1.
 - The bollard fix is a fifth defect, found in this slice: untagged bollards on moped paths are common in NL.

@@ -2,6 +2,7 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { loadFused } from "./fused.js";
 import { ReportStore } from "./reports.js";
+import { FASTEST_CANDIDATES } from "./route.js";
 import { httpValhalla } from "./valhalla.js";
 
 const config = loadConfig();
@@ -13,6 +14,7 @@ const app = buildApp({
   fused,
   reports,
   maxVerifiedRequests: config.maxVerifiedRequests,
+  fastestCandidates: FASTEST_CANDIDATES,
   logger: true,
 });
 

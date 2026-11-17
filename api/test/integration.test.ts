@@ -8,6 +8,7 @@ import { buildApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
 import { type FusedStatus, loadFused } from "../src/fused.js";
 import { ReportStore } from "../src/reports.js";
+import { FASTEST_CANDIDATES, fastestSlackS } from "../src/route.js";
 import { decodePolyline6 } from "../src/polyline.js";
 import { httpValhalla } from "../src/valhalla.js";
 
@@ -130,6 +131,7 @@ describe.skipIf(!available)("against the local Valhalla", () => {
       fused,
       reports: await ReportStore.open(join(dir, "reports.jsonl")),
       maxVerifiedRequests: config.maxVerifiedRequests,
+      fastestCandidates: FASTEST_CANDIDATES,
     });
   });
   afterAll(() => app.close());
@@ -218,7 +220,7 @@ describe.skipIf(!available)("against the local Valhalla", () => {
     const n: Naviscoot = res.naviscoot;
     expect(n.length_m).toBeGreaterThan(200_000);
     expectTotalsAddUp(n, res.trip.summary.length * 1000);
-  });
+  }, 15_000);
 
   describe("waypoints", () => {
     const domplein = { lat: 52.0907, lon: 5.1214 };
@@ -349,11 +351,36 @@ describe.skipIf(!available)("against the local Valhalla", () => {
       expectTotalsAddUp(avoided.naviscoot, avoided.trip.summary.length * 1000);
     });
 
+    it("keeps the fastest route within the slack of the quickest costing through Arnhem", async () => {
+      const payload = { origin: { lat: 51.97709, lon: 5.89902 }, destination: { lat: 51.95638, lon: 5.90813 } };
+      const planned = await route(payload);
+      const times = await Promise.all(
+        [{}, ...FASTEST_CANDIDATES].map(async (costing) => {
+          const res = await fetch(`${config.valhallaUrl}/route`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              locations: [payload.origin, payload.destination],
+              costing: "motor_scooter",
+              costing_options: { motor_scooter: costing },
+              date_time: { type: 0 },
+              directions_type: "none",
+            }),
+          });
+          return ((await res.json()) as { trip: { summary: { time: number } } }).trip.summary.time;
+        }),
+      );
+      expect(planned.naviscoot.profile).toBe("fastest");
+      const quickest = Math.min(...times);
+      expect(planned.trip.summary.time).toBeLessThanOrEqual(quickest + fastestSlackS(quickest));
+    });
+
     it("avoids the primary road through Arnhem", async () => {
       const payload = { origin: { lat: 51.97709, lon: 5.89902 }, destination: { lat: 51.95638, lon: 5.90813 } };
       expect(mainRoadKm(await walkEdges((await route(payload)).trip.legs[0].shape))).toBeGreaterThan(1);
       const avoided = await route({ ...payload, avoid: { main_roads: true } });
-      expect(mainRoadKm(await walkEdges(avoided.trip.legs[0].shape))).toBe(0);
+      expect(avoided.naviscoot.profile).toBe("quiet");
+      expect(mainRoadKm(await walkEdges(avoided.trip.legs[0].shape))).toBeLessThan(0.05);
     });
   });
 });

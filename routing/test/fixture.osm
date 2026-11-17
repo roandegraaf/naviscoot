@@ -142,4 +142,26 @@
     <nd ref="603"/><nd ref="605"/>
     <tag k="highway" v="residential"/><tag k="name" v="Bollard East"/>
   </way>
+  <node id="800" version="1" lat="52.1600" lon="4.9950"/>
+  <node id="801" version="1" lat="52.1600" lon="5.0000"/>
+  <node id="802" version="1" lat="52.1600" lon="5.0150"/>
+  <node id="803" version="1" lat="52.1625" lon="5.0075"/>
+  <node id="804" version="1" lat="52.1600" lon="5.0200"/>
+  <way id="8001" version="1">
+    <nd ref="800"/><nd ref="801"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Class West"/>
+  </way>
+  <way id="8002" version="1">
+    <nd ref="801"/><nd ref="802"/>
+    <tag k="highway" v="cycleway"/><tag k="name" v="Class Moped Path"/>
+    <tag k="moped" v="designated"/><tag k="naviscoot:builtup" v="yes"/><tag k="surface" v="asphalt"/>
+  </way>
+  <way id="8003" version="1">
+    <nd ref="801"/><nd ref="803"/><nd ref="802"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Class Street Detour"/><tag k="maxspeed" v="30"/>
+  </way>
+  <way id="8004" version="1">
+    <nd ref="802"/><nd ref="804"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Class East"/>
+  </way>
 </osm>

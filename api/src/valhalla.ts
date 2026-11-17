@@ -6,6 +6,7 @@ export interface TraceEdge {
   end_shape_index: number;
   speed_limit?: number;
   unpaved?: boolean;
+  road_class?: string;
 }
 
 export type ValhallaBody = Record<string, unknown>;
@@ -14,6 +15,7 @@ export type ValhallaResponse = Record<string, unknown>;
 export interface ValhallaClient {
   route(body: ValhallaBody): Promise<ValhallaResponse>;
   edgeWalk(encodedPolyline: string): Promise<TraceEdge[]>;
+  traceRoute(body: ValhallaBody): Promise<ValhallaResponse>;
   status(): Promise<boolean>;
 }
 
@@ -31,7 +33,7 @@ export class ValhallaError extends Error {
   }
 }
 
-const EDGE_ATTRIBUTES = ["edge.way_id", "edge.length", "edge.use", "edge.begin_shape_index", "edge.end_shape_index", "edge.speed_limit", "edge.unpaved"];
+const EDGE_ATTRIBUTES = ["edge.way_id", "edge.length", "edge.use", "edge.begin_shape_index", "edge.end_shape_index", "edge.speed_limit", "edge.unpaved", "edge.road_class"];
 
 export function httpValhalla(baseUrl: string, timeoutMs = 60_000): ValhallaClient {
   const url = baseUrl.replace(/\/+$/, "");
@@ -59,6 +61,7 @@ export function httpValhalla(baseUrl: string, timeoutMs = 60_000): ValhallaClien
 
   return {
     route: (body) => post("route", body),
+    traceRoute: (body) => post("trace_route", body),
     async edgeWalk(encodedPolyline) {
       const data = await post("trace_attributes", {
         encoded_polyline: encodedPolyline,
@@ -74,6 +77,7 @@ export function httpValhalla(baseUrl: string, timeoutMs = 60_000): ValhallaClien
         end_shape_index: e.end_shape_index ?? 0,
         ...(typeof e.speed_limit === "number" ? { speed_limit: e.speed_limit } : {}),
         ...(e.unpaved ? { unpaved: true } : {}),
+        ...(e.road_class ? { road_class: e.road_class } : {}),
       }));
     },
     async status() {

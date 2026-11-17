@@ -62,6 +62,16 @@ describe("speedLimits", () => {
 });
 
 describe("classifyRoute", () => {
+  it("adds up the metres on motorway, trunk, primary and secondary roads", () => {
+    const route = fakeRoute([
+      { way_id: 1, km: 0.4, road_class: "primary" },
+      { way_id: 2, km: 0.3, road_class: "secondary" },
+      { way_id: 3, km: 0.2, road_class: "tertiary" },
+      { way_id: 4, km: 0.1, road_class: "residential" },
+    ]);
+    expect(classifyRoute(route.edges, 1000, new Map()).main_road_m).toBe(700);
+  });
+
   it("merges consecutive edges of one class into stretches with shape indices and way ids", () => {
     const route = fakeRoute([
       { way_id: 1, km: 0.2 },

@@ -198,7 +198,7 @@
     {
       "id": "utrecht-domplein-to-amersfoort",
       "kind": "route",
-      "description": "Utrecht Domplein to Amersfoort centre along the N237 moped paths; stock Valhalla gave 42.6 km",
+      "description": "Utrecht Domplein to Amersfoort centre along the N237 moped paths; stock Valhalla gave 42.6 km. Re-pinned 2026-11-17: without the class-7 penalty the route takes the moped path on the other side of the Amersfoortseweg (38422009, 32137377) over the parallel 45 km/h road",
       "points": [
         [
           52.0907,
@@ -210,8 +210,8 @@
         ]
       ],
       "use_way_ids": [
-        33433662,
-        27508395,
+        38422009,
+        32137377,
         222531282
       ],
       "max_length_km": 25

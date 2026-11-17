@@ -1,20 +1,20 @@
 # Coverage audit: bromfiets access on cycle paths
 
-Generated 2026-11-14 18:42 CET by `cd data && uv run audit`. Do not edit by hand; hand-check notes live in `docs/audit/handcheck.md` and are embedded below.
+Generated 2026-11-17 13:27 CET by `cd data && uv run audit`. Do not edit by hand; hand-check notes live in `docs/audit/handcheck.md` and are embedded below.
 
 ## Scope and sources
 
 - Region: 50 km around 52.156, 5.387 (Amersfoort).
 - Cycle path: every OSM way with `highway=cycleway` that has at least one node inside the region; lengths are whole-way lengths.
-- OSM: Geofabrik Netherlands extract `https://download.geofabrik.de/europe/netherlands-261113.osm.pbf`, Last-Modified Sat, 14 Nov 2026 00:33:19 GMT.
-- NDW: verkeersborden API v5 `current-state`, one request per sign code, downloaded G11 2026-11-14T17:41:46Z, G12a 2026-11-14T17:41:51Z, G12b 2026-11-14T17:41:52Z, G13 2026-11-14T17:41:53Z. Signs with `removedOn` set are dropped.
+- OSM: Geofabrik Netherlands extract `https://download.geofabrik.de/europe/netherlands-261116.osm.pbf`, Last-Modified Tue, 17 Nov 2026 00:16:41 GMT.
+- NDW: verkeersborden API v5 `current-state`, one request per sign code, downloaded G11 2026-11-17T11:55:10Z, G12a 2026-11-17T11:55:16Z, G12b 2026-11-17T11:55:16Z, G13 2026-11-17T11:55:18Z. Signs with `removedOn` set are dropped.
 
 ## Method
 
 - **OSM status** uses only `moped`, `moped:forward`, `moped:backward` and `traffic_sign*`. `moped=yes/designated/permissive/destination` is allowed, `moped=no` is forbidden; without a moped tag, `traffic_sign` NL:G12a is allowed and NL:G11 or NL:G13 is forbidden. `mofa=*` (snorfiets) is never used. A moped tag wins over a contradicting `traffic_sign` on the same way.
 - **NDW match**: each G11, G12a, G12b and G13 sign is matched to the nearest cycle path segment within 20 m whose direction is within 45 degrees of the sign bearing (compared as undirected lines, so a sign for either travel direction matches). 85% of the regional NDW bearings are exactly 0, 90, 180 or 270 degrees, so for most signs this is effectively a quadrant check.
 - **After NDW evidence**: OSM status is kept where OSM knows it; an OSM-unknown way takes the NDW status when all matched G11/G12a/G13 signs agree. G12b (end of moped path) is matched and counted but not used as evidence, because it says nothing on its own about which side of the sign is the moped path. This is the slice 1 method, kept unchanged so the figure stays comparable.
-- **Fusion** re-attaches every G11, G12a, G12b and G13 sign and propagates it along the path network, then applies the precedence override list > explicit OSM tag > NDW (direct, then propagated) > unknown. The NDW `bearing` is the travel direction of the traffic the sign addresses: at path entrances, 10,375 bearings point into the path, 367 point out of it and 762 run across it. Details:
+- **Fusion** re-attaches every G11, G12a, G12b and G13 sign and propagates it along the path network, then applies the precedence override list > explicit OSM tag > NDW (direct, then propagated) > unknown. The NDW `bearing` is the travel direction of the traffic the sign addresses: at path entrances, 10,375 bearings point into the path, 365 point out of it and 762 run across it. Details:
   - *Attachment*: a sign with a precise bearing (not a multiple of 90 degrees) goes to the nearest path within 20 m whose direction is within 20 degrees, otherwise to the nearest within 45 degrees. If a cycle path junction (three or more path arms) lies within 8 m, the sign goes to the arm that leaves the junction in its travel direction, but only when that arm is within 20 (precise) or 45 (quantised) degrees and beats the next arm by at least 15 degrees; otherwise the sign is ambiguous and gives no evidence. A sign less than 5 m before the end of its path, in its travel direction, is handed to the next path when exactly one path continues there and no road joins.
   - *Propagation*: from the attached path, the status is walked forward in the sign's travel direction over connected cycle paths. It stops at a junction with a road (any motor road, including `service` except driveways and parking aisles; footways, paths and tracks do not stop it) or with another cycle path: at the end of a path, or inside the signed path ahead of the sign. A next path that has such a junction partway along it is not entered, because status is per whole way and part of it lies beyond the junction. It also stops at a dead end; before a path that carries its own G11/G12a/G12b/G13 sign; after a path whose explicit OSM tag says the opposite; after a path with a G12b for the same travel direction; at a closed loop; or after 5 km. Status is per whole way.
   - *NDW verdict per way*: direct signs beat propagated ones; disagreeing signs of the stronger kind leave the way 'mixed' (unknown).
@@ -25,45 +25,45 @@ Generated 2026-11-14 18:42 CET by `cd data && uv run audit`. Do not edit by hand
 
 | Status | Ways | Length (km) | Share of length |
 |---|---:|---:|---:|
-| allowed | 17,496 | 3,113.1 | 32.4% |
-| forbidden | 28,658 | 4,392.3 | 45.6% |
-| unknown | 26,398 | 2,117.3 | 22.0% |
-| **total** | **72,552** | **9,622.7** | 100% |
+| allowed | 17,505 | 3,113.4 | 32.4% |
+| forbidden | 28,685 | 4,394.1 | 45.7% |
+| unknown | 26,392 | 2,115.8 | 22.0% |
+| **total** | **72,582** | **9,623.3** | 100% |
 
 ## Cycle path status after adding NDW evidence
 
 | Status | Ways | Length (km) | Share of length |
 |---|---:|---:|---:|
-| allowed | 19,005 | 3,282.2 | 34.1% |
-| forbidden | 35,795 | 5,162.5 | 53.6% |
-| unknown | 17,752 | 1,177.9 | 12.2% |
-| **total** | **72,552** | **9,622.7** | 100% |
+| allowed | 19,014 | 3,282.5 | 34.1% |
+| forbidden | 35,820 | 5,163.8 | 53.7% |
+| unknown | 17,748 | 1,177.0 | 12.2% |
+| **total** | **72,582** | **9,623.3** | 100% |
 
-Unknown length drops from 2,117.3 km to 1,177.9 km (939.4 km resolved by NDW).
+Unknown length drops from 2,115.8 km to 1,177.0 km (938.9 km resolved by NDW).
 
 ## Cycle path status after fusion
 
 | Status | Ways | Length (km) | Share of length |
 |---|---:|---:|---:|
-| allowed | 18,988 | 3,296.9 | 34.3% |
-| forbidden | 35,758 | 5,217.4 | 54.2% |
-| unknown | 17,806 | 1,108.4 | 11.5% |
-| **total** | **72,552** | **9,622.7** | 100% |
+| allowed | 18,995 | 3,297.0 | 34.3% |
+| forbidden | 35,783 | 5,218.7 | 54.2% |
+| unknown | 17,804 | 1,107.6 | 11.5% |
+| **total** | **72,582** | **9,623.3** | 100% |
 
 ### Unknown cycle-path length by stage
 
 | Stage | Unknown ways | Unknown length (km) | Share of length |
 |---|---:|---:|---:|
-| OSM alone | 26,398 | 2,117.3 | 22.0% |
-| After NDW point evidence (slice 1 method) | 17,752 | 1,177.9 | 12.2% |
-| After fusion | 17,806 | 1,108.4 | 11.5% |
+| OSM alone | 26,392 | 2,115.8 | 22.0% |
+| After NDW point evidence (slice 1 method) | 17,748 | 1,177.0 | 12.2% |
+| After fusion | 17,804 | 1,107.6 | 11.5% |
 
-Unknown length goes from 1,177.9 km (slice 1) to 1,108.4 km. Against the slice 1 method:
+Unknown length goes from 1,177.0 km (slice 1) to 1,107.6 km. Against the slice 1 method:
 
 | Change | Ways | Length (km) |
 |---|---:|---:|
-| Newly resolved by a direct sign (re-attachment, hand-over to the next path) | 470 | 28.4 |
-| Newly resolved by propagation | 1,806 | 103.4 |
+| Newly resolved by a direct sign (re-attachment, hand-over to the next path) | 469 | 28.4 |
+| Newly resolved by propagation | 1,805 | 103.2 |
 | Resolved in slice 1 but unknown after fusion (sign now ambiguous or attached elsewhere) | 2,330 | 62.3 |
 | ... of which NDW signs now disagree on the way (mixed) | 9 | 1.3 |
 | Resolved in both, but to the opposite status | 3 | 0.0 |
@@ -73,24 +73,24 @@ Unknown length goes from 1,177.9 km (slice 1) to 1,108.4 km. Against the slice 1
 | Source | Ways | Length (km) | ... of which unknown in OSM (km) |
 |---|---:|---:|---:|
 | override list | 1 | 0.1 | 0.0 |
-| explicit OSM tag | 46,137 | 7,501.8 | 0.0 |
+| explicit OSM tag | 46,173 | 7,503.9 | 0.0 |
 | NDW sign newer than the OSM tag | 16 | 3.6 | 0.0 |
-| NDW sign on the way | 6,715 | 902.8 | 902.8 |
-| NDW sign propagated from another way | 1,877 | 106.1 | 106.1 |
-| none (unknown) | 17,806 | 1,108.4 | 1,108.4 |
+| NDW sign on the way | 6,712 | 902.3 | 902.3 |
+| NDW sign propagated from another way | 1,876 | 105.9 | 105.9 |
+| none (unknown) | 17,804 | 1,107.6 | 1,107.6 |
 
-Propagated ways by distance from the sign (in ways): 1 hop 1,207, 2 hops 445, 3 hops 127, 4 hops 46, 5 hops 19, 6 hops 11, more 22.
+Propagated ways by distance from the sign (in ways): 1 hop 1,206, 2 hops 445, 3 hops 127, 4 hops 46, 5 hops 19, 6 hops 11, more 22.
 
 ### Sign attachment
 
 | Sign | In region | On its matched path | Junction arm | Handed to next path | Ambiguous at cycle junction | No path fits | Unreadable (no evidence) | Confirmed by sub-sign |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| G11 | 31,821 | 19,969 | 5,082 | 620 | 3,950 | 2,200 | 410 | 1,392 |
-| G12a | 15,015 | 9,498 | 2,161 | 345 | 2,071 | 940 | 23 | 0 |
+| G11 | 31,822 | 19,969 | 5,082 | 621 | 3,950 | 2,200 | 410 | 1,392 |
+| G12a | 15,015 | 9,501 | 2,161 | 344 | 2,071 | 938 | 23 | 0 |
 | G12b | 1,223 | 960 | 82 | 22 | 22 | 137 | 2 | 0 |
 | G13 | 4,123 | 2,904 | 432 | 107 | 175 | 505 | 32 | 158 |
 
-OB505 and OB502 (OB505 on 208 attached signs, OB502 on 13 attached signs) are not interpreted. Their meaning was looked up on 2026-11-14 in the OSM wiki list of Dutch sub-signs (it lists OB51 to OB66 and OB504, 'arrows down-left and down-right', but not OB502 or OB505), the OSM community forum (OB505 appears under a G12a, undefined) and Noord-Brabant sign drawings (exb-2019-6446: sizes only). No catalogue entry with their meaning was reachable, so the main sign's meaning stands. They sit in the arrow sub-sign family next to OB504, which would not change who may use the path, but that is an inference, not a lookup.
+OB505 and OB502 (OB505 on 210 attached signs, OB502 on 13 attached signs) are not interpreted. Their meaning was looked up on 2026-11-14 in the OSM wiki list of Dutch sub-signs (it lists OB51 to OB66 and OB504, 'arrows down-left and down-right', but not OB502 or OB505), the OSM community forum (OB505 appears under a G12a, undefined) and Noord-Brabant sign drawings (exb-2019-6446: sizes only). No catalogue entry with their meaning was reachable, so the main sign's meaning stands. They sit in the arrow sub-sign family next to OB504, which would not change who may use the path, but that is an inference, not a lookup.
 
 ## Override list (1 entry)
 
@@ -104,31 +104,31 @@ OB505 and OB502 (OB505 on 208 attached signs, OB502 on 13 attached signs) are no
 
 | | Ways | Length (km) |
 |---|---:|---:|
-| Unknown in OSM | 26,398 | 2,117.3 |
-| ... with a matched G11/G12a/G13 sign (distance + bearing) | 8,785 | 973.6 |
-| ... resolved by NDW (all matched signs agree) | 8,646 | 939.4 |
+| Unknown in OSM | 26,392 | 2,115.8 |
+| ... with a matched G11/G12a/G13 sign (distance + bearing) | 8,783 | 973.1 |
+| ... resolved by NDW (all matched signs agree) | 8,644 | 938.9 |
 | ... matched signs disagree (G12a and G11/G13 on one way) | 139 | 34.2 |
-| ... with any of the four signs within 20 m, ignoring bearing | 15,316 | 1,312.5 |
-| **Remain unknown after NDW** | **17,752** | **1,177.9** |
+| ... with any of the four signs within 20 m, ignoring bearing | 15,310 | 1,311.7 |
+| **Remain unknown after NDW** | **17,748** | **1,177.0** |
 
 Tags on the cycle paths that remain unknown (not used for classification; inputs for the fusion slice):
 
 | Tag present | Ways | Length (km) |
 |---|---:|---:|
 | `mofa=*` | 574 | 36.7 |
-| `motor_vehicle=no` | 132 | 10.4 |
+| `motor_vehicle=no` | 134 | 10.4 |
 | `vehicle=no` | 5 | 0.3 |
 | `access=no/private` | 128 | 10.6 |
-| `bicycle=designated` | 419 | 32.6 |
+| `bicycle=designated` | 417 | 32.3 |
 | `traffic_sign=* (other than G11/G12a/G13)` | 135 | 28.4 |
-| none of these | 16,441 | 1,065.2 |
+| none of these | 16,439 | 1,064.5 |
 
 ## NDW sign matching
 
 | Sign | In region | Matched (distance + bearing) | Matched (distance only) | No cycle path within 20 m |
 |---|---:|---:|---:|---:|
-| G11 | 31,821 | 29,623 | 30,949 | 872 |
-| G12a | 15,015 | 14,078 | 14,707 | 308 |
+| G11 | 31,822 | 29,624 | 30,950 | 872 |
+| G12a | 15,015 | 14,080 | 14,707 | 308 |
 | G12b | 1,223 | 1,086 | 1,160 | 63 |
 | G13 | 4,123 | 3,619 | 3,882 | 241 |
 
@@ -140,10 +140,10 @@ Counts from the slice 1 matching, where every G11 and G13 is scored forbidden an
 
 | | Matched G11/G12a/G13 signs | Conflict pairs | NDW-resolved ways (km) |
 |---|---:|---:|---:|
-| has a supplementary sign with a code or text | 3,569 | 90 | 940 (112.4) |
+| has a supplementary sign with a code or text | 3,571 | 90 | 940 (112.4) |
 | has a deviating exemption | 0 | 0 | 0 (0.0) |
 
-Most common supplementary texts on matched signs: "snorfietsen niet toegestaan" 1,436, "onleesbaar" 543, "ob505" 218, "dus niet brommen" 154, "speed-pedelecs toegestaan" 146, "ob502" 81, "uitgezonderd bestemmingsverkeer" 53, "snorfietsen niet  toegestaan" 49.
+Most common supplementary texts on matched signs: "snorfietsen niet toegestaan" 1,436, "onleesbaar" 543, "ob505" 220, "dus niet brommen" 154, "speed-pedelecs toegestaan" 146, "ob502" 81, "uitgezonderd bestemmingsverkeer" 53, "snorfietsen niet  toegestaan" 49.
 
 ## Conflicts between OSM and NDW
 
@@ -151,26 +151,26 @@ After fusion, OSM and NDW disagree on 702 ways. Every one is listed with both da
 
 | OSM says | NDW says | NDW kind | Ways | NDW newer | Confirmed by sub-sign | Won by NDW | Won by override |
 |---|---|---|---:|---:|---:|---:|---:|
-| allowed | forbidden | direct | 479 | 49 | 21 | 11 | 1 |
+| allowed | forbidden | direct | 478 | 49 | 21 | 11 | 1 |
 | allowed | forbidden | propagated | 19 | 3 | 1 | 0 | 0 |
-| forbidden | allowed | direct | 198 | 14 | 0 | 5 | 0 |
+| forbidden | allowed | direct | 199 | 14 | 0 | 5 | 0 |
 | forbidden | allowed | propagated | 6 | 0 | 0 | 0 | 0 |
 
 ### Newer NDW against older OSM: what the rule did
 
-NDW sign dates: 1,034 of 50,959 G11/G12a/G13 records have `validatedOn`, 1,076 have `placedOn`, and 0 have none of these three dates. Undated records never win on recency.
+NDW sign dates: 1,036 of 50,960 G11/G12a/G13 records have `validatedOn`, 1,077 have `placedOn`, and 0 have none of these three dates. Undated records never win on recency.
 
 | Outcome (conflicts not settled by an override) | Ways | Length (km) |
 |---|---:|---:|
 | Resolved in NDW's favour | 16 | 3.6 |
 | Left in the conflict report: NDW is newer but its sign attachment is ambiguous | 47 | 5.0 |
-| Left in the conflict report: OSM edit is newer than the NDW sign | 613 | 101.3 |
+| Left in the conflict report: OSM edit is newer than the NDW sign | 613 | 101.8 |
 | Left in the conflict report: NDW status is propagated from another path | 25 | 1.5 |
 | Left in the conflict report: NDW record has no placed, validated or registered date | 0 | 0.0 |
 
-Why attached signs are not unambiguous (all attached signs, not only conflicts): another fitting cycle path within 20 m 12,993, sign attached as junction arm 7,757, sign more than 10 m from the path 2,098, cycle path junction within 20 m 2,039, sign attached as handed over 1,094, sign carries a sub-sign of unverified meaning (OB505/OB502) 173.
+Why attached signs are not unambiguous (all attached signs, not only conflicts): another fitting cycle path within 20 m 12,995, sign attached as junction arm 7,757, sign more than 10 m from the path 2,100, cycle path junction within 20 m 2,040, sign attached as handed over 1,094, sign carries a sub-sign of unverified meaning (OB505/OB502) 175.
 
-For comparison, the slice 1 point matching found 1,582 sign-way conflict pairs on 1,270 ways. Fusion has fewer because signs at cycle path junctions are re-attached by direction or dropped as ambiguous.
+For comparison, the slice 1 point matching found 1,583 sign-way conflict pairs on 1,270 ways. Fusion has fewer because signs at cycle path junctions are re-attached by direction or dropped as ambiguous.
 
 ## Ways where OSM contradicts itself (95)
 

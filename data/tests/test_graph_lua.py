@@ -91,6 +91,11 @@ def test_bollard_does_not_close_a_moped_path(graphs):
     assert 6002 in patched and 6003 not in patched
 
 
+def test_moped_path_costs_like_a_residential_street(graphs):
+    patched = _ride(graphs["patched"], 52.16, 5.0175)
+    assert 8002 in patched and 8003 not in patched
+
+
 OVERRIDE_DIR = paths.REPO_DIR / "routing" / "build" / "fixture-override"
 OVERRIDE_GRAPHS = {"stock": ("stock", 8104), "patched": ("routing/valhalla/graph.lua", 8105)}
 OVERRIDE_NODES = {

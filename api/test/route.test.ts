@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { FusedStatus } from "../src/fused.js";
-import { planRoute, type RouteRequest, valhallaBody, valhallaLocalTime } from "../src/route.js";
+import { type Costing, fastestSlackS, planRoute, QUIET_TOP_SPEED_KMH, type RouteRequest, valhallaBody, valhallaLocalTime } from "../src/route.js";
 import { type ValhallaBody, ValhallaError } from "../src/valhalla.js";
-import { fakeLegs, fakeRoute, fakeValhalla, type Pick } from "./fake-valhalla.js";
+import { FAKE_TRACED_SECONDS_PER_KM, fakeLegs, fakeRoute, fakeValhalla, type Pick } from "./fake-valhalla.js";
 
 const fused = new Map<number, FusedStatus>([[20, "unknown"]]);
 
@@ -382,11 +382,13 @@ describe("avoid", () => {
     expect(valhallaBody(request({ avoid: { ferries: false, unpaved: false, main_roads: false } }), [])).not.toHaveProperty("costing_options");
   });
 
-  it("maps ferries and main roads onto motor_scooter use_ferry and use_primary", () => {
+  it("maps ferries onto use_ferry and main roads onto the quiet profile", () => {
     expect(valhallaBody(request({ avoid: { ferries: true } }), []).costing_options).toEqual({ motor_scooter: { use_ferry: 0 } });
-    expect(valhallaBody(request({ avoid: { main_roads: true } }), []).costing_options).toEqual({ motor_scooter: { use_primary: 0 } });
+    expect(valhallaBody(request({ avoid: { main_roads: true } }), []).costing_options).toEqual({
+      motor_scooter: { use_primary: 0, top_speed: QUIET_TOP_SPEED_KMH },
+    });
     expect(valhallaBody(request({ avoid: { ferries: true, main_roads: true, unpaved: true } }), []).costing_options).toEqual({
-      motor_scooter: { use_ferry: 0, use_primary: 0 },
+      motor_scooter: { use_ferry: 0, use_primary: 0, top_speed: QUIET_TOP_SPEED_KMH },
     });
   });
 
@@ -485,5 +487,180 @@ describe("avoid", () => {
     expect(naviscoot.totals_m.unverified).toBe(0);
     expect(naviscoot.verified_only).toMatchObject({ requests: 3, excluded_points: 0, converged: true });
     expect(naviscoot.avoid_unpaved).toEqual({ converged: false, remaining_m: 400 });
+  });
+});
+
+describe("quiet profile", () => {
+  const isQuietCall = (body: ValhallaBody) =>
+    (body.costing_options as { motor_scooter?: { top_speed?: number } } | undefined)?.motor_scooter?.top_speed === QUIET_TOP_SPEED_KMH;
+  const busy = fakeRoute([
+    { way_id: 1, km: 1 },
+    { way_id: 50, km: 2, road_class: "primary" },
+    { way_id: 2, km: 1 },
+  ]);
+  const quiet = fakeRoute(
+    [
+      { way_id: 1, km: 1 },
+      { way_id: 60, km: 1.2, road_class: "residential" },
+      { way_id: 61, km: 1.2, road_class: "residential" },
+      { way_id: 2, km: 1 },
+    ],
+    undefined,
+    0.002,
+  );
+
+  it("re-traces the quiet route with the default costing for its times and instructions", async () => {
+    const { valhalla, result } = plan(() => quiet, request({ avoid: { main_roads: true }, format: "osrm" }));
+    const { response, naviscoot } = await result;
+    expect(valhalla.traced).toEqual([
+      {
+        encoded_polyline: quiet.shape,
+        shape_match: "edge_walk",
+        costing: "motor_scooter",
+        directions_options: { units: "kilometers", language: "nl-NL" },
+        format: "osrm",
+        banner_instructions: true,
+        voice_instructions: true,
+      },
+    ]);
+    const [route] = response.routes as { duration: number; confidence?: number }[];
+    expect(route?.duration).toBeCloseTo(4.4 * FAKE_TRACED_SECONDS_PER_KM);
+    expect(route).not.toHaveProperty("confidence");
+    expect(naviscoot.profile).toBe("quiet");
+    expect(naviscoot.main_road_m).toBe(0);
+  });
+
+  it("re-traces each leg of a quiet trip with stops and joins them", async () => {
+    const legs = fakeLegs([[{ way_id: 1, km: 1 }], [{ way_id: 2, km: 2 }]]);
+    const { valhalla, result } = plan(() => legs, request({ avoid: { main_roads: true }, waypoints: [{ lat: 52.1, lon: 5.1 }] }));
+    const { response, naviscoot } = await result;
+    expect(valhalla.traced.map((b) => b.encoded_polyline)).toEqual(legs.legs.map((l) => l.shape));
+    const trip = (response as { trip: { legs: unknown[]; summary: { length: number; time: number } } }).trip;
+    expect(trip.legs).toHaveLength(2);
+    expect(trip.summary).toMatchObject({ length: 3, time: 3 * FAKE_TRACED_SECONDS_PER_KM });
+    expect(naviscoot.legs?.map((l) => [l.start_shape_index, l.end_shape_index])).toEqual([
+      [0, 1],
+      [1, 2],
+    ]);
+  });
+
+  it("falls back to the fastest route when the quiet route cannot be re-traced", async () => {
+    const { valhalla, result } = plan(() => busy, request({ avoid: { main_roads: true } }));
+    valhalla.traceRoute = async () => {
+      throw new ValhallaError("valhalla trace_route 400: no match", 400);
+    };
+    const { naviscoot } = await result;
+    expect(valhalla.calls.filter((c) => !isQuietCall(c))).toHaveLength(1);
+    expect(naviscoot.profile).toBe("fastest");
+  });
+
+  it("offers the quiet route as the first alternative to the fastest one", async () => {
+    const { result } = plan(
+      (body) => (isAlternatesCall(body) ? [busy] : isQuietCall(body) ? quiet : busy),
+      request({ alternatives: 2, format: "osrm" }),
+    );
+    const { response, naviscoot } = await result;
+    expect(naviscoot.profile).toBe("fastest");
+    expect(naviscoot.main_road_m).toBe(2000);
+    expect(naviscoot.alternates?.map((a) => [a.profile, a.main_road_m])).toEqual([["quiet", 0]]);
+    expect((response.routes as { duration?: number }[]).map((r) => r.duration)).toEqual([undefined, 4.4 * FAKE_TRACED_SECONDS_PER_KM]);
+  });
+
+  it("offers the fastest route as the alternative when quiet is requested", async () => {
+    const { result } = plan(
+      (body) => (isAlternatesCall(body) ? [busy] : isQuietCall(body) ? quiet : busy),
+      request({ alternatives: 2, avoid: { main_roads: true } }),
+    );
+    const { naviscoot } = await result;
+    expect(naviscoot.profile).toBe("quiet");
+    expect(naviscoot.alternates?.map((a) => a.profile)).toEqual(["fastest"]);
+  });
+
+  it("drops the quiet route when it is the fastest route", async () => {
+    const { result } = plan(() => busy, request({ alternatives: 2 }));
+    const { naviscoot } = await result;
+    expect(naviscoot.alternates).toEqual([]);
+  });
+});
+
+describe("fastest guard", () => {
+  const scenic = fakeRoute([
+    { way_id: 1, km: 1 },
+    { way_id: 70, use: "cycleway", km: 3 },
+    { way_id: 2, km: 1 },
+  ]);
+  const direct = fakeRoute(
+    [
+      { way_id: 1, km: 1 },
+      { way_id: 71, km: 2, road_class: "unclassified" },
+      { way_id: 2, km: 1 },
+    ],
+    undefined,
+    0.002,
+  );
+  const candidates: Costing[] = [{ speed_penalty_factor: 0 }, { shortest: true }];
+  const motorScooter = (body: ValhallaBody) => (body.costing_options as { motor_scooter?: Record<string, unknown> } | undefined)?.motor_scooter;
+  const isProbe = (body: ValhallaBody) => body.directions_type === "none";
+  const run = (defaultSeconds: number, candidateSeconds: number, req: RouteRequest) => {
+    const valhalla = fakeValhalla((body) => (motorScooter(body)?.speed_penalty_factor === 0 ? direct : scenic));
+    const route = valhalla.route.bind(valhalla);
+    valhalla.route = async (body) => {
+      const response = await route(body);
+      const options = motorScooter(body);
+      const seconds = options?.speed_penalty_factor === 0 ? candidateSeconds : options?.shortest ? 9999 : defaultSeconds;
+      if (body.format === "osrm") {
+        return { ...response, routes: (response.routes as Record<string, unknown>[]).map((r) => ({ ...r, duration: seconds })) };
+      }
+      const trip = response.trip as { summary: Record<string, unknown> };
+      return { ...response, trip: { ...trip, summary: { ...trip.summary, time: seconds } } };
+    };
+    return { valhalla, result: planRoute({ valhalla, fused, maxVerifiedRequests: 5, fastestCandidates: candidates }, req, NOW) };
+  };
+  const routed = (calls: ValhallaBody[]) => calls.filter((c) => !isProbe(c));
+
+  it("allows 10% of the quickest time, at least 30 s and at most 3 min", () => {
+    expect(fastestSlackS(100)).toBe(30);
+    expect(fastestSlackS(600)).toBe(60);
+    expect(fastestSlackS(1800)).toBe(180);
+    expect(fastestSlackS(30_000)).toBe(180);
+  });
+
+  it("probes every candidate and keeps the default when it is at most the slack slower", async () => {
+    const { valhalla, result } = run(1100, 1000, request());
+    const { naviscoot } = await result;
+    expect(valhalla.calls.filter(isProbe).map(motorScooter)).toEqual(candidates);
+    expect(routed(valhalla.calls)).toHaveLength(1);
+    expect(routed(valhalla.calls)[0]).not.toHaveProperty("costing_options");
+    expect(naviscoot.stretches.map((s) => s.class)).toContain("moped_path");
+  });
+
+  it("plans the quickest candidate when the default is more than the slack slower", async () => {
+    const { valhalla, result } = run(1101, 1000, request({ avoid: { ferries: true }, format: "osrm" }));
+    const { response, naviscoot } = await result;
+    expect(routed(valhalla.calls).map(motorScooter)).toEqual([{ use_ferry: 0 }, { use_ferry: 0, speed_penalty_factor: 0 }]);
+    expect((response.routes as { duration: number }[])[0]?.duration).toBe(1000);
+    expect(naviscoot.profile).toBe("fastest");
+    expect(naviscoot.stretches.map((s) => s.class)).toEqual(["carriageway"]);
+  });
+
+  it("probes in the native format without directions", async () => {
+    const { valhalla, result } = run(1000, 1000, request({ format: "osrm" }));
+    await result;
+    for (const probe of valhalla.calls.filter(isProbe)) {
+      expect(probe).not.toHaveProperty("format");
+      expect(probe).not.toHaveProperty("banner_instructions");
+    }
+  });
+
+  it("leaves the shortest candidate out when ferries are avoided", async () => {
+    const { valhalla, result } = run(1000, 1000, request({ avoid: { ferries: true } }));
+    await result;
+    expect(valhalla.calls.filter(isProbe).map(motorScooter)).toEqual([{ use_ferry: 0, speed_penalty_factor: 0 }]);
+  });
+
+  it("does not probe for the quiet profile", async () => {
+    const { valhalla, result } = run(1000, 1000, request({ avoid: { main_roads: true } }));
+    await result;
+    expect(valhalla.calls.filter(isProbe)).toEqual([]);
   });
 });

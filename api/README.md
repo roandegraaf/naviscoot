@@ -84,7 +84,7 @@ fields existed: the same Valhalla request, and a response equal to the old one a
 | `depart_at` | now | ISO 8601 date-time with offset. Valhalla `date_time` type 1. |
 | `arrive_by` | none | ISO 8601 date-time with offset. Valhalla `date_time` type 2. Also works with waypoints (verified on 3.9.1). |
 | `avoid.ferries` | `false` | `motor_scooter.use_ferry: 0`: the maximum ferry penalty and 10× ferry cost. Soft: a ferry that is the only way stays in. |
-| `avoid.main_roads` | `false` | `motor_scooter.use_primary: 0`: the road-class penalty triples. That penalty is weighted by class (trunk 0.5, primary 0.2, secondary 0.1, tertiary 0.05, residential 0; service roads also 0.5). Soft, like Valhalla's own option. |
+| `avoid.main_roads` | `false` | The quiet profile (see "Quiet profile"). Soft: a main road that is the only way stays in. |
 | `avoid.unpaved` | `false` | Done by this service, not by Valhalla. See "Avoid unpaved". |
 
 - The server always sends `costing: motor_scooter`. Without a time it sends `date_time: {"type": 0}` (see
@@ -104,10 +104,12 @@ fields existed: the same Valhalla request, and a response equal to the old one a
   "trip": {"...": "native Valhalla, or routes/waypoints/code for format osrm"},
   "naviscoot": {
     "route_id": "uuid",
+    "profile": "fastest",
     "format": "valhalla",
     "length_m": 36254,
     "edge_length_m": 36246,
     "totals_m": {"carriageway": 20961, "moped_path": 14810, "unverified": 483, "forbidden": 0},
+    "main_road_m": 8120,
     "stretches": [
       {"class": "unverified", "start_shape_index": 1341, "end_shape_index": 1377, "first_edge": 412, "last_edge": 413,
        "length_m": 483, "way_ids": [1497802338]}
@@ -197,6 +199,43 @@ index space: the whole route's geometry.**
 
 Measured: Domplein → two stops → Amersfoort, legs at shape indices 0–338, 338–707, 707–955 of a 956-point geometry.
 
+### Fastest guard
+
+`motor_scooter` cost is not time. `speed_penalty_factor` (0.05 per km/h above the 45 km/h top speed, so +0.75 on a
+60 km/h road), road-class factors, density and turn costs can make the default pick a route minutes slower than
+another costing finds. Measured on 53 Dutch trips of 3-30 km on 2026-11-17, the default alone was up to 12 min slower
+than the quickest costing.
+
+- `server.ts` passes `FASTEST_CANDIDATES` (`route.ts`): four costings (`speed_penalty_factor: 0`, with and without
+  `use_primary: 1`, `shortest`, and one that also drops the living-street and service penalties).
+- For the fastest profile's primary route, they are probed (native format, `directions_type: none`, no exclusions)
+  while the default is planned as usual.
+- The default stays unless the quickest probe beats it by more than `fastestSlackS()`: 10% of the quickest time, at
+  least 30 s and at most 3 min (`FASTEST_SLACK`). That is the price of the smoother route, mostly staying off 60-80
+  km/h roads. Then that costing is planned too, with the same verified-only and unpaved loops, and replaces the
+  default only if its own time still beats it by more than the slack.
+- `shortest` ignores `use_ferry`, so it sits out when ferries are avoided.
+- With a flat 60 s slack, the same 53 trips came out at median +0 s, max +61 s against the best time any costing or
+  the previous graph found. Groningen to Maastricht: 498 instead of 515 min.
+- Cost: four extra `route` calls per fastest request, in parallel with the default; a second plan only when it pays.
+
+### Quiet profile
+
+`use_primary: 0` alone barely moves a route: it adds a cost factor of 0.6 to primary and 0.3 to secondary roads, while a
+50 km/h main road is still ridden at the 45 km/h cap against 30 km/h on a residential street. Measured on four
+Amersfoort crossings, it changed none of them.
+
+- The quiet profile asks `motor_scooter` for `use_primary: 0` and `top_speed: 30` (`QUIET_TOP_SPEED_KMH`), so a main
+  road no longer outruns a 30 km/h street. At 35, Leusden to Hoogland stayed on the main roads (65%).
+- The capped search gives wrong times. Each leg of the chosen route is re-traced with `trace_route` (`edge_walk`,
+  default costing, same format and instructions), so geometry stays and times, instructions and `duration` are
+  real. Legs are joined again for a trip with stops; a zero-length leg keeps its own. The re-traced route is classified.
+- If re-tracing fails, the fastest route is returned with `"profile": "fastest"`.
+- `main_road_m` is the classified length on motorway, trunk, primary and secondary roads, for every route.
+- Measured on 2026-11-17 (graph with verified moped paths at road class residential), share of main road for the
+  fastest and the quiet route: Bergkwartier → Soesterkwartier 72% → 14% for +1.0 min; Schothorst → Kruiskamp
+  46% → 0% for +0.1 min; Nieuwland → Liendert 50% → 0% for +4.1 min; Leusden → Hoogland 65% → 6% for +4.8 min.
+
 ### Alternatives
 
 Valhalla only returns alternates from its bidirectional search: a time-dependent request (`date_time` type 0, 1 or 2)
@@ -205,9 +244,11 @@ configuration"), so:
 1. The primary route comes from the usual time-dependent request, so it's the same route as without `alternatives`.
 2. A second request uses `date_time` type 3 (a fixed time, so time-conditional access is still evaluated) at the
    requested time or now, with `alternates: 2`. Valhalla's `max_alternates` is 2.
-3. Candidates that share 90% or more of their edge length (by OSM way) with the primary or an already kept route are
-   dropped. The rest are kept in Valhalla's order, up to `alternatives`.
-4. Each kept route is classified on its own and gets its own `route_id`. With `verified_only`, both requests run the
+3. A third request plans the other profile: quiet when the primary is fastest, fastest when it's quiet. That route is
+   the first candidate, then Valhalla's alternates (fastest profile).
+4. Candidates that share 90% or more of their edge length (by OSM way) with the primary or an already kept route are
+   dropped. The rest are kept in that order, up to `alternatives`.
+5. Each kept route is classified on its own and gets its own `route_id` and `profile`. With `verified_only`, both requests run the
    verified-only loop; the second loop excludes the unverified edges of all its routes together.
 
 The response keeps Valhalla's own layout for several routes:

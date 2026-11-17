@@ -5,6 +5,7 @@ import type { ReportInput, ReportStore } from "./reports.js";
 import {
   type Avoid,
   ClassificationError,
+  type Costing,
   MAX_ALTERNATIVES,
   MAX_WAYPOINTS,
   type Point,
@@ -19,6 +20,7 @@ export interface AppDeps {
   fused: FusedAccess;
   reports: ReportStore;
   maxVerifiedRequests: number;
+  fastestCandidates?: Costing[];
   logger?: boolean;
 }
 
@@ -151,7 +153,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     checkCombination(body);
     const time = body.depart_at ?? body.arrive_by;
     const result = await planRoute(
-      { valhalla: deps.valhalla, fused: deps.fused, maxVerifiedRequests: deps.maxVerifiedRequests },
+      { valhalla: deps.valhalla, fused: deps.fused, maxVerifiedRequests: deps.maxVerifiedRequests, ...(deps.fastestCandidates ? { fastestCandidates: deps.fastestCandidates } : {}) },
       {
         origin: body.origin,
         destination: body.destination,
