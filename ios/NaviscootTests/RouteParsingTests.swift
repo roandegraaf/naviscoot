@@ -96,6 +96,35 @@ final class RouteParsingTests: XCTestCase {
         XCTAssertEqual(limits.last?.endShapeIndex, 955)
     }
 
+    static func withProfiles(_ data: Data, _ profiles: [(String, Int)]) throws -> Data {
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var naviscoot = try XCTUnwrap(json["naviscoot"] as? [String: Any])
+        var alternates = naviscoot["alternates"] as? [[String: Any]] ?? []
+        for (index, (profile, mainRoadM)) in profiles.enumerated() {
+            if index == 0 {
+                naviscoot["profile"] = profile
+                naviscoot["main_road_m"] = mainRoadM
+            } else {
+                alternates[index - 1]["profile"] = profile
+                alternates[index - 1]["main_road_m"] = mainRoadM
+            }
+        }
+        naviscoot["alternates"] = alternates
+        json["naviscoot"] = naviscoot
+        return try JSONSerialization.data(withJSONObject: json)
+    }
+
+    func testProfileAndMainRoadShareAreReadAndOptional() throws {
+        let data = try fixture("route-alternatives")
+        XCTAssertEqual(try RouteParser.parseAll(data).map(\.meta.profile), [nil, nil, nil])
+        XCTAssertEqual(try RouteParser.parseAll(data).map(\.mainRoadPercent), [nil, nil, nil])
+
+        let plans = try RouteParser.parseAll(Self.withProfiles(data, [("fastest", 11097), ("fastest", 0), ("quiet", 2592)]))
+        XCTAssertEqual(plans.map(\.meta.profile), [.fastest, .fastest, .quiet])
+        XCTAssertEqual(plans.map(\.meta.mainRoadM), [11097, 0, 2592])
+        XCTAssertEqual(plans.map(\.mainRoadPercent), [50, 0, 10])
+    }
+
     func testAlternativesParseIntoOnePlanPerRouteWithItsOwnMeta() throws {
         let data = try fixture("route-alternatives")
         let plans = try RouteParser.parseAll(data)

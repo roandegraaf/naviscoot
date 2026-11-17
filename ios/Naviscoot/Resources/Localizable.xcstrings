@@ -1089,6 +1089,23 @@
         }
       }
     },
+    "preview.route.mainRoads": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% main roads"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% hoofdwegen"
+          }
+        }
+      }
+    },
     "preview.route.noUnverified": {
       "extractionState": "manual",
       "localizations": {
@@ -1102,6 +1119,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Niets onbevestigd"
+          }
+        }
+      }
+    },
+    "preview.route.quiet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quiet route"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rustige route"
           }
         }
       }
@@ -1221,40 +1255,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bewaard"
-          }
-        }
-      }
-    },
-    "preview.sheet.collapse": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide route details"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Routedetails verbergen"
-          }
-        }
-      }
-    },
-    "preview.sheet.expand": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show route details"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Routedetails tonen"
           }
         }
       }
@@ -5107,13 +5107,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Applies to every route you plan. A ferry or main road that is the only way stays in the route."
+            "value": "Applies to every route you plan. Quiet roads take 30 km/h streets and moped paths over busy main roads, for a few minutes extra. A ferry or main road that is the only way stays in the route."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geldt voor elke route die je plant. Een pont of hoofdweg die de enige weg is, blijft in de route."
+            "value": "Geldt voor elke route die je plant. Rustige wegen kiezen 30 km-straten en bromfietspaden boven drukke hoofdwegen, voor een paar minuten extra. Een pont of hoofdweg die de enige weg is, blijft in de route."
           }
         }
       }
@@ -5124,13 +5124,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avoid main roads"
+            "value": "Prefer quiet roads"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hoofdwegen vermijden"
+            "value": "Liever rustige wegen"
           }
         }
       }

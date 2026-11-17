@@ -2,6 +2,10 @@ import MapLibre
 import MapLibreSwiftUI
 import SwiftUI
 
+extension PresentationDetent {
+    static let previewCollapsed = PresentationDetent.height(PreviewView.collapsedHeight)
+}
+
 struct PreviewView: View {
     private enum SearchTarget: String, Identifiable {
         case start
@@ -24,10 +28,10 @@ struct PreviewView: View {
     @Environment(ScooterConnection.self) private var scooter
     @Environment(TripStore.self) private var trips
     @Environment(AppSettings.self) private var settings
-    @State private var screenHeight: CGFloat = 800
-    @State private var sheetHeight: CGFloat = 470
-    @State private var sheetCollapsed = false
-    @State private var sheetDrag: CGFloat = 0
+    @State private var detent: PresentationDetent = .medium
+    @State private var drawerReady = false
+    @State private var leaving = false
+    @State private var pendingExit: (() -> Void)?
     @State private var scrollContentHeight: CGFloat = 0
     @State private var panelFrame: CGRect = .zero
     @State private var backFrame: CGRect = .zero
@@ -59,7 +63,8 @@ struct PreviewView: View {
                 otherRoutes: otherRoutes,
                 stops: model.trip.stops.map(\.coordinate),
                 origin: originCoordinate,
-                destination: model.destination.coordinate
+                destination: model.destination.coordinate,
+                mopedPathMarkers: plan?.mopedPathMarkers ?? []
             )
             .onMapViewProxyUpdate(updateMode: .realtime) { [routePoints] proxy in
                 routePoints.mapChanged(proxy)
@@ -74,7 +79,9 @@ struct PreviewView: View {
                 }
             }
 
-            Button(action: onBack) {
+            Button {
+                leave(then: onBack)
+            } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Theme.ink)
@@ -95,15 +102,8 @@ struct PreviewView: View {
                 }
                 .padding(.trailing, 12)
                 .padding(.vertical, 8)
-            } else {
-                VStack {
-                    Spacer()
-                    sheet
-                }
-                .ignoresSafeArea(edges: .bottom)
             }
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { screenHeight = $0 }
         .background {
             Color.clear
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { windowFrame = $0 }
@@ -116,42 +116,90 @@ struct PreviewView: View {
         .onChange(of: model.bubbleAnchors) { _, anchors in routePoints.track(anchors) }
         .onChange(of: location.coordinate) { _, coordinate in model.originChanged(coordinate) }
         .onChange(of: plan?.meta.routeId) { _, _ in fitRoute() }
-        .onChange(of: sheetHeight) { _, _ in
-            if !focusedOnUnverified, !isLandscape { fitRoute() }
+        .onChange(of: detent) { _, newDetent in
+            if !focusedOnUnverified, !isLandscape, newDetent != .large { fitRoute() }
         }
         .onChange(of: [panelFrame, windowFrame]) { _, _ in
-            if !focusedOnUnverified, isLandscape { fitRoute() }
+            if !focusedOnUnverified { fitRoute() }
         }
         .onChange(of: isLandscape) { _, _ in
             if !focusedOnUnverified { fitRoute() }
         }
-        .sheet(item: $searchTarget) { target in
-            switch target {
-            case .start:
-                PlaceSearchSheet(
-                    title: Strings.startSearchTitle,
-                    near: location.coordinate,
-                    onCurrentLocation: { model.setStart(.currentLocation) },
-                    onSelect: { model.setStart(.place($0)) }
-                )
-            case .stop:
-                PlaceSearchSheet(title: Strings.stopSearchTitle, near: location.coordinate) { model.addStop($0) }
+        .task {
+            // Presenting while the home drawer is still animating away drops the presentation.
+            try? await Task.sleep(for: .milliseconds(400))
+            drawerReady = true
+        }
+        .sheet(isPresented: drawerPresented, onDismiss: finishLeaving) {
+            drawer
+                .environment(settings)
+                .environment(places)
+                .environment(scooter)
+                .environment(trips)
+                .presentationDetents([.previewCollapsed, .medium, .large], selection: $detent)
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                .presentationContentInteraction(.resizes)
+                .presentationDragIndicator(.visible)
+                .interactiveDismissDisabled()
+                .drawerBackground()
+        }
+    }
+
+    static let collapsedHeight: CGFloat = 200
+
+    private var drawerPresented: Binding<Bool> {
+        Binding(get: { drawerReady && !isLandscape && !leaving }, set: { _ in })
+    }
+
+    private var collapsed: Bool { detent == .previewCollapsed }
+
+    private func leave(then action: @escaping () -> Void) {
+        guard !leaving else { return }
+        let waitsForDrawer = drawerPresented.wrappedValue
+        leaving = true
+        pendingExit = action
+        guard waitsForDrawer else { return finishLeaving() }
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            finishLeaving()
+        }
+    }
+
+    private func finishLeaving() {
+        guard leaving, let pendingExit else { return }
+        self.pendingExit = nil
+        pendingExit()
+    }
+
+    private func withPanelPresentations(_ panel: some View) -> some View {
+        panel
+            .sheet(item: $searchTarget) { target in
+                switch target {
+                case .start:
+                    PlaceSearchSheet(
+                        title: Strings.startSearchTitle,
+                        near: location.coordinate,
+                        onCurrentLocation: { model.setStart(.currentLocation) },
+                        onSelect: { model.setStart(.place($0)) }
+                    )
+                case .stop:
+                    PlaceSearchSheet(title: Strings.stopSearchTitle, near: location.coordinate) { model.addStop($0) }
+                }
             }
-        }
-        .sheet(isPresented: $showsTimeSheet) {
-            TripTimeSheet(time: model.trip.time) { model.setTime($0) }
-        }
-        .confirmationDialog(Strings.savePlace, isPresented: $choosingSave, titleVisibility: .hidden) {
-            if !savedKinds.contains(.favourite) {
-                Button(Strings.saveAsFavourite) { places.addFavourite(model.destination) }
-                    .accessibilityIdentifier("preview.save.favourite")
+            .sheet(isPresented: $showsTimeSheet) {
+                TripTimeSheet(time: model.trip.time) { model.setTime($0) }
             }
-            Button(Strings.saveAsHome) { places.setHome(model.destination) }
-                .accessibilityIdentifier("preview.save.home")
-            Button(Strings.saveAsWork) { places.setWork(model.destination) }
-                .accessibilityIdentifier("preview.save.work")
-            Button(Strings.cancel, role: .cancel) {}
-        }
+            .confirmationDialog(Strings.savePlace, isPresented: $choosingSave, titleVisibility: .hidden) {
+                if !savedKinds.contains(.favourite) {
+                    Button(Strings.saveAsFavourite) { places.addFavourite(model.destination) }
+                        .accessibilityIdentifier("preview.save.favourite")
+                }
+                Button(Strings.saveAsHome) { places.setHome(model.destination) }
+                    .accessibilityIdentifier("preview.save.home")
+                Button(Strings.saveAsWork) { places.setWork(model.destination) }
+                    .accessibilityIdentifier("preview.save.work")
+                Button(Strings.cancel, role: .cancel) {}
+            }
     }
 
     private var plan: RoutePlan? { model.selectedPlan }
@@ -206,12 +254,17 @@ struct PreviewView: View {
             MLNCoordinateBounds(sw: sw, ne: ne),
             edgePadding: isLandscape
                 ? landscapePadding(extra: 16)
-                : UIEdgeInsets(top: 90, left: 36, bottom: sheetHeight + 10, right: 36)
+                : UIEdgeInsets(top: 90, left: 36, bottom: drawerInset + 10, right: 36)
         )
         focusedOnUnverified = false
     }
 
     private var isLandscape: Bool { verticalSizeClass == .compact }
+
+    private var drawerInset: CGFloat {
+        guard !collapsed else { return Self.collapsedHeight }
+        return (windowFrame.isEmpty ? 800 : windowFrame.height) / 2
+    }
 
     private func landscapePadding(extra: CGFloat) -> UIEdgeInsets {
         guard !panelFrame.isEmpty, !windowFrame.isEmpty else {
@@ -226,6 +279,10 @@ struct PreviewView: View {
     }
 
     private var sidePanel: some View {
+        withPanelPresentations(sidePanelBody)
+    }
+
+    private var sidePanelBody: some View {
         VStack(spacing: 12) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -250,86 +307,29 @@ struct PreviewView: View {
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { panelFrame = $0 }
     }
 
-    private var sheet: some View {
-        VStack(spacing: 12) {
-            sheetHandle
-
-            if sheetCollapsed {
-                collapsedContent
-                    .padding(.horizontal, 16)
-                    .contentShape(Rectangle())
-                    .gesture(sheetDragGesture)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+    private var drawer: some View {
+        let panel = VStack(spacing: 12) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if collapsed {
+                        collapsedContent
+                    } else {
                         itinerary
                         content
                     }
-                    .padding(.horizontal, 16)
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { scrollContentHeight = $0 }
                 }
-                .scrollBounceBehavior(.basedOnSize)
-                .frame(height: min(scrollContentHeight, max(220, screenHeight * 0.5)))
+                .padding(.horizontal, 16)
+                .padding(.top, 22)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .accessibilityIdentifier("preview.drawer")
 
             footer
                 .padding(.horizontal, 16)
+                .padding(.bottom, 8)
         }
-        .padding(.bottom, 34)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
-                .fill(Theme.surface)
-                .padding(.bottom, -400)
-                .shadow(color: .black.opacity(0.12), radius: 12, y: -2)
-        }
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { sheetHeight = $0 }
-        .offset(y: sheetDrag)
-    }
-
-    private var sheetHandle: some View {
-        Button {
-            setSheetCollapsed(!sheetCollapsed)
-        } label: {
-            Capsule()
-                .fill(Theme.line)
-                .frame(width: 40, height: 5)
-                .frame(maxWidth: .infinity, minHeight: 28)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .gesture(sheetDragGesture)
-        .accessibilityLabel(sheetCollapsed ? Strings.expandRouteDetails : Strings.collapseRouteDetails)
-        .accessibilityIdentifier("preview.sheet.handle")
-    }
-
-    private var sheetDragGesture: some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                let pull = value.translation.height
-                sheetDrag = switch (sheetCollapsed, pull > 0) {
-                case (false, true): pull
-                case (true, false): max(pull * 0.5, -120)
-                default: pull * 0.2
-                }
-            }
-            .onEnded { value in
-                let pull = value.predictedEndTranslation.height
-                if sheetCollapsed, pull < -60 {
-                    setSheetCollapsed(false)
-                } else if !sheetCollapsed, pull > 100 {
-                    setSheetCollapsed(true)
-                } else {
-                    withAnimation(.spring(duration: 0.3)) { sheetDrag = 0 }
-                }
-            }
-    }
-
-    private func setSheetCollapsed(_ collapsed: Bool) {
-        withAnimation(.spring(duration: 0.35, bounce: 0.15)) {
-            sheetCollapsed = collapsed
-            sheetDrag = 0
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        return withPanelPresentations(panel)
     }
 
     @ViewBuilder
@@ -585,7 +585,7 @@ struct PreviewView: View {
             }
         } else {
             VStack(spacing: 12) {
-                if !sheetCollapsed, model.showsVerifiedOnlyToggle {
+                if !collapsed, model.showsVerifiedOnlyToggle {
                     verifiedOnlyToggle(plan: plan)
                 }
                 startControl
@@ -598,7 +598,7 @@ struct PreviewView: View {
         if case .loaded = model.state {
             if let plan, let ride = model.rideToStart() {
                 Button {
-                    onStart(plan, ride)
+                    leave { onStart(plan, ride) }
                 } label: {
                     Text(Strings.start)
                         .font(.system(size: 20, weight: .bold))
@@ -640,16 +640,30 @@ struct PreviewView: View {
     private func routeCard(index: Int, plan: RoutePlan) -> some View {
         let selected = index == model.selectedIndex
         let unverified = unverifiedText(plan)
+        let roads = plan.mainRoadPercent.map(Strings.routeMainRoads)
+        let quiet = plan.meta.profile == .quiet
         return Button {
             model.select(index)
         } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Text(Format.duration(seconds: plan.durationS))
-                    .font(.system(size: 20, weight: .heavy))
-                    .foregroundStyle(Theme.ink)
+                HStack(spacing: 4) {
+                    Text(Format.duration(seconds: plan.durationS))
+                        .font(.system(size: 20, weight: .heavy))
+                        .foregroundStyle(Theme.ink)
+                    if quiet {
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Theme.verified)
+                    }
+                }
                 Text(Format.distance(meters: plan.meta.lengthM))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.muted)
+                if let roads {
+                    Text(roads)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(quiet ? Theme.verified : Theme.muted)
+                }
                 Text(unverified)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(plan.meta.totalsM.unverified > 0 ? Theme.unverifiedText : Theme.muted)
@@ -666,10 +680,12 @@ struct PreviewView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: [
             Strings.route(index + 1),
+            quiet ? Strings.routeQuiet : nil,
             Format.duration(seconds: plan.durationS),
             Format.distance(meters: plan.meta.lengthM),
+            roads,
             unverified,
-        ].joined(separator: ", ")))
+        ].compactMap { $0 }.joined(separator: ", ")))
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         .accessibilityIdentifier("preview.route.\(index).\(plan.meta.routeId)")
     }
@@ -807,9 +823,10 @@ struct PreviewView: View {
             MLNCoordinateBounds(sw: sw, ne: ne),
             edgePadding: isLandscape
                 ? landscapePadding(extra: 60)
-                : UIEdgeInsets(top: 160, left: 80, bottom: sheetHeight + 80, right: 80)
+                : UIEdgeInsets(top: 160, left: 80, bottom: drawerInset + 80, right: 80)
         )
         focusedOnUnverified = true
+        if detent == .large { detent = .medium }
     }
 
     private func verifiedOnlyToggle(plan: RoutePlan?) -> some View {

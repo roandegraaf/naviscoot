@@ -118,13 +118,15 @@ proof uses XCUITest.
 - The search screen shows only the map, the field and its two buttons. Saved places and recents (or the results) open
   when the field is focused and close with the back chevron (which also clears the query), a map tap, a long-press
   pin, or a chosen place.
-- The portrait preview sheet minimises to the summary and Start by a swipe or tap on its handle; the map refits to the
-  area it frees. The landscape side panel doesn't minimise.
+- The portrait preview is a native sheet like the home drawer: collapsed (summary and Start), medium and large, with
+  Start pinned at the bottom. The map refits above the collapsed and medium detents; large covers the map. The landscape
+  side panel doesn't minimise.
 - `Design/map-style/make_night_style.py` writes `liberty-night.json` from the live Liberty style (or a saved copy passed
   as an argument): `python3 ios/Design/map-style/make_night_style.py`. OpenFreeMap refuses Python's default
   User-Agent, so the script sends its own. Colours are set per layer role; the script fails on a coloured Liberty layer
   it has no colour for. Rerun it when OpenFreeMap changes Liberty, since the bundled copy pins its sprite version.
-- `Design/icon/`: the app icon. `render.py` holds the three concepts (`route`, the default; `arrow`; `pin`), writes
+- `Design/icon/`: the app icon. `render.py` holds the concepts (`letter`, the default: a route that draws the
+  N of Naviscoot and ends in the navigation arrow; `route`; `arrow`; `pin`), writes
   their SVGs to `svg/` and their PNGs to `png/` (with `concepts.png` as a preview sheet), and fills
   `Naviscoot/Resources/Assets.xcassets`: `AppIcon` (light, dark, tinted), `LaunchMark` (light, dark) and
   `LaunchBackground`. It needs `rsvg-convert` and ImageMagick 7. To swap the icon, change `DEFAULT_CONCEPT` and run
@@ -241,6 +243,8 @@ On the simulator a ride is simulated by default; on a device it uses CoreLocatio
 | `-NaviscootSimulateRide YES/NO` | YES on the simulator, NO on a device | Use `RideSimulator` instead of CoreLocation |
 | `-NaviscootSimSpeedKmh 120` | 45 | Simulated speed |
 | `-NaviscootSimOrigin 52.29,5.44` | none | Fixed start position for the preview and for resuming (simulated rides only) |
+| `-NaviscootSimTickS 1` | 0.5 | Seconds between simulated fixes; 1 matches a real GPS |
+| `-NaviscootSimCompass 90` | none | Compass reading in degrees; at walking pace the map turns to it |
 | `-NaviscootSimRerouteFailures 2` | 0 | The first N reroutes fail as if the API were unreachable (simulated rides only) |
 | `-NaviscootSimEditFailures 1` | 0 | The first N mid-ride edits (add stop, change destination) fail as if the API were unreachable (simulated rides only) |
 | `-NaviscootDiscardActiveRide YES` | NO | Forget a saved ride at launch instead of offering to resume it |
@@ -249,5 +253,5 @@ On the simulator a ride is simulated by default; on a device it uses CoreLocatio
 
 A simulated ride shows a debug panel with the route id, the ride's options, the reroute count, a Detour button, the camera
 state (`camera=following|free|overview`, zoom, pitch and direction, the map centre and, in overview, whether the remaining route fits the uncovered
-part of the screen), the map style (`sim.style`: `style=<name> layers=<route layers present>/5 features=<route features
+part of the screen), the map style (`sim.style`: `style=<name> layers=<route layers present>/4 features=<route features
 drawn>`) and the last spoken line.

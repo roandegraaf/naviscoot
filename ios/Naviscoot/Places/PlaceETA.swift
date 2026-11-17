@@ -60,6 +60,7 @@ final class PlaceETAStore {
             guard inFlight.insert(key).inserted else { continue }
             let seconds = try? await fetch(origin, destination)
             inFlight.remove(key)
+            guard !Task.isCancelled else { return }
             cache[key] = Entry(seconds: seconds, fetchedAt: now())
         }
     }

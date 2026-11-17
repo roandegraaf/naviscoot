@@ -15,6 +15,7 @@ final class RideModel: ObservableObject {
         var exitNumber: Int?
         var lanes: [LaneHint] = []
         var then: ManeuverSummary?
+        var mopedPathEntry: MopedPathEntry?
 
         init(
             distanceM: Double,
@@ -107,6 +108,7 @@ final class RideModel: ObservableObject {
     private let settings: AppSettings
     private var speeding: SpeedingMonitor
     private var geometry: RouteGeometry
+    private var motion: RideMotion
     private var spans: [UnverifiedSpan]
     private var announcer = WarningAnnouncer()
     private var scooterMonitor: ScooterRideMonitor
@@ -152,6 +154,10 @@ final class RideModel: ObservableObject {
         speeding = SpeedingMonitor(toleranceKmh: settings.speedingToleranceKmh)
         editFailuresToSimulate = options.simulatedEditFailures
         geometry = RouteGeometry(route: plan.route)
+        motion = RideMotion(geometry: geometry)
+        if let degrees = options.simulatedCompass {
+            motion.observe(compass: CompassReading(degrees: degrees, accuracy: 5))
+        }
         spans = UnverifiedWarnings.spans(stretches: plan.meta.stretches, geometry: geometry)
         trim = RouteTrim.split(geometry: geometry, stretches: plan.meta.stretches, atM: 0)
         scooterMonitor = ScooterRideMonitor(start: geometry.points.first)
@@ -159,13 +165,16 @@ final class RideModel: ObservableObject {
         book.store(plan)
 
         let locationProvider: LocationProviding
+        var liveProvider: RideLocationProvider?
         if options.simulate {
             let simulator = RideSimulator(speedKmh: options.simulatedSpeedKmh, tickInterval: options.tickInterval)
             self.simulator = simulator
             locationProvider = simulator
         } else {
             simulator = nil
-            locationProvider = RideLocationProvider()
+            let provider = RideLocationProvider()
+            liveProvider = provider
+            locationProvider = provider
         }
 
         var record: (SpeechDecision) -> Void = { _ in }
@@ -195,6 +204,9 @@ final class RideModel: ObservableObject {
         provider.onOutcome = { [weak self] outcome in
             DispatchQueue.main.async { self?.rerouteTrouble.record(outcome) }
         }
+        liveProvider?.onCompass = { [weak self] reading in
+            DispatchQueue.main.async { self?.motion.observe(compass: reading) }
+        }
         record = { [weak self] decision in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -223,6 +235,10 @@ final class RideModel: ObservableObject {
 
     var remainingRoute: [Coordinate] {
         RideCamera.remainingRoute(points: geometry.points, from: shapeIndex, user: userCoordinate)
+    }
+
+    func motionFrame(at time: TimeInterval) -> RideMotion.Frame? {
+        motion.frame(at: time)
     }
 
     var optionsSummary: String {
@@ -409,6 +425,7 @@ final class RideModel: ObservableObject {
         trip?.destinationChanged(to: edited.destination.title)
         plan = newPlan
         geometry = RouteGeometry(route: newPlan.route)
+        motion.setRoute(geometry)
         spans = UnverifiedWarnings.spans(stretches: newPlan.meta.stretches, geometry: geometry)
         trim = RouteTrim.split(geometry: geometry, stretches: newPlan.meta.stretches, atM: 0)
         announcer = WarningAnnouncer()
@@ -423,6 +440,7 @@ final class RideModel: ObservableObject {
         guard !arrived, let newPlan = book.plan(for: route) else { return }
         plan = newPlan
         geometry = RouteGeometry(route: route)
+        motion.setRoute(geometry)
         spans = UnverifiedWarnings.spans(stretches: newPlan.meta.stretches, geometry: geometry)
         trim = RouteTrim.split(geometry: geometry, stretches: newPlan.meta.stretches, atM: 0)
         shapeIndex = 0
@@ -451,6 +469,7 @@ final class RideModel: ObservableObject {
             isSpeeding = false
             trim = RouteTrim.split(geometry: geometry, stretches: plan.meta.stretches, atM: geometry.lengthM)
             userCoordinate = Coordinate(userLocation.coordinates)
+            motion.observe(RideFix(time: CACurrentMediaTime(), coordinate: Coordinate(userLocation.coordinates), speedMps: 0))
             speedKmh = 0
             remainingM = 0
             remainingS = 0
@@ -479,13 +498,29 @@ final class RideModel: ObservableObject {
             shapeIndex = index
             let progressM = geometry.progressM(near: index, snapped: Coordinate(snapped.coordinates))
             trim = RouteTrim.split(geometry: geometry, stretches: plan.meta.stretches, atM: progressM)
+            let maneuverM = geometry.maneuverM(afterCompletedSteps: completed) ?? progressM + progress.distanceToNextManeuver
+            motion.observe(RideFix(
+                time: CACurrentMediaTime(),
+                coordinate: Coordinate(shown.coordinates),
+                alongM: onRoute ? progressM : nil,
+                speedMps: userLocation.speed.map(\.value),
+                course: (shown.courseOverGround ?? userLocation.courseOverGround).map { Double($0.degrees) },
+                maneuverAlongM: maneuverM
+            ))
             limitKmh = RouteLookup.limitKmh(atShapeIndex: index, meta: plan.meta)
             currentClass = RouteLookup.stretch(atShapeIndex: index, in: plan.meta.stretches)?.stretchClass
             checkSpeed()
             checkScooter()
 
             if let visual {
-                banner = Banner(visual: visual, distanceM: progress.distanceToNextManeuver, remainingSteps: remainingSteps)
+                var next = Banner(visual: visual, distanceM: progress.distanceToNextManeuver, remainingSteps: remainingSteps)
+                next.mopedPathEntry = MopedPathEntry.at(
+                    maneuverM: maneuverM,
+                    modifier: visual.primaryContent.maneuverModifier,
+                    geometry: geometry,
+                    stretches: plan.meta.stretches
+                )
+                banner = next
                 maneuverKey = "\(routeId)#\(completed)"
             }
 

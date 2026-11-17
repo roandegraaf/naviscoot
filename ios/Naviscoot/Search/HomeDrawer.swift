@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension PresentationDetent {
-    static let drawerCollapsed = PresentationDetent.height(92)
+    static let drawerCollapsed = PresentationDetent.height(84)
 }
 
 struct HomeDrawer: View {

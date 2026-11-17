@@ -30,8 +30,8 @@ struct RideView: View {
         self.location = location
         self.onEnd = onEnd
         let start = model.plan.route.geometry.first.map(Coordinate.init) ?? model.destination.coordinate
-        let follow = RideCamera.follow(course: 0, options: AppSettings.shared.followOptions, distanceToManeuverM: nil, speedKmh: nil)
-        _camera = State(initialValue: .center(start.clLocation, zoom: follow.zoom, pitch: follow.pitch))
+        let pitch = AppSettings.shared.threeD ? RideCamera.threeDPitch : 0
+        _camera = State(initialValue: .center(start.clLocation, zoom: RideCamera.fixedZoom, pitch: pitch))
     }
 
     var body: some View {
@@ -43,7 +43,8 @@ struct RideView: View {
                 destination: model.destination.coordinate,
                 user: model.userCoordinate,
                 ridden: model.trim.ridden,
-                heading: model.courseDegrees
+                mopedPathMarkers: model.trim.mopedPathMarkers,
+                drawsUser: false
             )
             .mapControls {
                 LogoView()
@@ -68,28 +69,19 @@ struct RideView: View {
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { windowFrame = $0 }
                 .ignoresSafeArea()
         }
-        .onChange(of: model.userCoordinate) { _, coordinate in
-            guard tracker.camera.follows, let coordinate else { return }
-            camera = followCamera(on: coordinate)
-        }
-        .onChange(of: [clearArea, windowFrame]) { _, _ in
-            let area = clearArea
-            tracker.clearArea = area
-            tracker.setFollowInset(isLandscape ? followInset(for: area) : nil)
-            if tracker.camera.mode == .overview { showOverview() }
-        }
+        .onChange(of: [clearArea, windowFrame]) { _, _ in layOutMap() }
+        .onChange(of: settings.northUp) { _, _ in layOutMap() }
         .onChange(of: model.arrived) { _, arrived in
             if arrived { withAnimation { panelExpanded = true } }
-        }
-        .onChange(of: settings.followOptions) { _, _ in
-            guard tracker.camera.follows, let coordinate = model.userCoordinate else { return }
-            camera = followCamera(on: coordinate)
         }
         .onAppear {
             tracker.recordsDebug = model.options.simulate
             tracker.remainingRoute = { [weak model] in model?.remainingRoute ?? [] }
             tracker.userCoordinate = { [weak model] in model?.userCoordinate }
+            tracker.motionFrame = { [weak model] time in model?.motionFrame(at: time) }
+            tracker.options = { [settings] in settings.followOptions }
         }
+        .onDisappear { tracker.stop() }
         .task {
             // Presenting while the previous screen's sheet is still animating away drops the presentation.
             try? await Task.sleep(for: .milliseconds(400))
@@ -287,20 +279,30 @@ struct RideView: View {
         }
     }
 
-    private func followCamera(on coordinate: Coordinate) -> MapViewCamera {
-        let follow = RideCamera.follow(
-            course: model.courseDegrees,
-            options: settings.followOptions,
-            distanceToManeuverM: model.arrived ? nil : model.banner?.distanceM,
-            speedKmh: model.speedKmh.map(Double.init)
-        )
-        return .center(coordinate.clLocation, zoom: follow.zoom, pitch: follow.pitch, direction: follow.direction)
+    private var followLayout: RideCamera.FollowLayout? {
+        RideCamera.followLayout(area: clearArea, window: windowFrame.size, northUp: settings.northUp, landscape: isLandscape)
     }
 
+    private func layOutMap() {
+        let area = clearArea
+        tracker.clearArea = area
+        tracker.layout = followLayout
+        switch tracker.camera.mode {
+        case .following: tracker.setFollowInset(followInset)
+        case .overview: showOverview()
+        case .free: break
+        }
+    }
+
+    // The frame-by-frame camera takes over from here; handing the map a new camera only replaces the overview it was
+    // last given, which it would otherwise not show a second time.
     private func recenter() {
+        tracker.layout = followLayout
+        tracker.setFollowInset(followInset)
         tracker.recenter()
         if let coordinate = model.userCoordinate {
-            camera = followCamera(on: coordinate)
+            let pitch = settings.threeD ? RideCamera.threeDPitch : 0
+            camera = .center(coordinate.clLocation, zoom: RideCamera.fixedZoom, pitch: pitch, direction: model.courseDegrees)
         }
     }
 
@@ -308,6 +310,7 @@ struct RideView: View {
         guard let bounds = RideCamera.bounds(of: model.remainingRoute) else { return }
         tracker.showOverview()
         let area = clearArea
+        tracker.setFollowInset(isLandscape ? areaInset(for: area) : nil)
         let map = windowFrame.isEmpty ? tracker.mapSize : windowFrame.size
         var padding = area.isEmpty || map == .zero
             ? UIEdgeInsets(top: 220, left: 40, bottom: 300, right: 100)
@@ -351,7 +354,17 @@ struct RideView: View {
         return CGRect(x: 8, y: top, width: right - 8, height: bottom - top)
     }
 
-    private func followInset(for area: CGRect) -> UIEdgeInsets? {
+    private var followInset: UIEdgeInsets? {
+        guard let layout = followLayout else { return nil }
+        return UIEdgeInsets(
+            top: layout.anchor.y - layout.halfSize.height,
+            left: layout.anchor.x - layout.halfSize.width,
+            bottom: windowFrame.height - layout.anchor.y - layout.halfSize.height,
+            right: windowFrame.width - layout.anchor.x - layout.halfSize.width
+        )
+    }
+
+    private func areaInset(for area: CGRect) -> UIEdgeInsets? {
         guard !area.isEmpty, !windowFrame.isEmpty else { return nil }
         return UIEdgeInsets(
             top: area.minY,
@@ -442,11 +455,18 @@ struct RideView: View {
 
     private var bannerMain: some View {
         HStack(spacing: 16) {
-            Image(systemName: Self.symbol(for: model.banner, arrived: model.arrived))
-                .font(.system(size: 44, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 64, height: 64)
-                .accessibilityHidden(true)
+            if let entry = model.banner?.mopedPathEntry, !model.arrived {
+                MopedPathSign(side: entry)
+                    .frame(width: 64, height: 72)
+                    .accessibilityHidden(true)
+                    .accessibilityIdentifier("ride.banner.mopedPathSign")
+            } else {
+                Image(systemName: Self.symbol(for: model.banner, arrived: model.arrived))
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 64, height: 64)
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 if model.arrived {
                     Text(Strings.arrived)
@@ -469,6 +489,16 @@ struct RideView: View {
                                 .background(.white, in: Capsule())
                                 .accessibilityLabel(Strings.roundaboutExitSpoken(exit))
                                 .accessibilityIdentifier("ride.banner.exit")
+                        } else if banner.mopedPathEntry != nil {
+                            Text(Strings.chipMopedPath)
+                                .font(.system(size: 17, weight: .heavy))
+                                .foregroundStyle(MopedPathSign.red)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(.white, in: Capsule())
+                                .accessibilityIdentifier("ride.banner.mopedPath")
                         }
                     }
                     Text(banner.text)
@@ -805,7 +835,19 @@ final class RideCameraTracker: ObservableObject {
     var clearArea: CGRect = .zero
     var remainingRoute: () -> [Coordinate] = { [] }
     var userCoordinate: () -> Coordinate? = { nil }
+    var motionFrame: (TimeInterval) -> RideMotion.Frame? = { _ in nil }
+    var options: () -> RideCamera.FollowOptions = { RideCamera.FollowOptions() }
+    var layout: RideCamera.FollowLayout?
     private(set) var followInset: UIEdgeInsets?
+    private let puck = RidePuckView()
+    private var ticker: FrameTicker?
+    private var lastTick: TimeInterval?
+    private var zoom: Double?
+    private var pitch: Double?
+    private var applied: Pose?
+    private var startsRecentering = false
+    private var recentering: (from: Pose, start: TimeInterval)?
+    private var haloStyle: URL?
     private var baseInset: (automatic: Bool, inset: UIEdgeInsets)?
     private var latest: MapViewProxy?
     private var debugTask: Task<Void, Never>?
@@ -833,11 +875,124 @@ final class RideCameraTracker: ObservableObject {
         self.mapView = mapView
         baseInset = nil
         applyInset()
+        puck.removeFromSuperview()
+        mapView.addSubview(puck)
+        applied = nil
+        if ticker == nil {
+            ticker = FrameTicker { [weak self] time in
+                guard let self else { return false }
+                self.frame(at: time)
+                return true
+            }
+        }
+    }
+
+    func stop() {
+        ticker?.stop()
+        ticker = nil
+    }
+
+    private struct Pose {
+        var center: Coordinate
+        var zoom: Double
+        var bearing: Double
+        var pitch: Double
+
+        func isClose(to other: Pose) -> Bool {
+            Geo.distanceM(center, other.center) < 0.02 && abs(zoom - other.zoom) < 0.002
+                && abs(RideCamera.screenAngle(course: bearing, bearing: other.bearing)) < 0.05 && abs(pitch - other.pitch) < 0.05
+        }
+
+        func blended(to other: Pose, share: Double) -> Pose {
+            Pose(
+                center: Coordinate(
+                    lat: center.lat + (other.center.lat - center.lat) * share,
+                    lon: center.lon + (other.center.lon - center.lon) * share
+                ),
+                zoom: zoom + (other.zoom - zoom) * share,
+                bearing: RideMotion.turned(bearing, toward: other.bearing, by: share),
+                pitch: pitch + (other.pitch - pitch) * share
+            )
+        }
+    }
+
+    private func frame(at time: TimeInterval) {
+        let dt = lastTick.map { min(max(time - $0, 0), 0.25) } ?? 0
+        lastTick = time
+        guard let mapView, mapView.bounds.width > 0, mapView.bounds.height > 0, let frame = motionFrame(time) else { return }
+        if camera.follows {
+            follow(frame, on: mapView, time: time, dt: dt)
+        } else {
+            zoom = nil
+            pitch = nil
+            applied = nil
+            recentering = nil
+        }
+        placePuck(frame, on: mapView)
+    }
+
+    private func follow(_ frame: RideMotion.Frame, on mapView: MLNMapView, time: TimeInterval, dt: Double) {
+        let target = RideCamera.follow(
+            bearing: frame.cameraBearing,
+            options: options(),
+            distanceToManeuverM: frame.distanceToManeuverM,
+            speedKmh: frame.speedMps * 3.6,
+            latitude: frame.coordinate.lat,
+            viewport: layout?.viewport
+        )
+        let zoom = zoom.map { $0 + (target.zoom - $0) * RideMotion.blend(dt, tau: RideCamera.zoomTau) } ?? target.zoom
+        let pitch = pitch.map { $0 + (target.pitch - $0) * RideMotion.blend(dt, tau: RideCamera.pitchTau) } ?? target.pitch
+        self.zoom = zoom
+        self.pitch = pitch
+        var pose = Pose(center: frame.coordinate, zoom: zoom, bearing: target.direction, pitch: pitch)
+
+        if startsRecentering {
+            startsRecentering = false
+            recentering = (Pose(
+                center: Coordinate(mapView.centerCoordinate),
+                zoom: mapView.zoomLevel,
+                bearing: mapView.direction,
+                pitch: mapView.camera.pitch
+            ), time)
+        }
+        if let recentering {
+            let share = (time - recentering.start) / RideCamera.recenterS
+            if share >= 1 {
+                self.recentering = nil
+            } else {
+                pose = recentering.from.blended(to: pose, share: share * share * (3 - 2 * share))
+            }
+        }
+
+        if let applied, applied.isClose(to: pose) { return }
+        applied = pose
+        if mapView.minimumPitch != 0 { mapView.minimumPitch = 0 }
+        if mapView.maximumPitch < 60 { mapView.maximumPitch = 60 }
+        let altitude = MLNAltitudeForZoomLevel(pose.zoom, pose.pitch, pose.center.lat, mapView.frame.size)
+        mapView.setCamera(
+            MLNMapCamera(lookingAtCenter: pose.center.clLocation, altitude: altitude, pitch: pose.pitch, heading: pose.bearing),
+            animated: false
+        )
+    }
+
+    private func placePuck(_ frame: RideMotion.Frame, on mapView: MLNMapView) {
+        if haloStyle != mapView.styleURL {
+            haloStyle = mapView.styleURL
+            let style = MapStyle.allCases.first { $0.url == mapView.styleURL } ?? .liberty
+            puck.haloColor = MapPalette.palette(for: style).halo
+        }
+        if puck.superview !== mapView { mapView.addSubview(puck) }
+        puck.place(
+            at: mapView.convert(frame.coordinate.clLocation, toPointTo: mapView),
+            screenAngle: RideCamera.screenAngle(course: frame.bearing, bearing: mapView.direction),
+            pitch: mapView.camera.pitch
+        )
     }
 
     func setFollowInset(_ inset: UIEdgeInsets?) {
         guard inset != followInset else { return }
         followInset = inset
+        applied = nil
         applyInset()
     }
 
@@ -853,12 +1008,15 @@ final class RideCameraTracker: ObservableObject {
             mapView.automaticallyAdjustsContentInset = base.automatic
             mapView.setContentInset(base.inset, animated: false, completionHandler: nil)
             mapView.setNeedsLayout()
+            mapView.layoutIfNeeded()
             baseInset = nil
         }
     }
 
     func recenter() {
         camera.recenter()
+        startsRecentering = true
+        applied = nil
         publishDebug()
     }
 
@@ -908,7 +1066,7 @@ final class RideCameraTracker: ObservableObject {
     }
 
     private static let routeLayers: Set<String> = [
-        "route-verified-line", "route-unverified-line", "route-forbidden-line", "route-ridden-line", "route-user-puck",
+        "route-verified-line", "route-unverified-line", "route-forbidden-line", "route-ridden-line",
     ]
 
     private func publishStyleDebug(_ mapView: MLNMapView) {

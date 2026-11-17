@@ -124,10 +124,17 @@ struct RouteLeg: Codable, Equatable {
     }
 }
 
+enum RouteProfile: String, Codable {
+    case fastest
+    case quiet
+}
+
 struct NaviscootMeta: Codable, Equatable {
     let routeId: String
+    var profile: RouteProfile? = nil
     let lengthM: Int
     let totalsM: RouteTotals
+    var mainRoadM: Int? = nil
     let stretches: [Stretch]
     let speedLimits: [SpeedLimitRun]?
     let warnings: [String]
@@ -138,8 +145,10 @@ struct NaviscootMeta: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case routeId = "route_id"
+        case profile
         case lengthM = "length_m"
         case totalsM = "totals_m"
+        case mainRoadM = "main_road_m"
         case stretches
         case speedLimits = "speed_limits"
         case warnings
@@ -160,8 +169,14 @@ struct RoutePlan {
     let durationS: Double
     let meta: NaviscootMeta
     let segments: [RouteSegment]
+    let mopedPathMarkers: [MopedPathMarker]
 
     var unverifiedStretches: [Stretch] {
         meta.stretches.filter { $0.stretchClass == .unverified }
+    }
+
+    var mainRoadPercent: Int? {
+        guard let mainRoadM = meta.mainRoadM, meta.lengthM > 0 else { return nil }
+        return Int((Double(mainRoadM) / Double(meta.lengthM) * 100).rounded())
     }
 }

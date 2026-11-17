@@ -112,6 +112,19 @@ struct RouteGeometry {
         return (coordinate, Geo.bearing(a, b))
     }
 
+    func heading(atM distance: Double, spanM: Double) -> Double {
+        let from = position(atM: distance - spanM * 0.3)
+        let to = position(atM: distance + spanM * 0.7)
+        guard Geo.distanceM(from.coordinate, to.coordinate) > 0.5 else { return position(atM: distance).bearing }
+        return Geo.bearing(from.coordinate, to.coordinate)
+    }
+
+    func maneuverM(afterCompletedSteps completed: Int) -> Double? {
+        let next = completed + 1
+        guard next >= 1, next < stepStartIndices.count else { return nil }
+        return distanceM(atShapeIndex: stepStartIndices[next])
+    }
+
     private func project(_ point: Coordinate, onSegment segment: Int) -> (distance: Double, along: Double) {
         let a = points[segment]
         let b = points[segment + 1]
@@ -189,10 +202,69 @@ enum RouteLookup {
         stretches.first { $0.startShapeIndex <= index && index < $0.endShapeIndex } ?? stretches.last
     }
 
+    static func stretchClass(atM distance: Double, geometry: RouteGeometry, stretches: [Stretch]) -> StretchClass? {
+        let found = stretches.first { geometry.distanceM(atShapeIndex: $0.endShapeIndex) > distance } ?? stretches.last
+        return found?.stretchClass
+    }
+
     static func limitKmh(atShapeIndex index: Int, meta: NaviscootMeta) -> Int? {
         if let runs = meta.speedLimits, !runs.isEmpty {
             return (runs.first { $0.startShapeIndex <= index && index < $0.endShapeIndex } ?? runs.last)?.kmh
         }
         return stretch(atShapeIndex: index, in: meta.stretches)?.stretchClass == .carriageway ? carriagewayLimitKmh : nil
+    }
+}
+
+enum MopedPathEntry: Equatable {
+    case left
+    case right
+
+    static let beforeM = 10.0
+    static let afterM = [10.0, 40.0]
+    static let straightDegrees = 3.0
+
+    static func at(maneuverM: Double, modifier: ManeuverModifier?, geometry: RouteGeometry, stretches: [Stretch]) -> MopedPathEntry? {
+        guard maneuverM > 0, maneuverM < geometry.lengthM else { return nil }
+        func stretchClass(_ offset: Double) -> StretchClass? {
+            RouteLookup.stretchClass(atM: min(max(0, maneuverM + offset), geometry.lengthM - 0.1), geometry: geometry, stretches: stretches)
+        }
+        guard stretchClass(-beforeM) == .carriageway, afterM.contains(where: { stretchClass($0) == .mopedPath }) else { return nil }
+        switch modifier {
+        case .slightLeft, .left, .sharpLeft: return .left
+        case .slightRight, .right, .sharpRight: return .right
+        case .straight, .uTurn, .none:
+            return side(atM: maneuverM, geometry: geometry)
+        }
+    }
+
+    static func side(atM distance: Double, geometry: RouteGeometry) -> MopedPathEntry {
+        let into = geometry.heading(atM: distance - 15, spanM: 15)
+        let out = geometry.heading(atM: distance + 5, spanM: 15)
+        return RideCamera.screenAngle(course: out, bearing: into) < -straightDegrees ? .left : .right
+    }
+}
+
+struct MopedPathMarker: Equatable {
+    let coordinate: Coordinate
+    let side: MopedPathEntry
+    let alongM: Double
+
+    static let minimumCarriagewayM = 25.0
+
+    static func all(geometry: RouteGeometry, stretches: [Stretch]) -> [MopedPathMarker] {
+        zip(stretches.indices, zip(stretches, stretches.dropFirst())).compactMap { index, pair in
+            let (carriageway, path) = pair
+            guard carriageway.stretchClass == .carriageway, path.stretchClass == .mopedPath,
+                  path.startShapeIndex < geometry.points.count
+            else { return nil }
+            let startM = geometry.distanceM(atShapeIndex: carriageway.startShapeIndex)
+            let alongM = geometry.distanceM(atShapeIndex: path.startShapeIndex)
+            guard index == stretches.startIndex || alongM - startM >= minimumCarriagewayM else { return nil }
+            return MopedPathMarker(
+                coordinate: geometry.points[path.startShapeIndex],
+                side: MopedPathEntry.side(atM: alongM, geometry: geometry),
+                alongM: alongM
+            )
+        }
     }
 }

@@ -163,53 +163,107 @@ final class AppearanceTests: XCTestCase {
         XCTAssertEqual(real.now(current: launch.addingTimeInterval(5)), launch.addingTimeInterval(5))
     }
 
+    private let viewport = RideCamera.Viewport(aheadPoints: 300, viewHeight: 852)
+
+    private func visibleAheadM(zoom: Double, pitch: Double) -> Double {
+        let radians = pitch * .pi / 180
+        let groundPoints = viewport.aheadPoints / (cos(radians) - viewport.aheadPoints / (1.5 * viewport.viewHeight) * sin(radians))
+        return groundPoints * RideCamera.metersPerPointAtZoomZero * cos(52.09 * .pi / 180) / pow(2, zoom)
+    }
+
+    private func follow(_ options: RideCamera.FollowOptions, distance: Double?, speedKmh: Double?, bearing: Double = 137) -> RideCamera.Follow {
+        RideCamera.follow(bearing: bearing, options: options, distanceToManeuverM: distance, speedKmh: speedKmh, latitude: 52.09, viewport: viewport)
+    }
+
     func testTheFollowingCameraForEveryOptionCombination() {
         for northUp in [false, true] {
             for threeD in [false, true] {
-                let options = RideCamera.FollowOptions(northUp: northUp, threeD: threeD, autoZoom: false)
-                let follow = RideCamera.follow(course: 137, options: options, distanceToManeuverM: 60, speedKmh: 40)
-                XCTAssertEqual(follow.direction, northUp ? 0 : 137, "northUp=\(northUp) threeD=\(threeD)")
-                XCTAssertEqual(follow.pitch, threeD ? 40 : 0, "northUp=\(northUp) threeD=\(threeD)")
-                XCTAssertEqual(follow.zoom, 16.5, "fixed zoom without auto-zoom")
+                let fixed = follow(RideCamera.FollowOptions(northUp: northUp, threeD: threeD, autoZoom: false), distance: 60, speedKmh: 40)
+                XCTAssertEqual(fixed.direction, northUp ? 0 : 137, "northUp=\(northUp) threeD=\(threeD)")
+                XCTAssertEqual(fixed.pitch, threeD ? 40 : 0, "northUp=\(northUp) threeD=\(threeD)")
+                XCTAssertEqual(fixed.zoom, 16.5, "fixed zoom without auto-zoom")
 
-                let auto = RideCamera.follow(
-                    course: 137,
-                    options: RideCamera.FollowOptions(northUp: northUp, threeD: threeD, autoZoom: true),
-                    distanceToManeuverM: 60,
-                    speedKmh: 40
-                )
-                XCTAssertEqual(auto.direction, follow.direction)
-                XCTAssertEqual(auto.pitch, follow.pitch)
-                XCTAssertEqual(auto.zoom, 17.5)
+                let auto = follow(RideCamera.FollowOptions(northUp: northUp, threeD: threeD, autoZoom: true), distance: 60, speedKmh: 40)
+                XCTAssertEqual(auto.direction, fixed.direction)
+                XCTAssertEqual(auto.pitch, fixed.pitch)
+                XCTAssertEqual(auto.zoom, RideCamera.maxZoom, "close to the maneuver the map is zoomed in all the way")
             }
         }
     }
 
     func testTheDefaultFollowingCameraIsTodaysCamera() {
-        let follow = RideCamera.follow(course: 250, options: RideCamera.FollowOptions(), distanceToManeuverM: 900, speedKmh: 45)
-        XCTAssertEqual(follow, RideCamera.Follow(zoom: 16.5, pitch: 40, direction: 250))
+        XCTAssertEqual(follow(RideCamera.FollowOptions(), distance: 900, speedKmh: 45, bearing: 250), RideCamera.Follow(zoom: 16.5, pitch: 40, direction: 250))
+    }
+
+    func testAutoZoomWithoutAMeasuredMapKeepsTheFixedZoom() {
+        let follow = RideCamera.follow(
+            bearing: 0,
+            options: RideCamera.FollowOptions(autoZoom: true),
+            distanceToManeuverM: 60,
+            speedKmh: 40,
+            latitude: 52.09,
+            viewport: nil
+        )
+        XCTAssertEqual(follow.zoom, RideCamera.fixedZoom)
+    }
+
+    func testAutoZoomShowsTheNextManeuverFromTwoHundredMetresOut() {
+        for threeD in [false, true] {
+            let options = RideCamera.FollowOptions(threeD: threeD, autoZoom: true)
+            for speed in [0.0, 15, 25, 45] {
+                for distance in stride(from: 200.0, through: 60, by: -10) {
+                    let zoom = follow(options, distance: distance, speedKmh: speed).zoom
+                    let visible = visibleAheadM(zoom: zoom, pitch: threeD ? 40 : 0)
+                    XCTAssertGreaterThanOrEqual(visible, distance, "a maneuver \(distance) m ahead at \(speed) km/h is off the map (threeD=\(threeD))")
+                }
+            }
+            for distance in stride(from: 300.0, through: 200, by: -10) {
+                let zoom = follow(options, distance: distance, speedKmh: 45).zoom
+                XCTAssertGreaterThanOrEqual(visibleAheadM(zoom: zoom, pitch: threeD ? 40 : 0), distance, "at speed the maneuver shows from 300 m")
+            }
+        }
     }
 
     func testAutoZoomClosesInOnAManeuverAndOpensUpOnAFastStraight() {
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 50, speedKmh: 45), 17.5)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 100, speedKmh: 45), 17.5)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 300, speedKmh: 45), 16.5)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 500, speedKmh: 45), 15.5)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 2000, speedKmh: 45), 15.5)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 2000, speedKmh: 80), 15.5)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 2000, speedKmh: 36), 15.75)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 2000, speedKmh: 10), 16.5)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: nil, speedKmh: nil), 16.5)
-        XCTAssertEqual(RideCamera.autoZoom(distanceToManeuverM: 2000, speedKmh: nil), 16.5)
+        let options = RideCamera.FollowOptions(autoZoom: true)
+        let cruisingFast = follow(options, distance: 2000, speedKmh: 45).zoom
+        let cruisingSlow = follow(options, distance: 2000, speedKmh: 10).zoom
+        XCTAssertLessThan(cruisingFast, cruisingSlow, "a fast straight shows more road")
+        XCTAssertEqual(follow(options, distance: 2000, speedKmh: 80).zoom, cruisingFast)
+        XCTAssertEqual(follow(options, distance: nil, speedKmh: nil).zoom, cruisingSlow)
+        XCTAssertEqual(visibleAheadM(zoom: cruisingFast, pitch: 40), RideCamera.fastAheadM, accuracy: 1)
+        XCTAssertEqual(visibleAheadM(zoom: cruisingSlow, pitch: 40), RideCamera.slowAheadM, accuracy: 1)
+        XCTAssertGreaterThan(follow(options, distance: 150, speedKmh: 45).zoom, cruisingFast)
+        XCTAssertEqual(follow(options, distance: 20, speedKmh: 45).zoom, RideCamera.maxZoom)
     }
 
-    func testAutoZoomNeverZoomsOutWhileGettingCloserAndMovesInQuarterSteps() {
+    func testAutoZoomNeverZoomsOutWhileGettingCloser() {
         var previous = -Double.infinity
         for distance in stride(from: 1500.0, through: 0, by: -10) {
-            let zoom = RideCamera.autoZoom(distanceToManeuverM: distance, speedKmh: 36)
+            let zoom = follow(RideCamera.FollowOptions(autoZoom: true), distance: distance, speedKmh: 36).zoom
             XCTAssertGreaterThanOrEqual(zoom, previous, "zoomed out at \(distance) m")
-            XCTAssertEqual((zoom * 4).rounded(), zoom * 4, "not a quarter step at \(distance) m")
             previous = zoom
         }
+    }
+
+    func testTheRiderSitsLowOnTheMapWhenTheCourseIsUpAndInTheMiddleWhenNorthIs() throws {
+        let window = CGSize(width: 393, height: 852)
+        let area = CGRect(x: 8, y: 240, width: 301, height: 370)
+        let courseUp = try XCTUnwrap(RideCamera.followLayout(area: area, window: window, northUp: false, landscape: false))
+        XCTAssertEqual(courseUp.anchor.x, 196.5)
+        XCTAssertEqual(courseUp.anchor.y, 240 + 370 * RideCamera.courseUpAnchorShare, accuracy: 0.01)
+        XCTAssertEqual(courseUp.viewport.aheadPoints, 370 * RideCamera.courseUpAnchorShare - RideCamera.aheadMarginPoints, accuracy: 0.01)
+        XCTAssertEqual(courseUp.anchor.y + courseUp.halfSize.height, area.maxY, accuracy: 0.01)
+
+        let northUp = try XCTUnwrap(RideCamera.followLayout(area: area, window: window, northUp: true, landscape: false))
+        XCTAssertEqual(northUp.anchor.y, area.midY, accuracy: 0.01)
+        XCTAssertEqual(northUp.viewport.aheadPoints, 185 - RideCamera.aheadMarginPoints, accuracy: 0.01)
+
+        let landscapeArea = CGRect(x: 360, y: 8, width: 300, height: 370)
+        let landscape = try XCTUnwrap(RideCamera.followLayout(area: landscapeArea, window: CGSize(width: 852, height: 393), northUp: false, landscape: true))
+        XCTAssertEqual(landscape.anchor.x, landscapeArea.midX)
+        XCTAssertEqual(landscape.halfSize.width, 150)
+
+        XCTAssertNil(RideCamera.followLayout(area: .zero, window: window, northUp: false, landscape: false))
     }
 }

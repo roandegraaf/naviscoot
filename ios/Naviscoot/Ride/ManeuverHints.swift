@@ -92,6 +92,7 @@ enum ManeuverHints {
 struct RouteTrim: Equatable {
     let ridden: [Coordinate]
     let ahead: [RouteSegment]
+    let mopedPathMarkers: [MopedPathMarker]
 
     static func split(geometry: RouteGeometry, stretches: [Stretch], atM distance: Double) -> RouteTrim {
         let points = geometry.points
@@ -99,7 +100,7 @@ struct RouteTrim: Equatable {
             RouteSegment(stretchClass: stretch.stretchClass, coordinates: Array(points[stretch.startShapeIndex ... stretch.endShapeIndex]))
         }
         guard points.count >= 2, distance > 0 else {
-            return RouteTrim(ridden: [], ahead: stretches.map(whole))
+            return RouteTrim(ridden: [], ahead: stretches.map(whole), mopedPathMarkers: MopedPathMarker.all(geometry: geometry, stretches: stretches))
         }
         let cut = min(distance, geometry.lengthM)
         let cutPoint = geometry.position(atM: cut).coordinate
@@ -112,6 +113,10 @@ struct RouteTrim: Equatable {
                 coordinates: [cutPoint] + points[firstAhead ... stretch.endShapeIndex]
             )
         }
-        return RouteTrim(ridden: Array(points[..<firstAhead]) + [cutPoint], ahead: ahead)
+        return RouteTrim(
+            ridden: Array(points[..<firstAhead]) + [cutPoint],
+            ahead: ahead,
+            mopedPathMarkers: MopedPathMarker.all(geometry: geometry, stretches: stretches).filter { $0.alongM > cut }
+        )
     }
 }

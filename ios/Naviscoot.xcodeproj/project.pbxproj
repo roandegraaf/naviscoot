@@ -23,6 +23,9 @@
 		21A2A393AB9FB80C1BD1F54C /* WatchRideMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33EE4D408580E764C35718D4 /* WatchRideMessage.swift */; };
 		2228D37E18D6F5FB31CB4460 /* RouteMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA41FB2C85701FC2A16567B /* RouteMapView.swift */; };
 		242A93F2569CA139650215C7 /* RideCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA0D81729FBCB8E413D2DA6 /* RideCamera.swift */; };
+		7A11C0DE5EED4B1D9A0C0005 /* MopedPathSign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A11C0DE5EED4B1D9A0C0006 /* MopedPathSign.swift */; };
+		7A11C0DE5EED4B1D9A0C0003 /* RidePuckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A11C0DE5EED4B1D9A0C0004 /* RidePuckView.swift */; };
+		7A11C0DE5EED4B1D9A0C0001 /* RideMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A11C0DE5EED4B1D9A0C0002 /* RideMotion.swift */; };
 		824487005DE8A0F59F668544 /* RidePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14ED1309D6CB3883F37A3A91 /* RidePanel.swift */; };
 		2911B1781ACBC62362A176D6 /* TripHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A86F341915E478B872398791 /* TripHistoryView.swift */; };
 		291FD684F26A50B15560B53F /* RangeMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01290B3189999F8812C83904 /* RangeMath.swift */; };
@@ -100,6 +103,7 @@
 		CE8B52A86CD7ABEEDA6E4998 /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D5524E815E878CE6DEEE0D /* SettingsTests.swift */; };
 		CEF320B2620C2313BC3628D7 /* PlaceETATests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14F71A63ECA29558F894DAD /* PlaceETATests.swift */; };
 		CF420A5C6EC52585ECA65566 /* AppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27E0D13106160AC2ADBC475B /* AppearanceTests.swift */; };
+		7A11C0DE5EED4B1D9A0C0007 /* RideMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A11C0DE5EED4B1D9A0C0008 /* RideMotionTests.swift */; };
 		D1D2450076D7D3F99BC52C99 /* PlaceETA.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3279981E3806A529F4DD5F8 /* PlaceETA.swift */; };
 		D266535AD34BF22CC2DDC0EA /* TripsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC8D824C67A18888BA538BD3 /* TripsUITests.swift */; };
 		D2BEEA8837059FC9C3001975 /* FerrostarCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7753A9191323D891A5F09FC4 /* FerrostarCore */; };
@@ -188,6 +192,9 @@
 		0770DC0FAEE051D6B6DBD913 /* SearchResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResult.swift; sourceTree = "<group>"; };
 		0E06754939C12B838C133BCE /* SearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchTests.swift; sourceTree = "<group>"; };
 		0EA0D81729FBCB8E413D2DA6 /* RideCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideCamera.swift; sourceTree = "<group>"; };
+		7A11C0DE5EED4B1D9A0C0006 /* MopedPathSign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MopedPathSign.swift; sourceTree = "<group>"; };
+		7A11C0DE5EED4B1D9A0C0004 /* RidePuckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RidePuckView.swift; sourceTree = "<group>"; };
+		7A11C0DE5EED4B1D9A0C0002 /* RideMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideMotion.swift; sourceTree = "<group>"; };
 		14ED1309D6CB3883F37A3A91 /* RidePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RidePanel.swift; sourceTree = "<group>"; };
 		0FED143F64035DA6E9093E78 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		10ABA7E5A6B173B0545A2A3C /* RideLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideLiveActivityWidget.swift; sourceTree = "<group>"; };
@@ -197,6 +204,7 @@
 		20779789AF30D76F643AF78F /* VoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceTests.swift; sourceTree = "<group>"; };
 		209915E684529DE62A30003B /* MapAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapAppearance.swift; sourceTree = "<group>"; };
 		27E0D13106160AC2ADBC475B /* AppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceTests.swift; sourceTree = "<group>"; };
+		7A11C0DE5EED4B1D9A0C0008 /* RideMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideMotionTests.swift; sourceTree = "<group>"; };
 		2B0D02F75D7B1AEBA5CE9008 /* LiveActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityTests.swift; sourceTree = "<group>"; };
 		2B40D1C55D380E160BC559BA /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
 		2D841BBEE127FE1EF1FA0E6E /* ScooterPrefillTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScooterPrefillTests.swift; sourceTree = "<group>"; };
@@ -393,6 +401,7 @@
 			isa = PBXGroup;
 			children = (
 				27E0D13106160AC2ADBC475B /* AppearanceTests.swift */,
+				7A11C0DE5EED4B1D9A0C0008 /* RideMotionTests.swift */,
 				2B0D02F75D7B1AEBA5CE9008 /* LiveActivityTests.swift */,
 				D14F71A63ECA29558F894DAD /* PlaceETATests.swift */,
 				8AA1856D5DEB4FAFCC3B5C9E /* PlacesTests.swift */,
@@ -547,6 +556,9 @@
 				10B239176311AAF8059E4A48 /* ReportQueue.swift */,
 				388F13C15A9486929B382643 /* RideActivity.swift */,
 				0EA0D81729FBCB8E413D2DA6 /* RideCamera.swift */,
+				7A11C0DE5EED4B1D9A0C0006 /* MopedPathSign.swift */,
+				7A11C0DE5EED4B1D9A0C0004 /* RidePuckView.swift */,
+				7A11C0DE5EED4B1D9A0C0002 /* RideMotion.swift */,
 				14ED1309D6CB3883F37A3A91 /* RidePanel.swift */,
 				6BF9A7FE43BE2E4A622F0761 /* RideLocationProvider.swift */,
 				6DF81C16736962E91AF056E7 /* RideModel.swift */,
@@ -816,6 +828,9 @@
 				D90087A4D188216A9D47D0BC /* RideActivity.swift in Sources */,
 				DCD2B554BBC08DE3035770C6 /* RideActivityAttributes.swift in Sources */,
 				242A93F2569CA139650215C7 /* RideCamera.swift in Sources */,
+				7A11C0DE5EED4B1D9A0C0005 /* MopedPathSign.swift in Sources */,
+				7A11C0DE5EED4B1D9A0C0003 /* RidePuckView.swift in Sources */,
+				7A11C0DE5EED4B1D9A0C0001 /* RideMotion.swift in Sources */,
 				824487005DE8A0F59F668544 /* RidePanel.swift in Sources */,
 				DB5614FFF4E91593B73AA21D /* RideLocationProvider.swift in Sources */,
 				FA2F371CAE060BD269B5BE2D /* RideModel.swift in Sources */,
@@ -857,6 +872,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CF420A5C6EC52585ECA65566 /* AppearanceTests.swift in Sources */,
+				7A11C0DE5EED4B1D9A0C0007 /* RideMotionTests.swift in Sources */,
 				684F600842B534A5CB2906E4 /* LiveActivityTests.swift in Sources */,
 				CEF320B2620C2313BC3628D7 /* PlaceETATests.swift in Sources */,
 				631AAE6ABDC58B3EEC06EBB7 /* PlacesTests.swift in Sources */,

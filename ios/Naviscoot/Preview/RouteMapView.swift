@@ -12,7 +12,8 @@ struct RouteMapView: View {
     var destination: Coordinate?
     var user: Coordinate?
     var ridden: [Coordinate] = []
-    var heading: Double?
+    var mopedPathMarkers: [MopedPathMarker] = []
+    var drawsUser = true
 
     @Environment(AppSettings.self) private var settings
     @Environment(\.colorScheme) private var colorScheme
@@ -35,6 +36,17 @@ struct RouteMapView: View {
             }
             let verified = ShapeSource(identifier: "route-verified") {
                 features(where: { $0 == .carriageway || $0 == .mopedPath })
+            }
+            let mopedPath = ShapeSource(identifier: "route-moped-path") {
+                features(where: { $0 == .mopedPath })
+            }
+            let mopedPathSigns = ShapeSource(identifier: "route-moped-path-signs") {
+                mopedPathMarkers.map { marker -> MLNPointFeature in
+                    let feature = MLNPointFeature()
+                    feature.coordinate = marker.coordinate.clLocation
+                    feature.attributes = ["side": marker.side == .left ? "left" : "right"]
+                    return feature
+                }
             }
             let unverified = ShapeSource(identifier: "route-unverified") {
                 features(where: { $0 == .unverified })
@@ -69,54 +81,68 @@ struct RouteMapView: View {
                 .lineCap(.round)
                 .lineJoin(.round)
                 .lineColor(palette.casing)
-                .lineWidth(9)
+                .lineWidth(byZoom: LineWidths.secondaryCasing)
             LineStyleLayer(identifier: "route-others-line", source: others)
                 .lineCap(.round)
                 .lineJoin(.round)
                 .lineColor(palette.otherRoute)
-                .lineWidth(5)
+                .lineWidth(byZoom: LineWidths.secondaryLine)
             LineStyleLayer(identifier: "route-ridden-casing", source: riddenLine)
                 .lineCap(.round)
                 .lineJoin(.round)
                 .lineColor(palette.casing)
-                .lineWidth(9)
+                .lineWidth(byZoom: LineWidths.secondaryCasing)
             LineStyleLayer(identifier: "route-ridden-line", source: riddenLine)
                 .lineCap(.round)
                 .lineJoin(.round)
                 .lineColor(palette.ridden)
-                .lineWidth(5)
+                .lineWidth(byZoom: LineWidths.secondaryLine)
             LineStyleLayer(identifier: "route-verified-casing", source: verified)
                 .lineCap(.round)
                 .lineJoin(.round)
                 .lineColor(palette.casing)
-                .lineWidth(11)
+                .lineWidth(byZoom: LineWidths.casing)
             LineStyleLayer(identifier: "route-unverified-casing", source: unverified)
                 .lineCap(.butt)
                 .lineJoin(.round)
                 .lineColor(palette.casing)
-                .lineWidth(11)
+                .lineWidth(byZoom: LineWidths.casing)
             LineStyleLayer(identifier: "route-forbidden-casing", source: forbidden)
                 .lineCap(.butt)
                 .lineJoin(.round)
                 .lineColor(palette.forbiddenCasing)
-                .lineWidth(11)
+                .lineWidth(byZoom: LineWidths.casing)
             LineStyleLayer(identifier: "route-verified-line", source: verified)
                 .lineCap(.round)
                 .lineJoin(.round)
                 .lineColor(palette.verified)
-                .lineWidth(7)
+                .lineWidth(byZoom: LineWidths.line)
             LineStyleLayer(identifier: "route-unverified-line", source: unverified)
                 .lineCap(.butt)
                 .lineJoin(.round)
                 .lineColor(palette.unverified)
-                .lineWidth(7)
+                .lineWidth(byZoom: LineWidths.line)
                 .lineDashPattern([1.6, 1.0])
             LineStyleLayer(identifier: "route-forbidden-line", source: forbidden)
                 .lineCap(.butt)
                 .lineJoin(.round)
                 .lineColor(palette.forbidden)
-                .lineWidth(7)
+                .lineWidth(byZoom: LineWidths.line)
                 .lineDashPattern([0.6, 0.6])
+            LineStyleLayer(identifier: "route-moped-path-stripe", source: mopedPath)
+                .lineCap(.butt)
+                .lineJoin(.round)
+                .lineColor(palette.casing)
+                .lineWidth(byZoom: LineWidths.stripe)
+            SymbolStyleLayer(identifier: "route-moped-path-sign", source: mopedPathSigns)
+                .iconImage(
+                    featurePropertyNamed: "side",
+                    mappings: ["left": MopedPathSign.leftMapIcon, "right": MopedPathSign.rightMapIcon],
+                    default: MopedPathSign.rightMapIcon
+                )
+                .iconAnchor("bottom")
+                .iconAllowsOverlap(true)
+                .minimumZoomLevel(Float(RideCamera.minZoom))
             CircleStyleLayer(identifier: "route-endpoints-dot", source: endpoints)
                 .radius(8)
                 .color(palette.endpointFill)
@@ -133,12 +159,10 @@ struct RouteMapView: View {
                 .textFontSize(14)
                 .textColor(palette.stopText)
                 .textAllowsOverlap(true)
-            CircleStyleLayer(identifier: "route-user-halo", source: userPoint)
-                .radius(24)
-                .color(palette.halo)
-            if let heading {
-                HeadingPuckLayer(identifier: "route-user-puck", source: userPoint, heading: heading)
-            } else {
+            if drawsUser {
+                CircleStyleLayer(identifier: "route-user-halo", source: userPoint)
+                    .radius(24)
+                    .color(palette.halo)
                 CircleStyleLayer(identifier: "route-user-dot", source: userPoint)
                     .radius(11)
                     .color(Theme.verifiedUI)
@@ -173,92 +197,17 @@ struct RouteMapView: View {
     }
 }
 
-struct HeadingPuckLayer: SourceBoundStyleLayerDefinition {
-    static let imageName = "naviscoot-heading-puck"
+// Thinner at ride zoom so the line can sit on a moped path beside the road instead of covering both.
+private enum LineWidths {
+    static let casing: [Double: Double] = [14: 11, 16.5: 8, 18: 7]
+    static let line: [Double: Double] = [14: 7, 16.5: 5, 18: 4.5]
+    static let stripe: [Double: Double] = [14: 2, 16.5: 1.5]
+    static let secondaryCasing: [Double: Double] = [14: 9, 16.5: 7, 18: 6]
+    static let secondaryLine: [Double: Double] = [14: 5, 16.5: 4, 18: 3.5]
+}
 
-    let identifier: String
-    let sourceLayerIdentifier: String? = nil
-    var source: StyleLayerSource
-    var heading: Double
-    var isVisible = true
-    var minimumZoomLevel: Float?
-    var maximumZoomLevel: Float?
-    var insertionPosition: LayerInsertionPosition = .above(.all)
-
-    init(identifier: String, source: ShapeSource, heading: Double) {
-        self.identifier = identifier
-        self.source = .source(source)
-        self.heading = heading
+private extension LineStyleLayer {
+    func lineWidth(byZoom stops: [Double: Double]) -> Self {
+        lineWidth(interpolatedBy: .zoomLevel, curveType: .linear, parameters: nil, stops: NSExpression(forConstantValue: stops))
     }
-
-    func makeStyleLayer(style: MLNStyle) -> StyleLayer {
-        if style.image(forName: Self.imageName) == nil {
-            style.setImage(Self.image, forName: Self.imageName)
-        }
-        let styleSource: MLNSource = switch source {
-        case let .mglSource(existing):
-            existing
-        case let .source(definition):
-            style.source(withIdentifier: definition.identifier) ?? {
-                let made = definition.makeMGLSource()
-                style.addSource(made)
-                return made
-            }()
-        }
-        return Built(definition: self, styleSource: styleSource)
-    }
-
-    // Map alignment keeps the arrow on the travel direction whatever the camera bearing (course-up, panned or north-up).
-    private struct Built: StyleLayer {
-        var definition: HeadingPuckLayer
-        let styleSource: MLNSource
-
-        var identifier: String { definition.identifier }
-        var isVisible: Bool {
-            get { definition.isVisible }
-            set { definition.isVisible = newValue }
-        }
-        var minimumZoomLevel: Float? {
-            get { definition.minimumZoomLevel }
-            set { definition.minimumZoomLevel = newValue }
-        }
-        var maximumZoomLevel: Float? {
-            get { definition.maximumZoomLevel }
-            set { definition.maximumZoomLevel = newValue }
-        }
-        var insertionPosition: LayerInsertionPosition {
-            get { definition.insertionPosition }
-            set { definition.insertionPosition = newValue }
-        }
-
-        func makeMLNStyleLayer() -> MLNStyleLayer {
-            let layer = MLNSymbolStyleLayer(identifier: identifier, source: styleSource)
-            layer.iconImageName = NSExpression(forConstantValue: HeadingPuckLayer.imageName)
-            layer.iconRotation = NSExpression(forConstantValue: NSNumber(value: definition.heading))
-            layer.iconRotationAlignment = NSExpression(forConstantValue: "map")
-            layer.iconPitchAlignment = NSExpression(forConstantValue: "map")
-            layer.iconAllowsOverlap = NSExpression(forConstantValue: true)
-            layer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
-            return layer
-        }
-    }
-
-    static let image: UIImage = {
-        let size = CGSize(width: 44, height: 44)
-        return UIGraphicsImageRenderer(size: size).image { _ in
-            let center = CGPoint(x: size.width / 2, y: size.height / 2)
-            UIColor.white.setFill()
-            UIBezierPath(arcCenter: center, radius: 20, startAngle: 0, endAngle: .pi * 2, clockwise: true).fill()
-            Theme.verifiedUI.setFill()
-            UIBezierPath(arcCenter: center, radius: 16.5, startAngle: 0, endAngle: .pi * 2, clockwise: true).fill()
-            let arrow = UIBezierPath()
-            arrow.move(to: CGPoint(x: center.x, y: center.y - 11))
-            arrow.addLine(to: CGPoint(x: center.x + 8.5, y: center.y + 9))
-            arrow.addLine(to: CGPoint(x: center.x, y: center.y + 4.5))
-            arrow.addLine(to: CGPoint(x: center.x - 8.5, y: center.y + 9))
-            arrow.close()
-            UIColor.white.setFill()
-            arrow.fill()
-        }
-    }()
 }

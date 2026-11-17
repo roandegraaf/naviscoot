@@ -377,6 +377,34 @@ final class PreviewModelTests: XCTestCase {
         XCTAssertTrue(model.showsVerifiedOnlyToggle, "the toggle stays once the user has used it")
     }
 
+    func testStartingTheQuietRouteKeepsItsReroutesQuiet() async throws {
+        let model = try makeModel(avoid: RouteAvoid(ferries: true, unpaved: false, mainRoads: false))
+        StubRouteProtocol.response = try RouteParsingTests.withProfiles(
+            fixture("route-alternatives"),
+            [("fastest", 9000), ("fastest", 0), ("quiet", 1000)]
+        )
+        model.originChanged(Coordinate(lat: 52.0907, lon: 5.1214))
+        try await waitUntilLoaded(model)
+
+        XCTAssertEqual(model.rideToStart()?.avoid, RouteAvoid(ferries: true, unpaved: false, mainRoads: false))
+        model.select(2)
+        XCTAssertEqual(model.rideToStart()?.avoid, RouteAvoid(ferries: true, unpaved: false, mainRoads: true))
+    }
+
+    func testStartingTheFastestRouteDropsQuietForReroutes() async throws {
+        let model = try makeModel(avoid: RouteAvoid(ferries: false, unpaved: false, mainRoads: true))
+        StubRouteProtocol.response = try RouteParsingTests.withProfiles(
+            fixture("route-alternatives"),
+            [("quiet", 1000), ("fastest", 9000), ("fastest", 0)]
+        )
+        model.originChanged(Coordinate(lat: 52.0907, lon: 5.1214))
+        try await waitUntilLoaded(model)
+
+        XCTAssertEqual(model.rideToStart()?.avoid.mainRoads, true)
+        model.select(1)
+        XCTAssertEqual(model.rideToStart()?.avoid.mainRoads, false)
+    }
+
     func testStopsKeepStartAndAnotherStartHidesIt() async throws {
         let model = try makeModel()
         model.originChanged(Coordinate(lat: 52.0907, lon: 5.1214))

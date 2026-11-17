@@ -17,8 +17,6 @@ enum Strings {
     static var placeKind: String { tr("search.kind.place") }
     static var clear: String { tr("search.clear") }
     static var closeSearch: String { tr("search.close") }
-    static var expandRouteDetails: String { tr("preview.sheet.expand") }
-    static var collapseRouteDetails: String { tr("preview.sheet.collapse") }
     static var openSettings: String { tr("search.settings") }
     static var showMyLocation: String { tr("home.locate") }
     static var recentTrips: String { tr("home.recentTrips") }
@@ -427,6 +425,8 @@ enum Strings {
     static func route(_ number: Int) -> String { format("preview.route", number) }
     static func routeUnverified(_ distance: String) -> String { format("preview.route.unverified", distance) }
     static func routeUnavoidable(_ distance: String) -> String { format("preview.route.unavoidable", distance) }
+    static func routeMainRoads(_ percent: Int) -> String { format("preview.route.mainRoads", percent) }
+    static var routeQuiet: String { tr("preview.route.quiet") }
     static func leaveAt(_ time: String) -> String { format("preview.leaveAt", time) }
     static func verifiedOnlyRemaining(_ distance: String) -> String { format("preview.verifiedOnly.remaining", distance) }
     static func tooManyStops(_ max: Int) -> String { format("error.tooManyStops", max) }

@@ -56,11 +56,15 @@ final class PreviewModel: ObservableObject {
 
     func rideToStart() -> ActiveRide? {
         guard canStart else { return nil }
+        var avoid = settings.routeAvoid
+        if let profile = selectedPlan?.meta.profile {
+            avoid.mainRoads = profile == .quiet
+        }
         return ActiveRide(
             destination: destination,
             stops: trip.routableStops(currentLocation: lastRequest?.origin),
             verifiedOnly: verifiedOnly,
-            avoid: settings.routeAvoid,
+            avoid: avoid,
             language: settings.language
         )
     }

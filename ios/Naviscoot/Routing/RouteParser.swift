@@ -38,7 +38,13 @@ enum RouteParser {
             let geometry = route.geometry.map(Coordinate.init)
             try checkLegs(meta.legs, geometryPoints: geometry.count)
             let segments = try split(geometry: geometry, stretches: meta.stretches)
-            return RoutePlan(route: route, durationS: summary.duration, meta: meta, segments: segments)
+            return RoutePlan(
+                route: route,
+                durationS: summary.duration,
+                meta: meta,
+                segments: segments,
+                mopedPathMarkers: MopedPathMarker.all(geometry: RouteGeometry(points: geometry), stretches: meta.stretches)
+            )
         }
     }
 

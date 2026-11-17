@@ -116,6 +116,7 @@ struct RideOptions {
     let simulate: Bool
     let simulatedSpeedKmh: Double
     let simulatedOrigin: Coordinate?
+    let simulatedCompass: Double?
     let tickInterval: TimeInterval
     let simulatedRerouteFailures: Int
     let simulatedEditFailures: Int
@@ -127,6 +128,7 @@ struct RideOptions {
         simulate: Bool,
         simulatedSpeedKmh: Double = 45,
         simulatedOrigin: Coordinate? = nil,
+        simulatedCompass: Double? = nil,
         tickInterval: TimeInterval = 0.5,
         simulatedRerouteFailures: Int = 0,
         simulatedEditFailures: Int = 0,
@@ -135,6 +137,7 @@ struct RideOptions {
         self.simulate = simulate
         self.simulatedSpeedKmh = simulatedSpeedKmh
         self.simulatedOrigin = simulatedOrigin
+        self.simulatedCompass = simulatedCompass
         self.tickInterval = tickInterval
         self.simulatedRerouteFailures = simulatedRerouteFailures
         self.simulatedEditFailures = simulatedEditFailures
@@ -152,10 +155,13 @@ struct RideOptions {
             : defaults.bool(forKey: "NaviscootSimulateRide")
         let speed = defaults.double(forKey: "NaviscootSimSpeedKmh")
         let origin = defaults.string(forKey: "NaviscootSimOrigin").flatMap(Self.parseCoordinate)
+        let tick = defaults.double(forKey: "NaviscootSimTickS")
         self.init(
             simulate: simulate,
             simulatedSpeedKmh: speed > 0 ? speed : 45,
             simulatedOrigin: simulate ? origin : nil,
+            simulatedCompass: simulate && defaults.object(forKey: "NaviscootSimCompass") != nil ? defaults.double(forKey: "NaviscootSimCompass") : nil,
+            tickInterval: tick > 0 ? tick : 0.5,
             simulatedRerouteFailures: simulate ? max(0, defaults.integer(forKey: "NaviscootSimRerouteFailures")) : 0,
             simulatedEditFailures: simulate ? max(0, defaults.integer(forKey: "NaviscootSimEditFailures")) : 0,
             discardActiveRide: defaults.bool(forKey: "NaviscootDiscardActiveRide")

@@ -42,34 +42,91 @@ struct RideCamera: Equatable {
         let direction: Double
     }
 
+    struct Viewport: Equatable {
+        var aheadPoints: Double
+        var viewHeight: Double
+    }
+
+    struct FollowLayout: Equatable {
+        let anchor: CGPoint
+        let halfSize: CGSize
+        let viewport: Viewport
+    }
+
     static let fixedZoom = 16.5
     static let threeDPitch = 40.0
-    static let approachZoom = 17.5
-    static let approachDistanceM = 100.0
-    static let straightDistanceM = 500.0
+    static let minZoom = 14.5
+    static let maxZoom = 17.5
+    static let slowAheadM = 250.0
+    static let fastAheadM = 400.0
     static let slowSpeedKmh = 15.0
     static let fastSpeedKmh = 45.0
-    static let straightZoomOutAtSpeed = 1.0
+    static let maneuverShare = 0.8
+    static let courseUpAnchorShare = 0.82
+    static let aheadMarginPoints = 12.0
+    static let zoomTau = 0.8
+    static let pitchTau = 0.3
+    static let recenterS = 0.6
 
-    static func follow(course: Double, options: FollowOptions, distanceToManeuverM: Double?, speedKmh: Double?) -> Follow {
-        Follow(
-            zoom: options.autoZoom ? autoZoom(distanceToManeuverM: distanceToManeuverM, speedKmh: speedKmh) : fixedZoom,
-            pitch: options.threeD ? threeDPitch : 0,
-            direction: options.northUp ? 0 : course
-        )
+    static func follow(
+        bearing: Double,
+        options: FollowOptions,
+        distanceToManeuverM: Double?,
+        speedKmh: Double?,
+        latitude: Double,
+        viewport: Viewport?
+    ) -> Follow {
+        let pitch = options.threeD ? threeDPitch : 0
+        var zoom = fixedZoom
+        if options.autoZoom, let viewport {
+            zoom = self.zoom(
+                showingAheadM: aheadM(distanceToManeuverM: distanceToManeuverM, speedKmh: speedKmh),
+                viewport: viewport,
+                pitch: pitch,
+                latitude: latitude
+            )
+        }
+        return Follow(zoom: zoom, pitch: pitch, direction: options.northUp ? 0 : bearing)
     }
 
-    static func autoZoom(distanceToManeuverM: Double?, speedKmh: Double?) -> Double {
+    // How far ahead of the rider the map should reach: further at speed, and never so short that a maneuver inside
+    // that reach falls off the top of the map.
+    static func aheadM(distanceToManeuverM: Double?, speedKmh: Double?) -> Double {
         let speedShare = min(max(((speedKmh ?? 0) - slowSpeedKmh) / (fastSpeedKmh - slowSpeedKmh), 0), 1)
-        let straightZoom = fixedZoom - straightZoomOutAtSpeed * speedShare
-        guard let distance = distanceToManeuverM else { return quantized(straightZoom) }
-        let approach = min(max((straightDistanceM - distance) / (straightDistanceM - approachDistanceM), 0), 1)
-        return quantized(straightZoom + (approachZoom - straightZoom) * approach)
+        let cruise = slowAheadM + (fastAheadM - slowAheadM) * speedShare
+        guard let distance = distanceToManeuverM else { return cruise }
+        return min(cruise, max(0, distance) / maneuverShare)
     }
 
-    // Quarter steps keep the 1 Hz camera updates from wobbling the zoom by hundredths.
-    private static func quantized(_ zoom: Double) -> Double {
-        (zoom * 4).rounded() / 4
+    // MapLibre's camera sits 1.5 view heights from the point it looks at; with pitch, a point higher on the screen is
+    // further away on the ground than the same number of points would be when looking straight down.
+    static func zoom(showingAheadM aheadM: Double, viewport: Viewport, pitch: Double, latitude: Double) -> Double {
+        guard viewport.aheadPoints > 0, viewport.viewHeight > 0 else { return fixedZoom }
+        let radians = pitch * .pi / 180
+        let cameraDistance = 1.5 * viewport.viewHeight
+        let foreshortening = max(0.2, cos(radians) - viewport.aheadPoints / cameraDistance * sin(radians))
+        let groundPoints = viewport.aheadPoints / foreshortening
+        let metersPerPoint = max(aheadM, 1) / groundPoints
+        let zoom = log2(metersPerPointAtZoomZero * cos(latitude * .pi / 180) / metersPerPoint)
+        return min(max(zoom, minZoom), maxZoom)
+    }
+
+    static let metersPerPointAtZoomZero = 2 * Double.pi * 6_378_137 / 512
+
+    // Course-up keeps the rider low on the map so most of it shows what is ahead; north-up keeps them in the middle,
+    // as the road ahead can lead any way.
+    static func followLayout(area: CGRect, window: CGSize, northUp: Bool, landscape: Bool) -> FollowLayout? {
+        guard !area.isEmpty, window.width > 0, window.height > 0 else { return nil }
+        let x = landscape ? area.midX : window.width / 2
+        let halfWidth = landscape ? area.width / 2 : window.width / 2
+        let share = northUp ? 0.5 : courseUpAnchorShare
+        let y = area.minY + area.height * share
+        let reach = northUp ? min(area.height / 2, halfWidth) : y - area.minY
+        return FollowLayout(
+            anchor: CGPoint(x: x, y: y),
+            halfSize: CGSize(width: halfWidth, height: area.maxY - y),
+            viewport: Viewport(aheadPoints: max(1, reach - aheadMarginPoints), viewHeight: window.height)
+        )
     }
 
     static func remainingRoute(points: [Coordinate], from index: Int, user: Coordinate?) -> [Coordinate] {

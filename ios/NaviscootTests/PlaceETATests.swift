@@ -9,9 +9,14 @@ final class PlaceETATests: XCTestCase {
     private final class FakePlanner {
         var requests: [Coordinate] = []
         var fails = false
+        var cancelsCaller = false
 
         func fetch(_: Coordinate, _ destination: Coordinate) async throws -> TimeInterval {
             requests.append(destination)
+            if cancelsCaller {
+                withUnsafeCurrentTask { $0?.cancel() }
+                throw CancellationError()
+            }
             if fails { throw Unreachable() }
             return 720
         }
@@ -105,6 +110,17 @@ final class PlaceETATests: XCTestCase {
         planner.fails = false
         clock.addTimeInterval(301)
         await store.refresh(from: origin, to: [home])
+        XCTAssertEqual(store.seconds(to: home, from: origin), 720)
+    }
+
+    func testARequestCancelledMidFlightIsAskedAgainNextTime() async {
+        let store = makeStore()
+        planner.cancelsCaller = true
+        await Task { await store.refresh(from: origin, to: [home]) }.value
+
+        planner.cancelsCaller = false
+        await store.refresh(from: origin, to: [home])
+        XCTAssertEqual(planner.requests.count, 2, "a cancelled request was cached as a failure")
         XCTAssertEqual(store.seconds(to: home, from: origin), 720)
     }
 
