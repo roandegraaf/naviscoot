@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-DEFAULT_CONCEPT = "route"
+DEFAULT_CONCEPT = "letter"
 
 HERE = Path(__file__).resolve().parent
 SVG_DIR = HERE / "svg"
@@ -43,6 +43,13 @@ PIN = (
 )
 CHECK = "M 414 452 L 488 526 L 616 392"
 
+LETTER_START = (336, 820)
+LETTER_ROUTE = (
+    "M 336 820 L 336 450 C 336 360, 400 350, 450 410 L 594 600 "
+    "C 644 660, 708 650, 708 560 L 708 420"
+)
+LETTER_ARROW = "708,172 825.6,444.2 708,393.8 590.4,444.2"
+
 VARIANTS = {
     "route": {
         "light": {"bg": (BLUE_TOP, BLUE), "route": WHITE, "arrow": WHITE},
@@ -53,6 +60,11 @@ VARIANTS = {
         "light": {"bg": (INK_TOP, INK), "arrow": (BLUE_DARK_MODE, BLUE), "ring": WHITE},
         "dark": {"bg": None, "arrow": (BLUE_LIGHT, BLUE_DARK_MODE), "ring": BLUE_DARK_MODE},
         "tinted": {"bg": None, "arrow": (WHITE, WHITE), "ring": GREY},
+    },
+    "letter": {
+        "light": {"bg": (BLUE_TOP, BLUE), "route": WHITE, "arrow": WHITE},
+        "dark": {"bg": None, "route": BLUE_DARK_MODE, "arrow": BLUE_LIGHT},
+        "tinted": {"bg": None, "route": GREY, "arrow": WHITE},
     },
     "pin": {
         "light": {"bg": (BLUE_TOP, BLUE), "pin": WHITE},
@@ -119,7 +131,27 @@ def pin_mark(p):
     return defs, body
 
 
-MARKS = {"route": route_mark, "arrow": arrow_mark, "pin": pin_mark}
+def letter_mark(p):
+    x, y = LETTER_START
+    defs = (
+        '<mask id="hole" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
+        '<rect width="1024" height="1024" fill="#fff"/>'
+        f'<circle cx="{x}" cy="{y}" r="30" fill="#000"/>'
+        "</mask>"
+    )
+    body = (
+        f'<g mask="url(#hole)">'
+        f'<path d="{LETTER_ROUTE}" fill="none" stroke="{p["route"]}" stroke-width="92" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle cx="{x}" cy="{y}" r="74" fill="{p["route"]}"/>'
+        "</g>"
+        f'<polygon points="{LETTER_ARROW}" fill="{p["arrow"]}" stroke="{p["arrow"]}" '
+        'stroke-width="17" stroke-linejoin="round"/>'
+    )
+    return defs, body
+
+
+MARKS = {"route": route_mark, "arrow": arrow_mark, "pin": pin_mark, "letter": letter_mark}
 
 
 def icon_svg(concept, variant, tile=None):
