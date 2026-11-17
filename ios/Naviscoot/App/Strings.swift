@@ -40,6 +40,8 @@ enum Strings {
     static var tripDuration: String { tr("trip.duration") }
     static var tripMap: String { tr("trip.map") }
     static func tripVia(_ stops: [String]) -> String { format("trip.via", stops.joined(separator: ", ")) }
+    static func tripBatteryUsed(_ percent: Int) -> String { format("trips.trip.battery", percent) }
+    static func perPercent(_ distance: String) -> String { format("trips.trip.perPercent", distance) }
     static var home: String { tr("places.home") }
     static var work: String { tr("places.work") }
     static var setHome: String { tr("places.setHome") }

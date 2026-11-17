@@ -3,6 +3,10 @@ import Foundation
 struct ScooterTripSample: Codable, Hashable {
     let distanceKm: Double
     let batteryUsedPercent: Int
+
+    var kmPerPercent: Double? {
+        batteryUsedPercent >= ConsumptionModel.minimumDropPercent ? distanceKm / Double(batteryUsedPercent) : nil
+    }
 }
 
 struct ConsumptionModel: Equatable {

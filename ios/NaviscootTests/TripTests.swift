@@ -265,6 +265,59 @@ final class TripTests: XCTestCase {
         XCTAssertNil(reopened.consumption.kmPerPercent)
     }
 
+    func testTheSketchKeepsTheShapeInAUnitSquareWithNorthUp() {
+        let start = fix(northM: 0, at: 0).coordinate
+        let corner = fix(northM: 1000, at: 0).coordinate
+        let end = fix(northM: 1000, eastM: 500, at: 0).coordinate
+        let sketch = TrackSketch(track: [[start, corner, end]])
+
+        XCTAssertEqual(sketch.segments.count, 1)
+        let points = sketch.segments[0]
+        XCTAssertEqual(points[0].x, 0.25, accuracy: 0.01, "500 m wide on a 1 km tall track is half the square, centred")
+        XCTAssertEqual(points[0].y, 1, accuracy: 1e-9, "the start is south, so at the bottom")
+        XCTAssertEqual(points[1].y, 0, accuracy: 1e-9)
+        XCTAssertEqual(points[2].x, 0.75, accuracy: 0.01)
+    }
+
+    func testTheSketchDownsamplesLongTracksKeepsGapsAndTheLastPoint() {
+        let long = (0 ..< 500).map { fix(northM: Double($0) * 10, at: 0).coordinate }
+        let after = [fix(northM: 0, eastM: 300, at: 0).coordinate, fix(northM: 100, eastM: 300, at: 0).coordinate]
+        let sketch = TrackSketch(track: [long, [], after])
+
+        XCTAssertEqual(sketch.segments.count, 2, "an empty segment is dropped, the gap between the others stays")
+        XCTAssertLessThanOrEqual(sketch.pointCount, TrackSketch.maximumPoints + 2)
+        XCTAssertEqual(sketch.segments[0].last?.y ?? 1, 0, accuracy: 1e-9, "the end of the track is kept")
+        XCTAssertEqual(sketch.segments[1].count, 2)
+    }
+
+    func testASketchOfOnePointOrNothingDoesNotDivideByZero() {
+        let point = fix(northM: 0, at: 0).coordinate
+        XCTAssertEqual(TrackSketch(track: [[point, point]]).segments, [[CGPoint(x: 0.5, y: 0.5), CGPoint(x: 0.5, y: 0.5)]])
+        XCTAssertEqual(TrackSketch(track: []).segments, [])
+    }
+
+    func testTheStoreCachesASketchPerTripAndDropsItWithTheTrip() throws {
+        let trips = try store()
+        trips.add(straightDraft(metres: 1000, seconds: 120))
+        let trip = try XCTUnwrap(trips.trips.first)
+        let sketch = trips.sketch(for: trip)
+        XCTAssertGreaterThan(sketch.pointCount, 2)
+        XCTAssertEqual(trips.sketch(for: trip), sketch)
+        trips.delete(trip)
+        XCTAssertEqual(trips.sketch(for: trip).segments, [])
+    }
+
+    func testKmPerPercentNeedsAFivePercentDrop() {
+        XCTAssertEqual(ScooterTripSample(distanceKm: 3.6, batteryUsedPercent: 8).kmPerPercent ?? 0, 0.45, accuracy: 1e-9)
+        XCTAssertNil(ScooterTripSample(distanceKm: 1.2, batteryUsedPercent: 3).kmPerPercent, "1 % steps make small drops noise")
+    }
+
+    func testTheBatteryLineReadsInBothLanguages() {
+        XCTAssertEqual(Strings.format("trips.trip.battery", 8, language: .english), "8% battery used")
+        XCTAssertEqual(Strings.format("trips.trip.battery", 8, language: .dutch), "8% accu verbruikt")
+        XCTAssertEqual(Strings.format("trips.trip.perPercent", Format.approximateDistance(meters: 450, language: .dutch), language: .dutch), "450 m per %")
+    }
+
     func testSpeedAndDatesFollowTheLanguage() {
         XCTAssertEqual(Format.speed(kmh: 29.6, language: .english), "30 km/h")
         XCTAssertEqual(Format.speed(kmh: 29.4, language: .dutch), "29 km/u")

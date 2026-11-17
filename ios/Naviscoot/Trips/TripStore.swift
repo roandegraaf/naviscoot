@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Observation
 import SwiftData
@@ -57,6 +58,46 @@ struct TripTotals: Equatable {
     var averageKmh: Double { TripMath.averageKmh(distanceM: distanceM, durationS: durationS) }
 }
 
+struct TrackSketch: Equatable {
+    static let maximumPoints = 64
+
+    let segments: [[CGPoint]]
+
+    // Unit square, north up, one scale for both axes so the shape keeps its proportions.
+    init(track: [[Coordinate]]) {
+        let points = track.flatMap { $0 }
+        guard !points.isEmpty else {
+            segments = []
+            return
+        }
+        let latitudes = points.map(\.lat)
+        let midLat = (latitudes.min()! + latitudes.max()!) / 2
+        let lonScale = cos(midLat * .pi / 180)
+        func project(_ coordinate: Coordinate) -> CGPoint {
+            CGPoint(x: coordinate.lon * lonScale, y: coordinate.lat)
+        }
+        let projected = points.map(project)
+        let minX = projected.map(\.x).min()!, maxX = projected.map(\.x).max()!
+        let minY = projected.map(\.y).min()!, maxY = projected.map(\.y).max()!
+        let span = max(maxX - minX, maxY - minY)
+        let stride = max(1, Int((Double(points.count) / Double(Self.maximumPoints)).rounded(.up)))
+        func place(_ coordinate: Coordinate) -> CGPoint {
+            guard span > 0 else { return CGPoint(x: 0.5, y: 0.5) }
+            let point = project(coordinate)
+            let x = (1 - (maxX - minX) / span) / 2 + (point.x - minX) / span
+            let y = (1 - (maxY - minY) / span) / 2 + (point.y - minY) / span
+            return CGPoint(x: x, y: 1 - y)
+        }
+        segments = track.filter { !$0.isEmpty }.map { segment in
+            var kept = Swift.stride(from: 0, to: segment.count, by: stride).map { segment[$0] }
+            if let last = segment.last, kept.last != last { kept.append(last) }
+            return kept.map(place)
+        }
+    }
+
+    var pointCount: Int { segments.reduce(0) { $0 + $1.count } }
+}
+
 enum TripTrackCoding {
     static func encode(_ track: [[Coordinate]]) -> Data {
         (try? JSONEncoder().encode(track.map { $0.map { [$0.lat, $0.lon] } })) ?? Data()
@@ -94,6 +135,7 @@ final class TripStore {
 
     @ObservationIgnored private let context: ModelContext
     @ObservationIgnored private var models: [RecordedTrip] = []
+    @ObservationIgnored private var sketches: [PersistentIdentifier: TrackSketch] = [:]
 
     init(container: ModelContainer) {
         context = ModelContext(container)
@@ -134,6 +176,13 @@ final class TripStore {
         return TripTrackCoding.decode(model.trackData)
     }
 
+    func sketch(for trip: TripSummary) -> TrackSketch {
+        if let cached = sketches[trip.id] { return cached }
+        let sketch = TrackSketch(track: track(for: trip))
+        sketches[trip.id] = sketch
+        return sketch
+    }
+
     // Saved at once: a killed app (or a UI test's terminate) would otherwise lose the change before autosave runs.
     private func commit() {
         try? context.save()
@@ -153,6 +202,8 @@ final class TripStore {
                 scooterSample: model.scooterSample
             )
         }
+        let ids = Set(trips.map(\.id))
+        sketches = sketches.filter { ids.contains($0.key) }
         consumption = ConsumptionModel(samples: trips.compactMap(\.scooterSample))
         totals = TripTotals(
             count: trips.count,

@@ -37,12 +37,25 @@ final class HomeDrawerUITests: XCTestCase {
         seeAll.tap()
         XCTAssertTrue(app.buttons["trips.done"].waitForExistence(timeout: 5), "See all did not open the trip history")
         XCTAssertTrue(app.buttons["trips.trip.1"].exists)
+        let battery = element("trips.trip.1.battery")
+        XCTAssertTrue(battery.exists, "the trip with scooter readings shows no battery line")
+        XCTAssertEqual(battery.label, "8% battery used · 450 m per %")
+        for index in 0 ... 1 {
+            let map = element("trips.trip.\(index).map")
+            XCTAssertTrue(map.exists, "trip \(index) has no mini map")
+            let points = Int((map.value as? String ?? "").replacingOccurrences(of: "points=", with: "")) ?? 0
+            XCTAssertGreaterThan(points, 2, "trip \(index) mini map is empty")
+        }
+        XCTAssertFalse(element("trips.trip.0.battery").exists, "a trip without scooter readings shows a battery line")
+        screenshot("drawer-03-trip-history")
         app.buttons["trips.done"].tap()
         XCTAssertTrue(app.buttons["trips.done"].waitForNonExistence(timeout: 5))
         app.buttons["home.trip.1"].tap()
         let destination = app.staticTexts["trip.destination"]
         XCTAssertTrue(destination.waitForExistence(timeout: 5), "a recent trip did not open its detail")
         XCTAssertEqual(destination.label, "Domplein")
+        XCTAssertEqual(element("trip.battery").value as? String, "8%")
+        XCTAssertEqual(element("trip.kmPerPercent").value as? String, "0.450")
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(app.buttons["trips.done"].waitForExistence(timeout: 5))
         app.buttons["trips.done"].tap()

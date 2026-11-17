@@ -6460,6 +6460,40 @@
           }
         }
       }
+    },
+    "trips.trip.battery": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% battery used"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% accu verbruikt"
+          }
+        }
+      }
+    },
+    "trips.trip.perPercent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ per %%"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ per %%"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -34,7 +34,7 @@ struct TripHistoryView: View {
                     Section {
                         ForEach(Array(trips.trips.enumerated()), id: \.element.id) { index, trip in
                             NavigationLink(value: trip) {
-                                TripRow(trip: trip)
+                                TripRow(trip: trip, sketch: trips.sketch(for: trip), id: "trips.trip.\(index)")
                             }
                             .accessibilityIdentifier("trips.trip.\(index)")
                             .accessibilityValue(Text(verbatim: TripDebug.value(trip)))
@@ -76,26 +76,111 @@ enum TripDebug {
 
 private struct TripRow: View {
     let trip: TripSummary
+    let sketch: TrackSketch
+    let id: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(trip.destination)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-                .lineLimit(1)
-            Text(Format.dayTime(trip.startedAt))
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.muted)
-            Text(verbatim: [
-                Format.distance(meters: Int(trip.distanceM.rounded())),
-                Format.duration(seconds: trip.durationS),
-                Format.speed(kmh: trip.averageKmh),
-            ].joined(separator: " · "))
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.body)
-                .monospacedDigit()
+        HStack(alignment: .center, spacing: 12) {
+            TrackSketchView(sketch: sketch)
+                .frame(width: 64, height: 64)
+                .accessibilityIdentifier("\(id).map")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(trip.destination)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                Text(Format.dayTime(trip.startedAt))
+                    .font(.system(size: 15))
+                    .foregroundStyle(Theme.muted)
+                Text(verbatim: [
+                    Format.distance(meters: Int(trip.distanceM.rounded())),
+                    Format.duration(seconds: trip.durationS),
+                    Format.speed(kmh: trip.averageKmh),
+                ].joined(separator: " · "))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.body)
+                    .monospacedDigit()
+                if let sample = trip.scooterSample {
+                    HStack(spacing: 6) {
+                        Image(systemName: "battery.75percent")
+                            .font(.system(size: 13, weight: .semibold))
+                            .accessibilityHidden(true)
+                        Text(verbatim: TripBattery.line(sample))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .accessibilityIdentifier("\(id).battery")
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.body)
+                    .monospacedDigit()
+                }
+            }
+            .accessibilitySortPriority(1)
         }
         .padding(.vertical, 4)
+    }
+}
+
+enum TripBattery {
+    static func line(_ sample: ScooterTripSample) -> String {
+        [Strings.tripBatteryUsed(sample.batteryUsedPercent), sample.kmPerPercent.map(perPercent)]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+
+    static func perPercent(_ kmPerPercent: Double) -> String {
+        Strings.perPercent(Format.approximateDistance(meters: kmPerPercent * 1000))
+    }
+}
+
+struct TrackSketchView: View {
+    let sketch: TrackSketch
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(Theme.iconBackground)
+            .overlay {
+                if sketch.segments.isEmpty {
+                    Image(systemName: "map")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Theme.muted)
+                } else {
+                    TrackSketchShape(sketch: sketch)
+                        .stroke(Theme.verified, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                        .overlay {
+                            TrackSketchEnds(sketch: sketch)
+                                .fill(Theme.ink)
+                        }
+                        .padding(10)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Strings.tripMap)
+            .accessibilityValue(Text(verbatim: "points=\(sketch.pointCount)"))
+    }
+}
+
+private struct TrackSketchShape: Shape {
+    let sketch: TrackSketch
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        for segment in sketch.segments where segment.count >= 2 {
+            path.addLines(segment.map { CGPoint(x: rect.minX + $0.x * rect.width, y: rect.minY + $0.y * rect.height) })
+        }
+        return path
+    }
+}
+
+private struct TrackSketchEnds: Shape {
+    let sketch: TrackSketch
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        guard let last = sketch.segments.last?.last else { return path }
+        let point = CGPoint(x: rect.minX + last.x * rect.width, y: rect.minY + last.y * rect.height)
+        path.addEllipse(in: CGRect(x: point.x - 3.5, y: point.y - 3.5, width: 7, height: 7))
+        return path
     }
 }
 
@@ -234,9 +319,27 @@ struct TripDetailView: View {
                     StatTile(title: Strings.tripDistance, value: Format.distance(meters: Int(trip.distanceM.rounded())), id: "trip.distance")
                     StatTile(title: Strings.tripDuration, value: Format.duration(seconds: trip.durationS), id: "trip.duration")
                 }
-                GridRow {
-                    StatTile(title: Strings.tripSpeed, value: Format.speed(kmh: trip.averageKmh), id: "trip.speed")
-                        .gridCellColumns(2)
+                if let sample = trip.scooterSample {
+                    GridRow {
+                        StatTile(title: Strings.tripSpeed, value: Format.speed(kmh: trip.averageKmh), id: "trip.speed")
+                        StatTile(title: Strings.arrivalBatteryUsed, value: "\(sample.batteryUsedPercent)%", id: "trip.battery")
+                    }
+                    if let kmPerPercent = sample.kmPerPercent {
+                        GridRow {
+                            StatTile(
+                                title: Strings.rangePerPercent,
+                                value: Format.approximateDistance(meters: kmPerPercent * 1000),
+                                raw: String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), kmPerPercent),
+                                id: "trip.kmPerPercent"
+                            )
+                            .gridCellColumns(2)
+                        }
+                    }
+                } else {
+                    GridRow {
+                        StatTile(title: Strings.tripSpeed, value: Format.speed(kmh: trip.averageKmh), id: "trip.speed")
+                            .gridCellColumns(2)
+                    }
                 }
             }
         }
